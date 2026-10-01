@@ -1,0 +1,295 @@
+import "server-only";
+import { prisma } from "@/lib/prisma";
+import { BILLABLE_STATUSES, type SessionStatus } from "@/lib/constants";
+
+export type Range = { from: Date; to: Date };
+
+export function startOfDay(d: Date = new Date()): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+export function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+export function dayRange(d: Date = new Date()): Range {
+  const from = startOfDay(d);
+  return { from, to: addDays(from, 1) };
+}
+
+/** Dushanbadan boshlanadigan hafta */
+export function weekRange(d: Date = new Date()): Range {
+  const from = startOfDay(d);
+  from.setDate(from.getDate() - ((from.getDay() + 6) % 7));
+  return { from, to: addDays(from, 7) };
+}
+
+export function monthRange(d: Date = new Date()): Range {
+  const from = new Date(d.getFullYear(), d.getMonth(), 1);
+  const to = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+  return { from, to };
+}
+
+const isBillable = (s: string) => BILLABLE_STATUSES.includes(s as SessionStatus);
+
+export type Overview = {
+  planned: number;
+  done: number;
+  noShow: number;
+  cancelled: number;
+  total: number;
+  /** O'tgan seanslardan tushgan hisob-kitob (xizmat qiymati) */
+  earned: number;
+  /** Shu davrda kassaga kirgan pul */
+  collected: number;
+  /** Mutaxassislarga to'lanadigan ish haqi */
+  salary: number;
+  attendanceRate: number | null;
+};
+
+export async function getOverview(opts: {
+  branchId?: string | null;
+  specialistId?: string | null;
+  from: Date;
+  to: Date;
+}): Promise<Overview> {
+  const { branchId, specialistId, from, to } = opts;
+
+  const where = {
+    startsAt: { gte: from, lt: to },
+    ...(branchId ? { branchId } : {}),
+    ...(specialistId ? { specialistId } : {}),
+  };
+
+  const [sessions, specialists, paymentAgg] = await Promise.all([
+    prisma.session.findMany({
+      where,
+      select: { status: true, price: true, specialistId: true },
+    }),
+    prisma.specialist.findMany({ select: { id: true, salaryPercent: true } }),
+    prisma.payment.aggregate({
+      where: {
+        paidAt: { gte: from, lt: to },
+        ...(branchId ? { branchId } : {}),
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const percentOf = new Map(specialists.map((s) => [s.id, s.salaryPercent]));
+
+  let planned = 0;
+  let done = 0;
+  let noShow = 0;
+  let cancelled = 0;
+  let earned = 0;
+  let salary = 0;
+
+  for (const s of sessions) {
+    if (s.status === "PLANNED") planned++;
+    else if (s.status === "DONE") done++;
+    else if (s.status === "NO_SHOW") noShow++;
+    else cancelled++;
+
+    if (isBillable(s.status)) {
+      earned += s.price;
+      salary += Math.round((s.price * (percentOf.get(s.specialistId) ?? 0)) / 100);
+    }
+  }
+
+  const held = done + noShow + cancelled;
+
+  return {
+    planned,
+    done,
+    noShow,
+    cancelled,
+    total: sessions.length,
+    earned,
+    collected: specialistId ? 0 : (paymentAgg._sum.amount ?? 0),
+    salary,
+    attendanceRate: held > 0 ? Math.round((done / held) * 100) : null,
+  };
+}
+
+export type SpecialistRow = {
+  id: string;
+  fullName: string;
+  specialization: string;
+  branchName: string;
+  salaryPercent: number;
+  clients: number;
+  done: number;
+  noShow: number;
+  planned: number;
+  revenue: number;
+  salary: number;
+};
+
+export async function getSpecialistRows(opts: {
+  branchId?: string | null;
+  from: Date;
+  to: Date;
+}): Promise<SpecialistRow[]> {
+  const { branchId, from, to } = opts;
+
+  const specialists = await prisma.specialist.findMany({
+    where: { ...(branchId ? { branchId } : {}), isActive: true },
+    include: {
+      user: { select: { fullName: true } },
+      branch: { select: { name: true } },
+      _count: { select: { clients: true } },
+      sessions: {
+        where: { startsAt: { gte: from, lt: to } },
+        select: { status: true, price: true },
+      },
+    },
+    orderBy: [{ branch: { name: "asc" } }, { specialization: "asc" }],
+  });
+
+  return specialists.map((sp) => {
+    let done = 0;
+    let noShow = 0;
+    let planned = 0;
+    let revenue = 0;
+
+    for (const s of sp.sessions) {
+      if (s.status === "DONE") done++;
+      else if (s.status === "NO_SHOW") noShow++;
+      else if (s.status === "PLANNED") planned++;
+      if (isBillable(s.status)) revenue += s.price;
+    }
+
+    return {
+      id: sp.id,
+      fullName: sp.user.fullName,
+      specialization: sp.specialization,
+      branchName: sp.branch.name,
+      salaryPercent: sp.salaryPercent,
+      clients: sp._count.clients,
+      done,
+      noShow,
+      planned,
+      revenue,
+      salary: Math.round((revenue * sp.salaryPercent) / 100),
+    };
+  });
+}
+
+export type PackageProgress = {
+  id: string;
+  specialization: string;
+  totalSessions: number;
+  pricePerSession: number;
+  used: number;
+  remaining: number;
+  paid: number;
+  cost: number;
+  debt: number;
+  expiresAt: Date | null;
+  isActive: boolean;
+};
+
+/** Mijozning abonementlari bo'yicha qolgan seans va qarzdorlik */
+export async function getClientPackages(clientId: string): Promise<PackageProgress[]> {
+  const packages = await prisma.package.findMany({
+    where: { clientId },
+    orderBy: { purchasedAt: "desc" },
+    include: {
+      sessions: { select: { status: true } },
+      payments: { select: { amount: true } },
+    },
+  });
+
+  return packages.map((p) => {
+    const used = p.sessions.filter((s) => isBillable(s.status)).length;
+    const paid = p.payments.reduce((sum, x) => sum + x.amount, 0);
+    const cost = p.totalSessions * p.pricePerSession;
+    return {
+      id: p.id,
+      specialization: p.specialization,
+      totalSessions: p.totalSessions,
+      pricePerSession: p.pricePerSession,
+      used,
+      remaining: Math.max(p.totalSessions - used, 0),
+      paid,
+      cost,
+      debt: Math.max(cost - paid, 0),
+      expiresAt: p.expiresAt,
+      isActive: p.isActive,
+    };
+  });
+}
+
+export type ClientAlert = {
+  packageId: string;
+  clientId: string;
+  clientName: string;
+  branchName: string;
+  parentPhone: string;
+  specialization: string;
+  remaining: number;
+  debt: number;
+};
+
+/**
+ * Diqqat talab qiladigan mijozlar:
+ *  - debtors: abonementi to'liq to'lanmaganlar
+ *  - ending: qolgan seansi 2 tadan kam bo'lganlar
+ */
+export async function getClientAlerts(opts: { branchId?: string | null }) {
+  const packages = await prisma.package.findMany({
+    where: {
+      isActive: true,
+      client: {
+        status: "ACTIVE",
+        ...(opts.branchId ? { branchId: opts.branchId } : {}),
+      },
+    },
+    include: {
+      client: {
+        select: {
+          id: true,
+          fullName: true,
+          parentPhone: true,
+          branch: { select: { name: true } },
+        },
+      },
+      sessions: { select: { status: true } },
+      payments: { select: { amount: true } },
+    },
+  });
+
+  const debtors: ClientAlert[] = [];
+  const ending: ClientAlert[] = [];
+
+  for (const p of packages) {
+    const used = p.sessions.filter((s) => isBillable(s.status)).length;
+    const remaining = Math.max(p.totalSessions - used, 0);
+    const paid = p.payments.reduce((sum, x) => sum + x.amount, 0);
+    const debt = Math.max(p.totalSessions * p.pricePerSession - paid, 0);
+
+    const row: ClientAlert = {
+      packageId: p.id,
+      clientId: p.client.id,
+      clientName: p.client.fullName,
+      branchName: p.client.branch.name,
+      parentPhone: p.client.parentPhone,
+      specialization: p.specialization,
+      remaining,
+      debt,
+    };
+
+    if (debt > 0) debtors.push(row);
+    if (remaining <= 2) ending.push(row);
+  }
+
+  debtors.sort((a, b) => b.debt - a.debt);
+  ending.sort((a, b) => a.remaining - b.remaining);
+
+  return { debtors, ending };
+}

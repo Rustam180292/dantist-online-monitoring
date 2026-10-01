@@ -1,0 +1,164 @@
+// Logopedik markaz CRM — ma'lumotlar modeli
+// Mohiyat: Filial -> Mutaxassis -> Mijoz (bola) -> Mashg'ulot (seans) -> To'lov
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Filial
+model Branch {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  address   String?
+  phone     String?
+  createdAt DateTime @default(now())
+
+  users       User[]
+  specialists Specialist[]
+  clients     Client[]
+  sessions    Session[]
+  payments    Payment[]
+}
+
+/// Tizim foydalanuvchisi. role: OWNER | BRANCH_ADMIN | SPECIALIST | PARENT
+model User {
+  id           String   @id @default(cuid())
+  phone        String   @unique // login sifatida ishlatiladi
+  fullName     String
+  passwordHash String
+  role         String
+  branchId     String? // OWNER uchun bo'sh (barcha filiallar)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  branch     Branch?     @relation(fields: [branchId], references: [id])
+  specialist Specialist?
+  children   Client[]    @relation("ParentChildren")
+}
+
+/// Mutaxassis profili. specialization: ABA | LOGOPED | AFK | MASSAGE | PSYCHOLOGIST | SENSORY
+model Specialist {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  branchId       String
+  specialization String
+  /// Seans narxidan mutaxassisga tegadigan foiz
+  salaryPercent  Int     @default(40)
+  isActive       Boolean @default(true)
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch   Branch       @relation(fields: [branchId], references: [id])
+  clients  Assignment[]
+  sessions Session[]
+
+  @@index([branchId])
+}
+
+/// Mijoz (bola). status: ACTIVE | PAUSED | ARCHIVED
+model Client {
+  id           String   @id @default(cuid())
+  fullName     String
+  birthDate    DateTime
+  gender       String? // M | F
+  branchId     String
+  parentUserId String?
+  parentName   String
+  parentPhone  String
+  diagnosis    String?
+  note         String?
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+
+  branch      Branch       @relation(fields: [branchId], references: [id])
+  parent      User?        @relation("ParentChildren", fields: [parentUserId], references: [id])
+  specialists Assignment[]
+  packages    Package[]
+  sessions    Session[]
+  payments    Payment[]
+
+  @@index([branchId])
+  @@index([parentUserId])
+}
+
+/// Mijoz <-> mutaxassis bog'lanishi ("har kimning o'z mijozlari")
+model Assignment {
+  id           String   @id @default(cuid())
+  clientId     String
+  specialistId String
+  createdAt    DateTime @default(now())
+
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, specialistId])
+}
+
+/// Abonement (seans paketi)
+model Package {
+  id              String    @id @default(cuid())
+  clientId        String
+  specialization  String
+  totalSessions   Int
+  /// Bitta seans narxi, so'mda
+  pricePerSession Int
+  purchasedAt     DateTime  @default(now())
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+
+  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessions Session[]
+  payments Payment[]
+
+  @@index([clientId])
+}
+
+/// Mashg'ulot (seans). status: PLANNED | DONE | NO_SHOW | CANCELLED_CLIENT | CANCELLED_CENTER
+model Session {
+  id           String   @id @default(cuid())
+  clientId     String
+  specialistId String
+  branchId     String
+  packageId    String?
+  startsAt     DateTime
+  durationMin  Int      @default(45)
+  status       String   @default("PLANNED")
+  /// Seans narxi, so'mda (abonementdan yoki qo'lda)
+  price        Int      @default(0)
+  note         String?
+  createdAt    DateTime @default(now())
+
+  client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  specialist Specialist @relation(fields: [specialistId], references: [id])
+  branch     Branch     @relation(fields: [branchId], references: [id])
+  package    Package?   @relation(fields: [packageId], references: [id])
+
+  @@index([startsAt])
+  @@index([specialistId, startsAt])
+  @@index([clientId, startsAt])
+  @@index([branchId, startsAt])
+}
+
+/// To'lov. method: CASH | CARD | TRANSFER
+model Payment {
+  id        String   @id @default(cuid())
+  clientId  String
+  branchId  String
+  packageId String?
+  amount    Int
+  method    String   @default("CASH")
+  paidAt    DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
+
+  client  Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  branch  Branch   @relation(fields: [branchId], references: [id])
+  package Package? @relation(fields: [packageId], references: [id])
+
+  @@index([branchId, paidAt])
+  @@index([clientId])
+}

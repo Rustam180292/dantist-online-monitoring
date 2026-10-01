@@ -1,0 +1,20 @@
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# muhit sozlamalari (maxfiy)
+.env
+.env.local
+
+# SQLite bazasi
+prisma/*.db
+prisma/*.db-journal
+
+# Prisma generatsiya qilgan client
+src/generated/
+
+.DS_Store
+*.log
