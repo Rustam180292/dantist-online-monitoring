@@ -1,8 +1,8 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SPECIALIZATIONS, SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
-import { getSpecialistRows, monthRange } from "@/lib/stats";
-import { money, monthYearUz } from "@/lib/format";
+import { getSpecialistBalances, getSpecialistRows, monthRange } from "@/lib/stats";
+import { dateShort, money, monthYearUz, toDateInput } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -16,20 +16,33 @@ import {
   td,
   th,
 } from "@/components/ui";
-import { createSpecialist, toggleSpecialistActive, updateSalaryPercent } from "./actions";
+import {
+  createSpecialist,
+  deletePayout,
+  paySalary,
+  toggleSpecialistActive,
+  updateSalaryPercent,
+} from "./actions";
 
 export default async function SpecialistsPage() {
   const user = await requireRole("OWNER", "BRANCH_ADMIN");
   const branchId = user.role === "OWNER" ? null : user.branchId;
   const month = monthRange();
 
-  const [rows, inactive, branches] = await Promise.all([
+  const [rows, inactive, branches, balances, payouts] = await Promise.all([
     getSpecialistRows({ branchId, ...month }),
     prisma.specialist.findMany({
       where: { isActive: false, ...(branchId ? { branchId } : {}) },
       include: { user: { select: { fullName: true } }, branch: { select: { name: true } } },
     }),
     user.role === "OWNER" ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    getSpecialistBalances({ branchId }),
+    prisma.salaryPayout.findMany({
+      where: { ...(branchId ? { branchId } : {}) },
+      orderBy: { paidAt: "desc" },
+      take: 15,
+      include: { specialist: { include: { user: { select: { fullName: true } } } } },
+    }),
   ]);
 
   const totalSalary = rows.reduce((s, r) => s + r.salary, 0);
@@ -190,6 +203,113 @@ export default async function SpecialistsPage() {
             </table>
           </div>
         )}
+      </Card>
+
+      <Card
+        title="Ish haqi hisob-kitobi"
+        subtitle="boshidan beri: hisoblangan − to'langan = qolgan"
+        className="mt-5"
+      >
+        <div className="scroll-x">
+          <table className="w-full min-w-[760px]">
+            <thead className="border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className={th}>Mutaxassis</th>
+                {!branchId ? <th className={th}>Filial</th> : null}
+                <th className={th}>Hisoblangan</th>
+                <th className={th}>To&apos;langan</th>
+                <th className={th}>Qolgan</th>
+                <th className={th}>To&apos;lab berish</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {balances.map((b) => (
+                <tr key={b.specialistId}>
+                  <td className={`${td} font-medium`}>
+                    {b.fullName}
+                    <span className="block text-xs text-slate-400">
+                      {SPECIALIZATIONS[b.specialization as Specialization]}
+                    </span>
+                  </td>
+                  {!branchId ? <td className={td}>{b.branchName}</td> : null}
+                  <td className={`${td} tabular-nums`}>{money(b.accrued)}</td>
+                  <td className={`${td} tabular-nums`}>{money(b.paid)}</td>
+                  <td className={`${td} font-semibold tabular-nums`}>
+                    <span
+                      className={
+                        b.balance > 0
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-emerald-600 dark:text-emerald-400"
+                      }
+                    >
+                      {money(b.balance)}
+                    </span>
+                  </td>
+                  <td className={td}>
+                    <form action={paySalary} className="flex flex-wrap items-center gap-1.5">
+                      <input type="hidden" name="specialistId" value={b.specialistId} />
+                      <input type="hidden" name="paidAt" value={toDateInput(new Date())} />
+                      <input
+                        name="amount"
+                        inputMode="numeric"
+                        defaultValue={b.balance > 0 ? String(b.balance) : ""}
+                        placeholder="summa"
+                        className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950"
+                        aria-label="To'lov summasi"
+                        required
+                      />
+                      <select
+                        name="method"
+                        className="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-950"
+                        aria-label="To'lov usuli"
+                      >
+                        <option value="CASH">Naqd</option>
+                        <option value="CARD">Karta</option>
+                        <option value="TRANSFER">O&apos;tkazma</option>
+                      </select>
+                      <button type="submit" className="text-xs font-semibold text-indigo-600 hover:underline">
+                        to&apos;lash
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {payouts.length > 0 ? (
+          <div className="border-t border-slate-200 px-4 py-3 dark:border-slate-800">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Oxirgi to&apos;lovlar
+            </p>
+            <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
+              {payouts.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-2 py-1.5">
+                  <span className="text-slate-700 dark:text-slate-300">
+                    {dateShort(p.paidAt)} · {p.specialist.user.fullName}
+                    {p.note ? ` · ${p.note}` : ""}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-200">
+                      {money(p.amount)}
+                    </span>
+                    <form action={deletePayout}>
+                      <input type="hidden" name="payoutId" value={p.id} />
+                      <button
+                        type="submit"
+                        className="text-xs text-slate-400 hover:text-rose-600"
+                        title="O'chirish"
+                      >
+                        ✕
+                      </button>
+                    </form>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </Card>
 
       {inactive.length > 0 ? (

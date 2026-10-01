@@ -98,6 +98,8 @@ function mondayOf(d: Date): Date {
 
 async function main() {
   console.log("Eski demo ma'lumotlar tozalanmoqda...");
+  await prisma.salaryPayout.deleteMany();
+  await prisma.linkCode.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.session.deleteMany();
   await prisma.package.deleteMany();
@@ -315,12 +317,41 @@ async function main() {
               durationMin: sp.specialization === "MASSAGE" ? 30 : 45,
               status,
               price: counts ? pricePerSession : 0,
+              salaryPercent: counts ? sp.salaryPercent : null,
               note: status === "CANCELLED_CLIENT" ? "Bola kasal bo'lib qoldi" : null,
             },
           });
         }
       }
     }
+  }
+
+  // O'tgan oy uchun mutaxassislarga qisman ish haqi to'langan deb yozamiz,
+  // shunda "hisoblangan / to'langan / qolgan" ko'rsatkichi tirik ko'rinadi.
+  const allSpecialists = await prisma.specialist.findMany({
+    include: { sessions: { select: { status: true, price: true, salaryPercent: true } } },
+  });
+  for (const sp of allSpecialists) {
+    const accrued = sp.sessions.reduce((sum, s) => {
+      if (s.status !== "DONE" && s.status !== "NO_SHOW") return sum;
+      return sum + Math.round((s.price * (s.salaryPercent ?? sp.salaryPercent)) / 100);
+    }, 0);
+    if (accrued <= 0) continue;
+
+    const paid = Math.round((accrued * 0.6) / 10_000) * 10_000; // ~60% to'langan
+    const paidAt = new Date(thisMonday);
+    paidAt.setDate(paidAt.getDate() - 7);
+
+    await prisma.salaryPayout.create({
+      data: {
+        specialistId: sp.id,
+        branchId: sp.branchId,
+        amount: paid,
+        method: pick(["CASH", "CARD"]),
+        paidAt,
+        note: "Oldingi davr uchun ish haqi",
+      },
+    });
   }
 
   const [branches, users, clients, sessions, payments] = await Promise.all([

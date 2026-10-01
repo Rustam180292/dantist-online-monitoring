@@ -23,6 +23,7 @@ model Branch {
   clients     Client[]
   sessions    Session[]
   payments    Payment[]
+  payouts     SalaryPayout[]
 }
 
 /// Tizim foydalanuvchisi. role: OWNER | BRANCH_ADMIN | SPECIALIST | PARENT
@@ -36,9 +37,28 @@ model User {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
+  /// Telegram akkaunti (Mini App orqali kirish uchun)
+  telegramId       String? @unique
+  telegramUsername String?
+
   branch     Branch?     @relation(fields: [branchId], references: [id])
   specialist Specialist?
   children   Client[]    @relation("ParentChildren")
+  linkCodes  LinkCode[]
+}
+
+/// Telegram akkauntini CRM foydalanuvchisiga bog'lash uchun bir martalik kod
+model LinkCode {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 /// Mutaxassis profili. specialization: ABA | LOGOPED | AFK | MASSAGE | PSYCHOLOGIST | SENSORY
@@ -51,10 +71,11 @@ model Specialist {
   salaryPercent  Int     @default(40)
   isActive       Boolean @default(true)
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  branch   Branch       @relation(fields: [branchId], references: [id])
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch   Branch         @relation(fields: [branchId], references: [id])
   clients  Assignment[]
   sessions Session[]
+  payouts  SalaryPayout[]
 
   @@index([branchId])
 }
@@ -129,6 +150,9 @@ model Session {
   status       String   @default("PLANNED")
   /// Seans narxi, so'mda (abonementdan yoki qo'lda)
   price        Int      @default(0)
+  /// Seans "o'tdi/kelmadi" deb belgilangan paytdagi mutaxassis foizi.
+  /// Keyinchalik foiz o'zgarsa, o'tgan seanslarning hisobi o'zgarmasligi uchun saqlanadi.
+  salaryPercent Int?
   note         String?
   createdAt    DateTime @default(now())
 
@@ -161,4 +185,27 @@ model Payment {
 
   @@index([branchId, paidAt])
   @@index([clientId])
+}
+
+/// Mutaxassisga ish haqi to'lab berilgani. method: CASH | CARD | TRANSFER
+model SalaryPayout {
+  id           String    @id @default(cuid())
+  specialistId String
+  branchId     String
+  amount       Int
+  method       String    @default("CASH")
+  paidAt       DateTime  @default(now())
+  /// Qaysi davr uchun to'landi (ixtiyoriy, hisobot uchun)
+  periodFrom   DateTime?
+  periodTo     DateTime?
+  note         String?
+  /// Kim to'ladi (admin yoki egasi)
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  specialist Specialist @relation(fields: [specialistId], references: [id], onDelete: Cascade)
+  branch     Branch     @relation(fields: [branchId], references: [id])
+
+  @@index([specialistId, paidAt])
+  @@index([branchId, paidAt])
 }

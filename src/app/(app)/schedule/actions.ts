@@ -39,22 +39,35 @@ export async function setSessionStatus(formData: FormData) {
 
   const session = await prisma.session.findUniqueOrThrow({
     where: { id: sessionId },
-    include: { package: { select: { pricePerSession: true } } },
+    include: {
+      package: { select: { pricePerSession: true } },
+      specialist: { select: { salaryPercent: true } },
+    },
   });
 
   // "O'tdi" yoki "Kelmadi" — seans abonementdan yechiladi va narxi yoziladi.
+  // Ish haqi foizi ham o'sha paytdagi holicha saqlanadi: keyin foiz o'zgarsa,
+  // o'tib bo'lgan seanslarning hisobi o'zgarmaydi.
   const billable = status === "DONE" || status === "NO_SHOW";
   const price = billable ? (session.price || session.package?.pricePerSession || 0) : 0;
 
   await prisma.session.update({
     where: { id: sessionId },
-    data: { status, price },
+    data: {
+      status,
+      price,
+      salaryPercent: billable
+        ? (session.salaryPercent ?? session.specialist.salaryPercent)
+        : null,
+    },
   });
 
   revalidatePath("/schedule");
   revalidatePath("/");
   revalidatePath(`/clients/${session.clientId}`);
   revalidatePath("/reports");
+  revalidatePath("/earnings");
+  revalidatePath("/tg/app");
 }
 
 /** Yangi seans qo'shish */

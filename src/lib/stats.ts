@@ -68,7 +68,7 @@ export async function getOverview(opts: {
   const [sessions, specialists, paymentAgg] = await Promise.all([
     prisma.session.findMany({
       where,
-      select: { status: true, price: true, specialistId: true },
+      select: { status: true, price: true, specialistId: true, salaryPercent: true },
     }),
     prisma.specialist.findMany({ select: { id: true, salaryPercent: true } }),
     prisma.payment.aggregate({
@@ -97,7 +97,9 @@ export async function getOverview(opts: {
 
     if (isBillable(s.status)) {
       earned += s.price;
-      salary += Math.round((s.price * (percentOf.get(s.specialistId) ?? 0)) / 100);
+      salary += Math.round(
+        (s.price * (s.salaryPercent ?? percentOf.get(s.specialistId) ?? 0)) / 100,
+      );
     }
   }
 
@@ -145,7 +147,7 @@ export async function getSpecialistRows(opts: {
       _count: { select: { clients: true } },
       sessions: {
         where: { startsAt: { gte: from, lt: to } },
-        select: { status: true, price: true },
+        select: { status: true, price: true, salaryPercent: true },
       },
     },
     orderBy: [{ branch: { name: "asc" } }, { specialization: "asc" }],
@@ -156,12 +158,16 @@ export async function getSpecialistRows(opts: {
     let noShow = 0;
     let planned = 0;
     let revenue = 0;
+    let salary = 0;
 
     for (const s of sp.sessions) {
       if (s.status === "DONE") done++;
       else if (s.status === "NO_SHOW") noShow++;
       else if (s.status === "PLANNED") planned++;
-      if (isBillable(s.status)) revenue += s.price;
+      if (isBillable(s.status)) {
+        revenue += s.price;
+        salary += Math.round((s.price * (s.salaryPercent ?? sp.salaryPercent)) / 100);
+      }
     }
 
     return {
@@ -175,7 +181,7 @@ export async function getSpecialistRows(opts: {
       noShow,
       planned,
       revenue,
-      salary: Math.round((revenue * sp.salaryPercent) / 100),
+      salary,
     };
   });
 }
@@ -292,4 +298,125 @@ export async function getClientAlerts(opts: { branchId?: string | null }) {
   ending.sort((a, b) => a.remaining - b.remaining);
 
   return { debtors, ending };
+}
+
+/* ---------------- Mutaxassis ish haqi: hisoblangan / to'langan / qolgan ---------------- */
+
+export type Earnings = {
+  /** Boshidan beri o'tgan seanslardan hisoblangan */
+  accruedTotal: number;
+  /** Boshidan beri qo'lga tegkan (to'lab berilgan) */
+  paidTotal: number;
+  /** Qolgan (hisoblangan − to'langan) */
+  balance: number;
+  /** Shu oyda hisoblangan */
+  accruedMonth: number;
+  /** Shu oyda to'langan */
+  paidMonth: number;
+  doneMonth: number;
+  noShowMonth: number;
+  plannedMonth: number;
+};
+
+const salaryOf = (
+  s: { status: string; price: number; salaryPercent: number | null },
+  fallbackPercent: number,
+) => (isBillable(s.status) ? Math.round((s.price * (s.salaryPercent ?? fallbackPercent)) / 100) : 0);
+
+/** Bitta mutaxassisning puli: hisoblangan, to'langan va qolgan qismi */
+export async function getSpecialistEarnings(specialistId: string): Promise<Earnings> {
+  const month = monthRange();
+
+  const specialist = await prisma.specialist.findUnique({
+    where: { id: specialistId },
+    select: { salaryPercent: true },
+  });
+  const fallback = specialist?.salaryPercent ?? 0;
+
+  const [sessions, payouts] = await Promise.all([
+    prisma.session.findMany({
+      where: { specialistId },
+      select: { status: true, price: true, salaryPercent: true, startsAt: true },
+    }),
+    prisma.salaryPayout.findMany({
+      where: { specialistId },
+      select: { amount: true, paidAt: true },
+    }),
+  ]);
+
+  let accruedTotal = 0;
+  let accruedMonth = 0;
+  let doneMonth = 0;
+  let noShowMonth = 0;
+  let plannedMonth = 0;
+
+  for (const s of sessions) {
+    const value = salaryOf(s, fallback);
+    accruedTotal += value;
+
+    const inMonth = s.startsAt >= month.from && s.startsAt < month.to;
+    if (!inMonth) continue;
+    accruedMonth += value;
+    if (s.status === "DONE") doneMonth++;
+    else if (s.status === "NO_SHOW") noShowMonth++;
+    else if (s.status === "PLANNED") plannedMonth++;
+  }
+
+  let paidTotal = 0;
+  let paidMonth = 0;
+  for (const p of payouts) {
+    paidTotal += p.amount;
+    if (p.paidAt >= month.from && p.paidAt < month.to) paidMonth += p.amount;
+  }
+
+  return {
+    accruedTotal,
+    paidTotal,
+    balance: accruedTotal - paidTotal,
+    accruedMonth,
+    paidMonth,
+    doneMonth,
+    noShowMonth,
+    plannedMonth,
+  };
+}
+
+export type SpecialistBalance = {
+  specialistId: string;
+  fullName: string;
+  specialization: string;
+  branchName: string;
+  accrued: number;
+  paid: number;
+  balance: number;
+};
+
+/** Barcha mutaxassislarning qarz holati (admin uchun) */
+export async function getSpecialistBalances(opts: {
+  branchId?: string | null;
+}): Promise<SpecialistBalance[]> {
+  const specialists = await prisma.specialist.findMany({
+    where: { ...(opts.branchId ? { branchId: opts.branchId } : {}) },
+    include: {
+      user: { select: { fullName: true } },
+      branch: { select: { name: true } },
+      sessions: { select: { status: true, price: true, salaryPercent: true } },
+      payouts: { select: { amount: true } },
+    },
+    orderBy: [{ branch: { name: "asc" } }, { specialization: "asc" }],
+  });
+
+  return specialists.map((sp) => {
+    const accrued = sp.sessions.reduce((sum, s) => sum + salaryOf(s, sp.salaryPercent), 0);
+    const paid = sp.payouts.reduce((sum, p) => sum + p.amount, 0);
+    return {
+      specialistId: sp.id,
+      fullName: sp.user.fullName,
+      specialization: sp.specialization,
+      branchName: sp.branch.name,
+      accrued,
+      paid,
+      balance: accrued - paid,
+    };
+  });
 }

@@ -98,3 +98,62 @@ export async function toggleSpecialistActive(formData: FormData) {
 
   revalidatePath("/specialists");
 }
+
+/** Mutaxassisga ish haqi to'lab berish */
+export async function paySalary(formData: FormData) {
+  const user = await requireAdmin();
+  const specialistId = String(formData.get("specialistId") ?? "");
+
+  const amount = Math.round(Number(String(formData.get("amount") ?? "").replace(/[^\d]/g, "")));
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Summa to'g'ri kiritilmagan.");
+
+  const method = String(formData.get("method") ?? "CASH");
+  if (!["CASH", "CARD", "TRANSFER"].includes(method)) throw new Error("To'lov usuli noto'g'ri.");
+
+  const sp = await prisma.specialist.findUnique({
+    where: { id: specialistId },
+    select: { branchId: true },
+  });
+  if (!sp) throw new Error("Mutaxassis topilmadi.");
+  if (user.role === "BRANCH_ADMIN" && sp.branchId !== user.branchId) {
+    throw new Error("Bu mutaxassis sizning filialingizda ishlamaydi.");
+  }
+
+  const paidAtRaw = String(formData.get("paidAt") ?? "");
+  const paidAt = paidAtRaw ? new Date(paidAtRaw) : new Date();
+
+  await prisma.salaryPayout.create({
+    data: {
+      specialistId,
+      branchId: sp.branchId,
+      amount,
+      method,
+      paidAt: Number.isNaN(paidAt.getTime()) ? new Date() : paidAt,
+      note: String(formData.get("note") ?? "").trim() || null,
+      createdById: user.id,
+    },
+  });
+
+  revalidatePath("/specialists");
+  revalidatePath("/earnings");
+  revalidatePath("/reports");
+}
+
+/** Xato kiritilgan ish haqi to'lovini o'chirish */
+export async function deletePayout(formData: FormData) {
+  const user = await requireAdmin();
+  const payoutId = String(formData.get("payoutId") ?? "");
+
+  const payout = await prisma.salaryPayout.findUnique({
+    where: { id: payoutId },
+    select: { branchId: true },
+  });
+  if (!payout) throw new Error("To'lov topilmadi.");
+  if (user.role === "BRANCH_ADMIN" && payout.branchId !== user.branchId) {
+    throw new Error("Bu to'lov sizning filialingizga tegishli emas.");
+  }
+
+  await prisma.salaryPayout.delete({ where: { id: payoutId } });
+  revalidatePath("/specialists");
+  revalidatePath("/earnings");
+}

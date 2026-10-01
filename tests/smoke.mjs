@@ -142,6 +142,45 @@ for (const [path, marker] of [
   );
 }
 
+/* 9b. Mutaxassisga ish haqi to'lab berish */
+await page.goto(`${BASE}/specialists`);
+await page.waitForLoadState("networkidle");
+const payoutBefore = count("SELECT COUNT(*) AS n FROM SalaryPayout");
+const payBtn = page.locator('form button:has-text("to\'lash")').first();
+if (await payBtn.count()) {
+  await payBtn.click();
+  const payoutGrew = await waitUntil(
+    async () => count("SELECT COUNT(*) AS n FROM SalaryPayout") === payoutBefore + 1,
+  );
+  check(
+    "Ish haqi to'lab berildi",
+    payoutGrew,
+    `${payoutBefore} -> ${count("SELECT COUNT(*) AS n FROM SalaryPayout")}`,
+  );
+  // To'lovdan keyin "qolgan" nolga tushishi kerak (butun qoldiq to'landi)
+  await page.waitForLoadState("networkidle");
+  check(
+    "Qolgan summa yangilandi",
+    (await page.content()).includes("0 so'm"),
+  );
+} else {
+  check("Ish haqi to'lab berildi", false, "to'lash tugmasi topilmadi");
+}
+
+/* 9c. Mutaxassis o'z pulini ko'radi */
+{
+  const specRow = db
+    .prepare(
+      "SELECT s.id FROM Specialist s JOIN User u ON u.id = s.userId WHERE u.phone = ? LIMIT 1",
+    )
+    .get(specialist.phone);
+  const accrued = count(
+    `SELECT COALESCE(SUM(CAST(price * COALESCE(salaryPercent, 0) / 100 AS INTEGER)), 0) AS n
+       FROM Session WHERE specialistId = '${specRow.id}' AND status IN ('DONE','NO_SHOW')`,
+  );
+  check("Mutaxassisga ish haqi hisoblangan", accrued > 0, `${accrued} so'm`);
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check("Mutaxassis kirdi", (await page.content()).includes("Assalomu alaykum"));
@@ -149,6 +188,15 @@ const navText = await page.locator("aside").innerText();
 check("Mutaxassisga to'lov/hisobot menyusi berkitilgan", !navText.includes("Hisobotlar"));
 await page.goto(`${BASE}/payments`);
 check("Mutaxassis /payments ga kira olmaydi", !page.url().includes("/payments"), page.url());
+
+await page.goto(`${BASE}/earnings`);
+await page.waitForLoadState("networkidle");
+const earningsBody = await page.content();
+check(
+  "Mutaxassis 'Pulim' sahifasini ko'radi",
+  earningsBody.includes("Qolgan (olishim kerak)") && earningsBody.includes("Jami hisoblangan"),
+  page.url(),
+);
 
 /* 11. Ota-ona kabineti */
 await login(parent.phone);

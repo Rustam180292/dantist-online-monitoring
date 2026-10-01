@@ -17,7 +17,8 @@ mutaxassisning **o'z mijozlari** bor.
 | **Panel** | Oylik ko'rsatkichlar: faol mijozlar, o'tgan seanslar, davomat %, kassa, xizmat qiymati, mutaxassis haqi, markaz ulushi, qarzdorlik. Bugungi jadval. Abonementi tugayotganlar ro'yxati. |
 | **Jadval** | Haftalik jadval, oldinga/orqaga o'tish, filial va mutaxassis bo'yicha filtr. Bir bosishda davomat: **O'tdi / Kelmadi / Bekor**. Yangi seans qo'shish (mutaxassisning band vaqti tekshiriladi). |
 | **Mijozlar** | Qidiruv va filtr, qolgan seans va qarz ustunlari. Mijoz kartasi: abonementlar (progress bilan), seanslar tarixi, to'lovlar, biriktirilgan mutaxassislar, holat (Faol / To'xtatilgan / Arxiv). |
-| **Mutaxassislar** | Oylik natijalar: mijoz soni, o'tdi/kelmadi/rejada, xizmat qiymati, ish haqi foizi va hisoblangan ish haqi. Yangi mutaxassis (login bilan) qo'shish, foizni o'zgartirish, ishdan bo'shatish/qaytarish. |
+| **Mutaxassislar** | Oylik natijalar: mijoz soni, o'tdi/kelmadi/rejada, xizmat qiymati, ish haqi foizi va hisoblangan ish haqi. Yangi mutaxassis (login bilan) qo'shish, foizni o'zgartirish, ishdan bo'shatish/qaytarish. **Ish haqi hisob-kitobi**: hisoblangan − to'langan = qolgan, bir bosishda to'lab berish. |
+| **Pulim** (mutaxassis) | Mutaxassisning o'z kabineti: qolgan (olishim kerak), shu oyda hisoblangan, jami hisoblangan va to'langan; har bir seansdan qancha tekkani va qo'lga tekkan to'lovlar tarixi. |
 | **To'lovlar** | Oy bo'yicha tushum, usul kesimi (naqd/karta/o'tkazma), to'lovlar ro'yxati va qarzdorlar. |
 | **Hisobotlar** | Oylik hisobot: filiallar kesimi, mutaxassislar kesimi, yo'nalishlar kesimi, markaz ulushi. |
 | **Ota-ona kabineti** | Ota-ona faqat o'z farzandini ko'radi: keyingi mashg'ulotlar, qolgan seans, abonement holati, davomat tarixi, qarzdorlik. |
@@ -34,6 +35,62 @@ mutaxassisning **o'z mijozlari** bor.
 Doira server tomonida — `src/lib/auth.ts` dagi `clientScope()` va `sessionScope()`
 har bir so'rovga qo'shiladi, ya'ni URL'ni qo'lda yozish bilan chetlab o'tib
 bo'lmaydi.
+
+## Telegram Mini App
+
+Mutaxassis (va keyinchalik ota-ona) kabinetini Telegram ichida ochadi — alohida
+ilova o'rnatish shart emas, do'konga chiqarish kerak emas, yangilanish darhol
+hammaga yetib boradi.
+
+### Qanday ishlaydi
+
+```
+Botga /start  →  "Raqamimni yuborish"  →  raqam CRM bazasidan topiladi
+              →  Telegram akkaunti foydalanuvchiga bog'lanadi
+              →  "Kabinetni ochish" tugmasi  →  Mini App ochiladi
+```
+
+Mini App ochilganda Telegram `initData` yuboradi; server uni bot tokeni bilan
+HMAC-SHA256 orqali tekshiradi (`src/lib/telegram.ts`) va faqat imzo to'g'ri
+bo'lsagina sessiya ochadi. Ya'ni kabinetga Telegram orqali tasdiqlangan odam
+kiradi, parol kiritish shart emas.
+
+Mutaxassis Mini App'da ko'radigan bo'limlar: **Bugun** (davomat belgilash),
+**Hafta**, **Mijozlarim** (qolgan seans, keyingi mashg'ulot, ota-ona telefoni),
+**Pulim** (qolgan / hisoblangan / to'langan).
+
+### Sozlash
+
+1. [@BotFather](https://t.me/BotFather) da bot ochib, token oling.
+2. `.env` ni to'ldiring:
+
+```bash
+TELEGRAM_BOT_TOKEN="123456:AA..."
+TELEGRAM_WEBHOOK_SECRET="uzun-tasodifiy-satr"   # openssl rand -hex 16
+APP_URL="https://sizning-domeningiz.uz"          # HTTPS shart
+```
+
+3. Webhook'ni ulang:
+
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<APP_URL>/api/tg/webhook&secret_token=<SECRET>"
+```
+
+4. BotFather'da **Menu Button** sifatida `<APP_URL>/tg` ni qo'ying.
+
+> Mini App faqat **HTTPS** domenda ochiladi — lokal `http://localhost` da
+> Telegram uni ochmaydi. Shuning uchun lokalda tekshirish `tests/telegram.mjs`
+> orqali qilinadi: u haqiqiy imzoni o'zi yasab, server kodidagi tekshiruvni
+> aynan ishlab chiqarishdagidek sinaydi.
+
+### Xavfsizlik
+
+- Webhook `x-telegram-bot-api-secret-token` sarlavhasini tekshiradi — begona
+  so'rov 403 oladi.
+- Boshqa odamning kontaktini yuborib qo'yish ishlamaydi: `contact.user_id`
+  xabar egasining `from.id` si bilan mos kelishi shart.
+- `initData` 24 soatdan eski bo'lsa qabul qilinmaydi.
+- Bazada yo'q raqam bog'lanmaydi — avval admin uni tizimga kiritishi kerak.
 
 ## Ishga tushirish
 
@@ -86,16 +143,20 @@ src/
   app/
     login/             kirish sahifasi va auth action'lari
     (app)/             tizim ichi: panel, jadval, mijozlar, mutaxassislar,
-                       to'lovlar, hisobotlar, ota-ona kabineti
+                       to'lovlar, hisobotlar, pulim, ota-ona kabineti
+    tg/                Telegram Mini App (kirish nuqtasi va kabinet)
+    api/tg/            bot webhook'i va Mini App imzo tekshiruvi
   lib/
     auth.ts            sessiya, parol, rol bo'yicha ko'rish doirasi
     prisma.ts          baza ulanishi
     stats.ts           davomat, daromad, ish haqi, abonement hisob-kitobi
     constants.ts       rollar, mutaxassisliklar, holatlar (o'zbekcha nomlar)
+    telegram.ts        initData imzosini tekshirish, bot xabarlari
     format.ts          sana, vaqt, pul va yosh formatlash
   components/          umumiy UI (kartalar, jadval, menyu, ikonkalar)
 tests/
-  smoke.mjs            brauzerdagi uchidan-uchiga tekshiruv
+  smoke.mjs            brauzerdagi uchidan-uchiga tekshiruv (22 ta)
+  telegram.mjs         Telegram oqimi: bog'lanish, imzo, Mini App (18 ta)
 ```
 
 ## Hisob-kitob mantig'i
@@ -103,7 +164,12 @@ tests/
 - Seans **"O'tdi"** yoki **"Kelmadi (sababsiz)"** bo'lsa — abonementdan yechiladi
   va xizmat qiymatiga qo'shiladi (`BILLABLE_STATUSES`). Bekor qilingani
   yechilmaydi.
-- **Mutaxassis haqi** = o'tgan seanslar qiymati × mutaxassisning foizi.
+- **Mutaxassis haqi** = har bir o'tgan seans qiymati × o'sha seansdagi foiz.
+  Foiz seans "o'tdi/kelmadi" deb belgilangan paytda seansga yozib qo'yiladi
+  (`Session.salaryPercent`), shuning uchun keyin foizni o'zgartirsangiz
+  **o'tib bo'lgan oylarning hisobi o'zgarmaydi**.
+- **Mutaxassisning qolgan puli** = unga boshidan beri hisoblangan − unga
+  to'lab berilgan (`SalaryPayout`).
 - **Markaz ulushi** = xizmat qiymati − mutaxassis haqi.
 - **Qarzdorlik** = abonement to'liq qiymati − shu abonementga tushgan to'lovlar.
 - **Kassaga tushgan** — davr ichidagi to'lovlar (xizmat qiymatidan farq qiladi:
@@ -118,15 +184,19 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruv (kirish, davomat, seans qo'shish, to'lov,
-rollar chegarasi — 18 ta tekshiruv):
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 40 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar (22)
+node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 ```
+
+`tests/telegram.mjs` ishlashi uchun `.env` da `TELEGRAM_BOT_TOKEN` bo'lishi
+kerak — lokal sinov uchun istalgan satr yetadi, u faqat imzo yasash va tekshirish
+uchun ishlatiladi.
 
 > `npm run db:reset` baza faylini o'chirib qaytadan yaratadi. Ishlab turgan
 > server eski faylga ulangan holda qoladi, shuning uchun reset'dan keyin
