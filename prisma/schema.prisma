@@ -41,10 +41,11 @@ model User {
   telegramId       String? @unique
   telegramUsername String?
 
-  branch     Branch?     @relation(fields: [branchId], references: [id])
-  specialist Specialist?
-  children   Client[]    @relation("ParentChildren")
-  linkCodes  LinkCode[]
+  branch        Branch?        @relation(fields: [branchId], references: [id])
+  specialist    Specialist?
+  children      Client[]       @relation("ParentChildren")
+  linkCodes     LinkCode[]
+  notifications Notification[]
 }
 
 /// Telegram akkauntini CRM foydalanuvchisiga bog'lash uchun bir martalik kod
@@ -95,12 +96,13 @@ model Client {
   status       String   @default("ACTIVE")
   createdAt    DateTime @default(now())
 
-  branch      Branch       @relation(fields: [branchId], references: [id])
-  parent      User?        @relation("ParentChildren", fields: [parentUserId], references: [id])
-  specialists Assignment[]
-  packages    Package[]
-  sessions    Session[]
-  payments    Payment[]
+  branch        Branch         @relation(fields: [branchId], references: [id])
+  parent        User?          @relation("ParentChildren", fields: [parentUserId], references: [id])
+  specialists   Assignment[]
+  packages      Package[]
+  sessions      Session[]
+  payments      Payment[]
+  notifications Notification[]
 
   @@index([branchId])
   @@index([parentUserId])
@@ -208,4 +210,26 @@ model SalaryPayout {
 
   @@index([specialistId, paidAt])
   @@index([branchId, paidAt])
+}
+
+/// Ota-onaga Telegram orqali yuboriladigan xabar.
+/// kind: SESSION_REMINDER | SESSION_DONE | PACKAGE_LOW | DEBT
+/// dedupeKey bir xil xabar ikki marta ketmasligini kafolatlaydi.
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  clientId  String?
+  kind      String
+  dedupeKey String    @unique
+  text      String
+  sentAt    DateTime?
+  attempts  Int       @default(0)
+  error     String?
+  createdAt DateTime  @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([sentAt, attempts])
+  @@index([userId, createdAt])
 }

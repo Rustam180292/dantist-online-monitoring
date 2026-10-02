@@ -98,6 +98,7 @@ function mondayOf(d: Date): Date {
 
 async function main() {
   console.log("Eski demo ma'lumotlar tozalanmoqda...");
+  await prisma.notification.deleteMany();
   await prisma.salaryPayout.deleteMany();
   await prisma.linkCode.deleteMany();
   await prisma.payment.deleteMany();
@@ -222,7 +223,8 @@ async function main() {
         });
 
         const pricePerSession = PRICE[sp.specialization];
-        const totalSessions = pick([8, 12, 12, 16]);
+        // 6 seanslik paketlar ham bor — real markazda abonement tugab turadi
+        const totalSessions = pick([6, 6, 8, 12, 12, 16]);
         const purchasedAt = new Date(thisMonday);
         purchasedAt.setDate(purchasedAt.getDate() - 28);
         const expiresAt = new Date(purchasedAt);
@@ -268,7 +270,8 @@ async function main() {
           });
           const second = new Date(purchasedAt);
           second.setDate(second.getDate() + 14);
-          if (second <= new Date()) {
+          // Qolgan qismi hammasida ham to'lanmagan — qarzdorlar ro'yxati bo'sh qolmasin
+          if (second <= new Date() && chance(0.55)) {
             await prisma.payment.create({
               data: {
                 clientId: client.id,

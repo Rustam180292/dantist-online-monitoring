@@ -21,7 +21,8 @@ mutaxassisning **o'z mijozlari** bor.
 | **Pulim** (mutaxassis) | Mutaxassisning o'z kabineti: qolgan (olishim kerak), shu oyda hisoblangan, jami hisoblangan va to'langan; har bir seansdan qancha tekkani va qo'lga tekkan to'lovlar tarixi. |
 | **To'lovlar** | Oy bo'yicha tushum, usul kesimi (naqd/karta/o'tkazma), to'lovlar ro'yxati va qarzdorlar. |
 | **Hisobotlar** | Oylik hisobot: filiallar kesimi, mutaxassislar kesimi, yo'nalishlar kesimi, markaz ulushi. |
-| **Ota-ona kabineti** | Ota-ona faqat o'z farzandini ko'radi: keyingi mashg'ulotlar, qolgan seans, abonement holati, davomat tarixi, qarzdorlik. |
+| **Ota-ona kabineti** | Ota-ona faqat o'z farzandini ko'radi: keyingi mashg'ulotlar, qolgan seans, abonement holati, davomat tarixi, qarzdorlik. Telegram Mini App ko'rinishi ham bor (bir nechta farzand bo'lsa — almashtirib ko'radi). |
+| **Avtomatik eslatmalar** | Ota-onaga Telegram orqali: ertangi mashg'ulot, mashg'ulot o'tgani, abonement tugayotgani, to'lanmagan qarz. Bir xil xabar ikki marta ketmaydi. |
 
 ## Rollar va ko'rish doirasi
 
@@ -55,9 +56,43 @@ HMAC-SHA256 orqali tekshiradi (`src/lib/telegram.ts`) va faqat imzo to'g'ri
 bo'lsagina sessiya ochadi. Ya'ni kabinetga Telegram orqali tasdiqlangan odam
 kiradi, parol kiritish shart emas.
 
-Mutaxassis Mini App'da ko'radigan bo'limlar: **Bugun** (davomat belgilash),
+**Mutaxassis** Mini App'da ko'radigan bo'limlar: **Bugun** (davomat belgilash),
 **Hafta**, **Mijozlarim** (qolgan seans, keyingi mashg'ulot, ota-ona telefoni),
 **Pulim** (qolgan / hisoblangan / to'langan).
+
+**Ota-ona** ko'radigan bo'limlar: keyingi mashg'ulot (eng yuqorida), qolgan seans
+va qarzdorlik, **Jadval** (rejadagi mashg'ulotlar), **Davomat** (tarix),
+**Abonement** (har bir yo'nalish bo'yicha holat va to'lov). Bir nechta farzandi
+bo'lsa, yuqoridan almashtirib ko'radi. Pastda filial manzili va telefoni —
+bosib qo'ng'iroq qilsa bo'ladi.
+
+### Avtomatik eslatmalar
+
+Ota-onaga to'rt xil xabar boradi:
+
+| Xabar | Qachon |
+|---|---|
+| 🔔 Ertangi mashg'ulot | Cron har kuni ishga tushganda, ertangi rejadagi seanslar uchun |
+| ✅ Mashg'ulot o'tdi | Mutaxassis "O'tdi" deb belgilagan zahoti (abonementda qolgan seans bilan) |
+| ⏳ Abonement tugayapti | 2 va kamroq seans qolganda (2 → 1 → 0 da qayta eslatadi) |
+| 💳 To'lov eslatmasi | Qarz bo'lsa, haftada bir marta |
+
+Har bir xabarning o'z `dedupeKey` si bor — **bir xil xabar ikki marta
+yuborilmaydi**. Yuborilmagan xabar (masalan, internet uzilgan bo'lsa) navbatda
+qoladi va keyingi yurishda 3 martagacha qayta sinaladi. Adminlar har bir xabarni
+mijoz kartasida ko'rib turadi.
+
+Cron'ni ulash (kuniga bir marta, masalan kechki 19:00):
+
+```bash
+curl -X POST -H "x-cron-secret: $CRON_SECRET" https://sizning-domeningiz.uz/api/tg/notify
+```
+
+`crontab` misoli:
+
+```
+0 19 * * *  curl -s -X POST -H "x-cron-secret: SIR" https://sizning-domeningiz.uz/api/tg/notify
+```
 
 ### Sozlash
 
@@ -68,6 +103,7 @@ Mutaxassis Mini App'da ko'radigan bo'limlar: **Bugun** (davomat belgilash),
 TELEGRAM_BOT_TOKEN="123456:AA..."
 TELEGRAM_WEBHOOK_SECRET="uzun-tasodifiy-satr"   # openssl rand -hex 16
 APP_URL="https://sizning-domeningiz.uz"          # HTTPS shart
+CRON_SECRET="yana-bir-tasodifiy-satr"            # eslatmalar cron'i uchun
 ```
 
 3. Webhook'ni ulang:
@@ -144,19 +180,21 @@ src/
     login/             kirish sahifasi va auth action'lari
     (app)/             tizim ichi: panel, jadval, mijozlar, mutaxassislar,
                        to'lovlar, hisobotlar, pulim, ota-ona kabineti
-    tg/                Telegram Mini App (kirish nuqtasi va kabinet)
-    api/tg/            bot webhook'i va Mini App imzo tekshiruvi
+    tg/                Telegram Mini App (mutaxassis va ota-ona kabineti)
+    api/tg/            bot webhook'i, Mini App imzo tekshiruvi, eslatmalar cron'i
   lib/
     auth.ts            sessiya, parol, rol bo'yicha ko'rish doirasi
     prisma.ts          baza ulanishi
     stats.ts           davomat, daromad, ish haqi, abonement hisob-kitobi
     constants.ts       rollar, mutaxassisliklar, holatlar (o'zbekcha nomlar)
     telegram.ts        initData imzosini tekshirish, bot xabarlari
+    notify.ts          eslatmalarni navbatga qo'yish va yuborish
     format.ts          sana, vaqt, pul va yosh formatlash
   components/          umumiy UI (kartalar, jadval, menyu, ikonkalar)
 tests/
-  smoke.mjs            brauzerdagi uchidan-uchiga tekshiruv (22 ta)
-  telegram.mjs         Telegram oqimi: bog'lanish, imzo, Mini App (18 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar (22 ta)
+  telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
+  parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
 
 ## Hisob-kitob mantig'i
@@ -184,7 +222,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 40 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 58 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
@@ -192,11 +230,12 @@ npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
 node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar (22)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
+node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```
 
-`tests/telegram.mjs` ishlashi uchun `.env` da `TELEGRAM_BOT_TOKEN` bo'lishi
-kerak — lokal sinov uchun istalgan satr yetadi, u faqat imzo yasash va tekshirish
-uchun ishlatiladi.
+`tests/telegram.mjs` va `tests/parent.mjs` ishlashi uchun `.env` da
+`TELEGRAM_BOT_TOKEN` va `CRON_SECRET` bo'lishi kerak — lokal sinov uchun istalgan
+satr yetadi, ular faqat imzo yasash va tekshirish uchun ishlatiladi.
 
 > `npm run db:reset` baza faylini o'chirib qaytadan yaratadi. Ishlab turgan
 > server eski faylga ulangan holda qoladi, shuning uchun reset'dan keyin
@@ -216,8 +255,8 @@ Qolgan kod o'zgarishsiz qoladi.
 
 ## Keyingi bosqichlar uchun g'oyalar
 
-- SMS / Telegram orqali ota-onaga mashg'ulot eslatmasi va qarz haqida xabar
 - Mutaxassisning mashg'ulot kundaligi (har bir seansdan keyin qisqa hisobot)
+- Ota-ona Mini App'dan mashg'ulotni bekor qilish / ko'chirish so'rovi
 - Bolaning rivojlanish dinamikasi: maqsadlar va natijalar grafigi
 - Ish haqi vedomosti (oylik, chop etish uchun)
 - Xona (kabinet) bandligi va jadvalda ziddiyatni tekshirish

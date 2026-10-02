@@ -92,6 +92,20 @@ if (await doneBtn.count()) {
 await page.goto(`${BASE}/schedule?w=1`);
 const sessBefore = count("SELECT COUNT(*) AS n FROM Session");
 await page.click('summary:has-text("Yangi seans")');
+
+// Mijoz va mutaxassis bitta filialdan bo'lishi kerak — ataylab mos juftlikni tanlaymiz
+const pair = db
+  .prepare(
+    `SELECT c.id AS clientId, sp.id AS specialistId
+       FROM Client c
+       JOIN Specialist sp ON sp.branchId = c.branchId AND sp.isActive = 1
+      WHERE c.status = 'ACTIVE'
+      LIMIT 1`,
+  )
+  .get();
+await page.selectOption("#clientId", pair.clientId);
+await page.selectOption("#specialistId", pair.specialistId);
+
 const soon = new Date();
 soon.setDate(soon.getDate() + 9);
 await page.fill("#startsAt", `${soon.toISOString().slice(0, 10)}T19:15`);

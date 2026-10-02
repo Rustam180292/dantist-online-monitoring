@@ -40,6 +40,13 @@ import {
   unassignSpecialist,
 } from "../actions";
 
+const NOTIFICATION_KINDS: Record<string, string> = {
+  SESSION_REMINDER: "Ertangi mashg'ulot eslatmasi",
+  SESSION_DONE: "Mashg'ulot o'tdi",
+  PACKAGE_LOW: "Abonement tugayapti",
+  DEBT: "To'lov eslatmasi",
+};
+
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
@@ -49,7 +56,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     where: { id, ...clientScope(user) },
     include: {
       branch: true,
-      parent: { select: { id: true, phone: true } },
+      parent: { select: { id: true, phone: true, telegramId: true } },
       specialists: {
         include: {
           specialist: {
@@ -68,7 +75,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   if (!client) notFound();
 
-  const [packages, freeSpecialists] = await Promise.all([
+  const [packages, freeSpecialists, notifications] = await Promise.all([
     getClientPackages(client.id),
     isAdmin
       ? prisma.specialist.findMany({
@@ -79,6 +86,13 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           },
           include: { user: { select: { fullName: true } } },
           orderBy: { specialization: "asc" },
+        })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.notification.findMany({
+          where: { clientId: client.id },
+          orderBy: { createdAt: "desc" },
+          take: 8,
         })
       : Promise.resolve([]),
   ]);
@@ -409,6 +423,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                 k="Ota-ona kabineti"
                 v={client.parent ? `ochilgan (${client.parent.phone})` : "ochilmagan"}
               />
+              <Row
+                k="Telegram"
+                v={client.parent?.telegramId ? "ulangan" : "ulanmagan"}
+              />
             </dl>
           </Card>
 
@@ -469,6 +487,43 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               </form>
             ) : null}
           </Card>
+
+          {isAdmin ? (
+            <Card title="Ota-onaga ketgan xabarlar" subtitle="oxirgi 8 ta">
+              {!client.parent?.telegramId ? (
+                <Empty>
+                  Ota-ona Telegram botga ulanmagan — unga avtomatik xabar bormaydi.
+                </Empty>
+              ) : notifications.length === 0 ? (
+                <Empty>Hali xabar yuborilmagan.</Empty>
+              ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {notifications.map((n) => (
+                    <li key={n.id} className="px-4 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {NOTIFICATION_KINDS[n.kind] ?? n.kind}
+                        </span>
+                        <Badge
+                          className={
+                            n.sentAt
+                              ? "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900"
+                              : "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900"
+                          }
+                        >
+                          {n.sentAt ? "yuborildi" : "navbatda"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-slate-400">
+                        {dateTimeUz(n.sentAt ?? n.createdAt)}
+                        {n.error ? ` · ${n.error}` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          ) : null}
 
           {isAdmin ? (
             <Card title="Holat">

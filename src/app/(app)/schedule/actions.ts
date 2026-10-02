@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { SESSION_STATUS_KEYS, type SessionStatus } from "@/lib/constants";
+import { queueSessionDone, sendPending } from "@/lib/notify";
 
 /** Seansni o'zgartirishga ruxsat bormi? */
 async function assertCanEdit(sessionId: string) {
@@ -61,6 +63,18 @@ export async function setSessionStatus(formData: FormData) {
         : null,
     },
   });
+
+  // Mashg'ulot o'tgani haqida ota-onaga xabar — javobni kutib turmaydi.
+  if (status === "DONE") {
+    after(async () => {
+      try {
+        const queued = await queueSessionDone(sessionId);
+        if (queued > 0) await sendPending(5);
+      } catch (e) {
+        console.error("Ota-onaga xabar yuborilmadi:", e);
+      }
+    });
+  }
 
   revalidatePath("/schedule");
   revalidatePath("/");

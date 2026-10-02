@@ -1,0 +1,370 @@
+/**
+ * Ota-ona qismini tekshiradi: Telegram kabineti va avtomatik eslatmalar.
+ *
+ * Ishga tushirish (server ishlab turgan holda):
+ *   node tests/parent.mjs
+ */
+import { createHmac } from "node:crypto";
+import playwright from "playwright";
+import Database from "better-sqlite3";
+import "dotenv/config";
+
+const { chromium } = playwright;
+const BASE = process.env.BASE_URL ?? "http://localhost:3100";
+const DB_PATH = process.env.SMOKE_DB ?? "prisma/dev.db";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
+const CRON_SECRET = process.env.CRON_SECRET ?? "";
+
+if (!BOT_TOKEN || !CRON_SECRET) {
+  console.error("TELEGRAM_BOT_TOKEN va CRON_SECRET .env da bo'lishi kerak.");
+  process.exit(1);
+}
+
+const db = new Database(DB_PATH, { readonly: true });
+const one = (sql, ...a) => db.prepare(sql).get(...a);
+const all = (sql, ...a) => db.prepare(sql).all(...a);
+const count = (sql, ...a) => db.prepare(sql).get(...a).n;
+
+const ok = [];
+const fails = [];
+const check = (name, cond, extra = "") =>
+  (cond ? ok : fails).push(`${name}${extra ? ` — ${extra}` : ""}`);
+
+async function waitUntil(fn, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (await fn()) return true;
+    if (Date.now() > deadline) return false;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
+function makeInitData(user) {
+  const p = new URLSearchParams();
+  p.set("auth_date", String(Math.floor(Date.now() / 1000)));
+  p.set("query_id", "AAE1");
+  p.set("user", JSON.stringify(user));
+  const check = [...p.entries()].map(([k, v]) => `${k}=${v}`).sort().join("\n");
+  const secret = createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+  p.set("hash", createHmac("sha256", secret).update(check).digest("hex"));
+  return p.toString();
+}
+
+/* Rejadagi seansi bor bolaning ota-onasini tanlaymiz */
+const target = one(`
+  SELECT u.id AS userId, u.phone, u.fullName, c.id AS clientId, c.fullName AS childName,
+         s.id AS sessionId, s.startsAt
+    FROM Session s
+    JOIN Client c ON c.id = s.clientId
+    JOIN User u ON u.id = c.parentUserId
+   WHERE s.status = 'PLANNED' AND c.status = 'ACTIVE'
+   ORDER BY s.startsAt ASC
+   LIMIT 1
+`);
+
+if (!target) {
+  console.error("Rejadagi seansi bor mijoz topilmadi — avval npm run db:reset qiling.");
+  process.exit(1);
+}
+
+const PARENT_TG_ID = 910000001;
+
+/* 1. Ota-onani Telegram'ga bog'laymiz */
+{
+  const res = await fetch(`${BASE}/api/tg/webhook`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(WEBHOOK_SECRET ? { "x-telegram-bot-api-secret-token": WEBHOOK_SECRET } : {}),
+    },
+    body: JSON.stringify({
+      message: {
+        chat: { id: PARENT_TG_ID },
+        from: { id: PARENT_TG_ID },
+        contact: { phone_number: target.phone, user_id: PARENT_TG_ID },
+      },
+    }),
+  });
+  const row = one("SELECT telegramId FROM User WHERE id=?", target.userId);
+  check(
+    "Ota-ona Telegram'ga bog'landi",
+    res.status === 200 && row.telegramId === String(PARENT_TG_ID),
+    `telegramId=${row.telegramId}`,
+  );
+}
+
+/* 2. Mini App sessiyasi */
+const authRes = await fetch(`${BASE}/api/tg/auth`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ initData: makeInitData({ id: PARENT_TG_ID, first_name: "Ota" }) }),
+});
+const cookieMatch = (authRes.headers.get("set-cookie") ?? "").match(/logoped_session=([^;]+)/);
+check("Ota-ona uchun sessiya ochildi", authRes.status === 200 && !!cookieMatch);
+
+if (!cookieMatch) {
+  report();
+} else {
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await ctx.addCookies([
+    {
+      name: "logoped_session",
+      value: cookieMatch[1],
+      domain: "localhost",
+      path: "/",
+      httpOnly: true,
+      sameSite: "Lax",
+    },
+  ]);
+  const page = await ctx.newPage();
+  const failedRequests = [];
+  page.on("requestfailed", (r) =>
+    failedRequests.push({ url: r.url(), error: r.failure()?.errorText ?? "" }),
+  );
+  page.on("pageerror", (e) => fails.push(`JS xatolik @ ${page.url()}: ${e.message.split("\n")[0]}`));
+  page.on("console", (m) => {
+    if (m.type() !== "error") return;
+    const t = m.text();
+    if (t.includes("favicon") || t.includes("Failed to load resource") || t.trim() === "Event") return;
+    fails.push(`Konsol xatosi @ ${page.url()}: ${t.split("\n")[0]}`);
+  });
+
+  /* 3. Kabinet ochiladi */
+  await page.goto(`${BASE}/tg/app`);
+  await page.waitForLoadState("networkidle");
+  const body = await page.content();
+  check(
+    "Ota-ona kabineti ochiladi",
+    body.includes(target.childName) && body.includes("Keyingi mashg"),
+    page.url(),
+  );
+  check(
+    "Qolgan seans va qarzdorlik ko'rinadi",
+    body.includes("Qolgan seans") && body.includes("Qarzdorlik"),
+  );
+  check(
+    "Mutaxassisning puli ota-onaga ko'rinmaydi",
+    !body.includes("Qolgan pulim") && !body.includes("Jami hisoblangan"),
+  );
+
+  /* 4. Bo'limlar ishlaydi */
+  for (const [tab, marker] of [
+    ["history", "Davomat"],
+    ["billing", "Abonement"],
+  ]) {
+    await page.goto(`${BASE}/tg/app?tab=${tab}`);
+    await page.waitForLoadState("networkidle");
+    check(`"${marker}" bo'limi ochiladi`, (await page.content()).includes(marker));
+  }
+
+  /* 5. Ota-ona boshqa bolani ko'ra olmaydi */
+  {
+    const other = one(
+      "SELECT id, fullName FROM Client WHERE parentUserId IS NOT ? AND parentUserId IS NOT NULL LIMIT 1",
+      target.userId,
+    );
+    await page.goto(`${BASE}/tg/app?child=${other.id}`);
+    await page.waitForLoadState("networkidle");
+    const b = await page.content();
+    check(
+      "Begona bolaning ma'lumoti ko'rinmaydi",
+      !b.includes(other.fullName) && b.includes(target.childName),
+      other.fullName,
+    );
+  }
+
+  /* 5b. Qarzdor va abonementi tugayotgan ota-onalarni ham ulaymiz,
+       shunda eslatmalarning barcha turi sinaladi */
+  const linkParent = async (phone, tgId) =>
+    fetch(`${BASE}/api/tg/webhook`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(WEBHOOK_SECRET ? { "x-telegram-bot-api-secret-token": WEBHOOK_SECRET } : {}),
+      },
+      body: JSON.stringify({
+        message: {
+          chat: { id: tgId },
+          from: { id: tgId },
+          contact: { phone_number: phone, user_id: tgId },
+        },
+      }),
+    });
+
+  const debtor = one(`
+    SELECT u.phone AS phone
+      FROM Package p
+      JOIN Client c ON c.id = p.clientId
+      JOIN User u ON u.id = c.parentUserId
+     WHERE p.isActive = 1 AND c.status = 'ACTIVE'
+       AND (p.totalSessions * p.pricePerSession) >
+           COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0)
+     LIMIT 1
+  `);
+
+  const lowPackage = one(`
+    SELECT u.phone AS phone
+      FROM Package p
+      JOIN Client c ON c.id = p.clientId
+      JOIN User u ON u.id = c.parentUserId
+     WHERE p.isActive = 1 AND c.status = 'ACTIVE'
+       AND p.totalSessions -
+           (SELECT COUNT(*) FROM Session s
+             WHERE s.packageId = p.id AND s.status IN ('DONE','NO_SHOW')) <= 2
+     LIMIT 1
+  `);
+
+  if (debtor) await linkParent(debtor.phone, 910000002);
+  if (lowPackage) await linkParent(lowPackage.phone, 910000003);
+
+  /* 6. Eslatmalar: maxfiy so'zsiz ishlamaydi */
+  {
+    const res = await fetch(`${BASE}/api/tg/notify`, { method: "POST" });
+    check("Eslatma endpoint'i himoyalangan", res.status === 403, `status ${res.status}`);
+  }
+
+  /* 7. Eslatmalar navbatga qo'yiladi */
+  const before = count("SELECT COUNT(*) AS n FROM Notification");
+  let firstRun;
+  {
+    const res = await fetch(`${BASE}/api/tg/notify`, {
+      method: "POST",
+      headers: { "x-cron-secret": CRON_SECRET },
+    });
+    firstRun = await res.json();
+    const after = count("SELECT COUNT(*) AS n FROM Notification");
+    check(
+      "Eslatmalar navbatga qo'yildi",
+      res.status === 200 && after > before,
+      `${before} -> ${after}`,
+    );
+
+    const kinds = all("SELECT DISTINCT kind AS k FROM Notification").map((r) => r.k);
+    check(
+      "Eslatma turlari to'g'ri",
+      kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PACKAGE_LOW", "DEBT"].includes(k)),
+      kinds.join(", "),
+    );
+    if (debtor) {
+      check("Qarzdorlik eslatmasi yoziladi", kinds.includes("DEBT"), kinds.join(", "));
+    }
+    if (lowPackage) {
+      check(
+        "Abonement tugayapti eslatmasi yoziladi",
+        kinds.includes("PACKAGE_LOW"),
+        kinds.join(", "),
+      );
+    }
+  }
+
+  /* 8. Ikkinchi yurishda takrorlanmaydi */
+  {
+    const beforeSecond = count("SELECT COUNT(*) AS n FROM Notification");
+    const res = await fetch(`${BASE}/api/tg/notify`, {
+      method: "POST",
+      headers: { "x-cron-secret": CRON_SECRET },
+    });
+    const second = await res.json();
+    const afterSecond = count("SELECT COUNT(*) AS n FROM Notification");
+    check(
+      "Bir xil eslatma ikki marta yozilmaydi",
+      afterSecond === beforeSecond,
+      `${beforeSecond} -> ${afterSecond} (navbatga: ${JSON.stringify(second.queued)})`,
+    );
+  }
+
+  /* 9. Yuborilmagan xabar qayta urinish uchun qoladi */
+  {
+    const pending = one(
+      "SELECT attempts, error, sentAt FROM Notification ORDER BY createdAt DESC LIMIT 1",
+    );
+    check(
+      "Yuborilmagan xabar navbatda qoladi",
+      pending.sentAt === null && pending.attempts >= 1 && !!pending.error,
+      `attempts=${pending.attempts} error=${pending.error}`,
+    );
+  }
+
+  /* 10. Xabar matni bolaning ismi bilan */
+  {
+    const row = one(
+      "SELECT text FROM Notification WHERE clientId=? ORDER BY createdAt DESC LIMIT 1",
+      target.clientId,
+    );
+    check(
+      "Xabar matni mazmunli",
+      !!row && row.text.includes(target.childName),
+      row ? row.text.split("\n")[0] : "xabar yo'q",
+    );
+  }
+
+  /* 11. Mashg'ulot "o'tdi" belgilansa — ota-onaga xabar ketadi */
+  {
+    const adminCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const admin = await adminCtx.newPage();
+    await admin.goto(`${BASE}/login`);
+    await admin.fill("#phone", "+998901234567");
+    await admin.fill("#password", "parol123");
+    await admin.click("button[type=submit]");
+    await admin.waitForLoadState("networkidle");
+
+    // Seans qaysi haftada ekanini hisoblaymiz
+    const mondayOf = (d) => {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+      return x;
+    };
+    const thisMonday = mondayOf(new Date());
+    const sessionMonday = mondayOf(new Date(target.startsAt));
+    const offset = Math.round((sessionMonday - thisMonday) / (7 * 86400000));
+
+    await admin.goto(`${BASE}/schedule?w=${offset}`);
+    await admin.waitForLoadState("networkidle");
+
+    // Shu bolaning aynan rejadagi (O'tdi tugmasi bor) seansini topamiz
+    const row = admin
+      .locator("li")
+      .filter({ hasText: target.childName })
+      .filter({ has: admin.locator('form button:has-text("O\'tdi")') })
+      .first();
+    const btn = row.locator('form button:has-text("O\'tdi")').first();
+
+    if (await btn.count()) {
+      await btn.click();
+      const notified = await waitUntil(
+        async () =>
+          count("SELECT COUNT(*) AS n FROM Notification WHERE kind='SESSION_DONE'") > 0,
+      );
+      check("Mashg'ulot o'tgani haqida xabar yoziladi", notified);
+    } else {
+      check("Mashg'ulot o'tgani haqida xabar yoziladi", false, "seans topilmadi");
+    }
+    await adminCtx.close();
+  }
+
+  const ownFailures = [
+    ...new Set(
+      failedRequests
+        .filter((f) => !f.url.includes("telegram.org") && !f.error.includes("ERR_ABORTED"))
+        .map((f) => `${f.url} (${f.error})`),
+    ),
+  ];
+  check("Ilovaning o'z resurslari yuklanadi", ownFailures.length === 0, ownFailures.join(", "));
+
+  await browser.close();
+  report();
+}
+
+function report() {
+  console.log("\n=== O'TDI ===");
+  for (const line of ok) console.log(`  ✓ ${line}`);
+  if (fails.length) {
+    console.log("\n=== XATO ===");
+    for (const line of fails) console.log(`  ✗ ${line}`);
+  }
+  console.log(`\nNatija: ${ok.length} o'tdi, ${fails.length} xato`);
+  process.exit(fails.length ? 1 : 0);
+}

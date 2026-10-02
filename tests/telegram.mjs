@@ -299,9 +299,12 @@ if (!sessionCookie) {
     await ppage.goto(`${BASE}/tg/app`);
     await ppage.waitForLoadState("networkidle");
     const pbody = await ppage.content();
+    const child = one("SELECT fullName FROM Client WHERE parentUserId = ? LIMIT 1", parent.id);
     check(
       "Ota-ona Mini App'da o'z ko'rinishini oladi",
-      pbody.includes(parent.fullName) && !pbody.includes("Qolgan pulim"),
+      (child ? pbody.includes(child.fullName) : true) &&
+        pbody.includes("Keyingi mashg") &&
+        !pbody.includes("Qolgan pulim"),
     );
   } else {
     check("Ota-ona Mini App'da o'z ko'rinishini oladi", false, "cookie olinmadi");

@@ -71,8 +71,8 @@ export default async function SchedulePage({
     canEdit
       ? prisma.client.findMany({
           where: { ...clientScope(user), status: "ACTIVE" },
-          select: { id: true, fullName: true },
-          orderBy: { fullName: "asc" },
+          select: { id: true, fullName: true, branch: { select: { name: true } } },
+          orderBy: [{ branch: { name: "asc" } }, { fullName: "asc" }],
         })
       : Promise.resolve([]),
   ]);
@@ -80,13 +80,31 @@ export default async function SchedulePage({
   // Mutaxassis o'ziga seans qo'shishi uchun ro'yxat
   const specialistOptions =
     user.role === "SPECIALIST"
-      ? [{ id: user.specialistId!, name: `${user.fullName} (men)` }]
+      ? [{ id: user.specialistId!, name: `${user.fullName} (men)`, branchName: "" }]
       : specialists.map((s) => ({
           id: s.id,
-          name: `${s.user.fullName} — ${SPECIALIZATIONS[s.specialization as Specialization]}${
-            user.role === "OWNER" ? ` · ${s.branch.name}` : ""
-          }`,
+          name: `${s.user.fullName} — ${SPECIALIZATIONS[s.specialization as Specialization]}`,
+          branchName: s.branch.name,
         }));
+
+  // Egasi barcha filiallarni ko'radi: ro'yxatlarni filial bo'yicha guruhlaymiz,
+  // shunda turli filialdagi mijoz bilan mutaxassisni adashib tanlab qo'yilmaydi.
+  const groupByBranch = <T extends { branchName: string }>(items: T[]) => {
+    const map = new Map<string, T[]>();
+    for (const item of items) {
+      const list = map.get(item.branchName) ?? [];
+      list.push(item);
+      map.set(item.branchName, list);
+    }
+    return [...map.entries()];
+  };
+
+  const clientOptions = clients.map((c) => ({
+    id: c.id,
+    name: c.fullName,
+    branchName: c.branch.name,
+  }));
+  const showGroups = user.role === "OWNER";
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(from, i));
   const byDay = new Map<string, typeof sessions>();
@@ -181,11 +199,21 @@ export default async function SchedulePage({
                 Mijoz
               </label>
               <select id="clientId" name="clientId" className={input} required>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.fullName}
-                  </option>
-                ))}
+                {showGroups
+                  ? groupByBranch(clientOptions).map(([branchName, items]) => (
+                      <optgroup key={branchName} label={branchName}>
+                        {items.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  : clientOptions.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
               </select>
             </div>
             <div className="lg:col-span-2">
@@ -193,11 +221,21 @@ export default async function SchedulePage({
                 Mutaxassis
               </label>
               <select id="specialistId" name="specialistId" className={input} required>
-                {specialistOptions.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+                {showGroups
+                  ? groupByBranch(specialistOptions).map(([branchName, items]) => (
+                      <optgroup key={branchName} label={branchName}>
+                        {items.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))
+                  : specialistOptions.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
               </select>
             </div>
             <div>

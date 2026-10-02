@@ -12,6 +12,7 @@ import {
 import { addDays, getSpecialistEarnings, monthRange, startOfDay } from "@/lib/stats";
 import { dateShort, money, monthYearUz, timeUz, weekdayShortUz } from "@/lib/format";
 import { setSessionStatus } from "@/app/(app)/schedule/actions";
+import { ParentApp } from "./parent";
 
 type Tab = "today" | "week" | "clients" | "money";
 const TABS: { key: Tab; label: string }[] = [
@@ -24,32 +25,32 @@ const TABS: { key: Tab; label: string }[] = [
 export default async function MiniAppPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; child?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/tg");
 
-  const { tab: tabRaw } = await searchParams;
+  const { tab: tabRaw, child: childRaw } = await searchParams;
   const tab: Tab = (TABS.find((t) => t.key === tabRaw)?.key ?? "today") as Tab;
 
-  /* --- Ota-ona va adminlar uchun hozircha qisqa ko'rinish --- */
+  if (user.role === "PARENT") {
+    return <ParentApp userId={user.id} tab={tabRaw} childId={childRaw} />;
+  }
+
+  /* --- Adminlar uchun: katta jadval veb panelda qulayroq --- */
   if (user.role !== "SPECIALIST") {
-    const target = user.role === "PARENT" ? "/my" : "/";
-    const title = user.role === "PARENT" ? "Ota-ona kabineti" : "Boshqaruv paneli";
     return (
       <main className="mx-auto max-w-md px-4 py-8">
         <div className="tg-card p-5 text-center">
           <p className="text-base font-bold">Assalomu alaykum, {user.fullName}!</p>
           <p className="mt-2 text-sm tg-muted">
-            {user.role === "PARENT"
-              ? "Telegram kabinetingiz tayyorlanmoqda. Hozircha quyidagi tugma orqali to'liq ko'rinishga o'ting."
-              : "Katta jadval va hisobotlar uchun to'liq panel qulayroq."}
+            Katta jadval va hisobotlar uchun to&apos;liq panel qulayroq.
           </p>
           <Link
-            href={target}
+            href="/"
             className="tg-accent mt-4 inline-block rounded-xl px-4 py-2.5 text-sm font-semibold"
           >
-            {title}ni ochish
+            Boshqaruv panelini ochish
           </Link>
         </div>
       </main>
