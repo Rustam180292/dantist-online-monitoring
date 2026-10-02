@@ -9,8 +9,9 @@
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "rm -f prisma/dev.db prisma/dev.db-journal prisma/dev.db-wal prisma/dev.db-shm && prisma db push && tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "db:reset": "npm run db:clean && prisma db push && tsx prisma/seed.ts",
+    "postinstall": "prisma generate",
+    "db:clean": "node -e \"for (const f of ['dev.db','dev.db-journal','dev.db-wal','dev.db-shm']) require('fs').rmSync('prisma/'+f,{force:true})\""
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.10.0",
