@@ -96,9 +96,19 @@ export default async function LoginPage({
               Filial admini — <code className="font-mono">+998901110011</code>
             </li>
             <li>
+              Qabulxona xodimi — <code className="font-mono">+998901110012</code>
+            </li>
+            <li>
               Mutaxassis — <code className="font-mono">+998901110101</code>
             </li>
+            <li className="pt-1 text-slate-500 dark:text-slate-500">
+              Ota-ona — mijoz kartasidagi telefon raqami
+            </li>
           </ul>
+          <p className="mt-2 text-slate-500 dark:text-slate-500">
+            Har bir rol boshqa ekranni ko&apos;radi. Kirgandan keyin chap menyuning
+            pastida qaysi rol ekani yozib turadi.
+          </p>
         </div>
       </div>
     </main>
