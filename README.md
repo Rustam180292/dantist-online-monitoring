@@ -163,6 +163,11 @@ menyuning pastida «Telefonga o'rnatish» havolasi bor.
 > ishlaydi. Keyinchalik haqiqatan APK kerak bo'lsa, shu PWA'dan PWABuilder yoki
 > Bubblewrap orqali yasash mumkin — ya'ni bu yo'l APK eshigini yopmaydi.
 
+**Ishlab chiqish rejimida xizmat ishchisi o'chirilgan.** `npm run dev` da u
+ro'yxatdan o'tmaydi va avval o'rnatilgan bo'lsa olib tashlanadi — aks holda
+eski fayllar keshda qolib, o'zgarishlar ko'rinmay qoladi. Telefonga o'rnatishni
+sinash uchun `npm run build && npm start` ishlating.
+
 **Offline holat:** sahifalar hech qachon keshlanmaydi — ularda shaxsiy ma'lumot
 bor va bitta telefondan ikki kishi kirsa birining ma'lumoti ikkinchisiga
 ko'rinib qolishi mumkin edi. Faqat o'zgarmaydigan fayllar (ikonka, shriftlar,
