@@ -218,28 +218,49 @@ export async function addPayment(formData: FormData) {
   const client = await assertClientAccess(user, clientId);
   const packageId = String(formData.get("packageId") ?? "") || null;
 
+  const paidAtRaw = String(formData.get("paidAt") ?? "");
+  const paidAtParsed = paidAtRaw ? new Date(paidAtRaw) : new Date();
+  const paidAt = Number.isNaN(paidAtParsed.getTime()) ? new Date() : paidAtParsed;
+  const note = String(formData.get("note") ?? "").trim() || null;
+
+  const base = { clientId, branchId: client.branchId, method, paidAt, note };
+
   if (packageId) {
+    // Admin aniq abonementni tanlagan
     const pkg = await prisma.package.findUnique({
       where: { id: packageId },
       select: { clientId: true },
     });
     if (!pkg || pkg.clientId !== clientId) throw new Error("Abonement bu mijozga tegishli emas.");
+
+    await prisma.payment.create({ data: { ...base, packageId, amount } });
+  } else {
+    // Abonement tanlanmagan: summa qarzi bor abonementlarga eng eskisidan
+    // boshlab taqsimlanadi, ortgani esa oldindan to'lov sifatida yoziladi.
+    const packages = await prisma.package.findMany({
+      where: { clientId, isActive: true },
+      orderBy: { purchasedAt: "asc" },
+      include: { payments: { select: { amount: true } } },
+    });
+
+    let left = amount;
+    const rows: { packageId: string | null; amount: number }[] = [];
+
+    for (const p of packages) {
+      if (left <= 0) break;
+      const paid = p.payments.reduce((sum, x) => sum + x.amount, 0);
+      const debt = p.totalSessions * p.pricePerSession - paid;
+      if (debt <= 0) continue;
+      const part = Math.min(debt, left);
+      rows.push({ packageId: p.id, amount: part });
+      left -= part;
+    }
+    if (left > 0) rows.push({ packageId: null, amount: left });
+
+    await prisma.$transaction(
+      rows.map((r) => prisma.payment.create({ data: { ...base, ...r } })),
+    );
   }
-
-  const paidAtRaw = String(formData.get("paidAt") ?? "");
-  const paidAt = paidAtRaw ? new Date(paidAtRaw) : new Date();
-
-  await prisma.payment.create({
-    data: {
-      clientId,
-      branchId: client.branchId,
-      packageId,
-      amount,
-      method,
-      paidAt: Number.isNaN(paidAt.getTime()) ? new Date() : paidAt,
-      note: String(formData.get("note") ?? "").trim() || null,
-    },
-  });
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/payments");

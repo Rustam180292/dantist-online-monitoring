@@ -156,6 +156,59 @@ for (const [path, marker] of [
   );
 }
 
+/* 9a. To'lovlar sahifasidan qo'lda to'lov kiritish (qarzni yopadi) */
+{
+  const packageDebt = (packageId) =>
+    db
+      .prepare(
+        `SELECT (p.totalSessions * p.pricePerSession)
+                - COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0) AS n
+           FROM Package p WHERE p.id = ?`,
+      )
+      .get(packageId).n;
+
+  const debtor = db
+    .prepare(
+      `SELECT c.id AS clientId, c.fullName AS clientName, p.id AS packageId
+         FROM Package p
+         JOIN Client c ON c.id = p.clientId
+        WHERE p.isActive = 1 AND c.status = 'ACTIVE'
+          AND (p.totalSessions * p.pricePerSession) >
+              COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0)
+        ORDER BY p.purchasedAt ASC
+        LIMIT 1`,
+    )
+    .get();
+
+  if (!debtor) {
+    check("To'lovlar sahifasidan to'lov kiritiladi", false, "qarzdor topilmadi");
+  } else {
+    const debtBefore = packageDebt(debtor.packageId);
+    const paymentsBefore = count("SELECT COUNT(*) AS n FROM Payment");
+
+    await page.goto(`${BASE}/payments`);
+    await page.waitForLoadState("networkidle");
+    await page.click('summary:has-text("To\'lov qabul qilish")');
+    await page.selectOption("#clientId", debtor.clientId);
+    await page.fill("#amount", String(debtBefore));
+    await page.click('form button:has-text("Qabul qilish")');
+
+    const paid = await waitUntil(
+      async () => count("SELECT COUNT(*) AS n FROM Payment") > paymentsBefore,
+    );
+    check(
+      "To'lovlar sahifasidan to'lov kiritiladi",
+      paid,
+      `${paymentsBefore} -> ${count("SELECT COUNT(*) AS n FROM Payment")}`,
+    );
+    check(
+      "To'lov qarzni avtomatik yopadi",
+      packageDebt(debtor.packageId) === 0,
+      `qarz: ${debtBefore} -> ${packageDebt(debtor.packageId)}`,
+    );
+  }
+}
+
 /* 9b. Mutaxassisga ish haqi to'lab berish */
 await page.goto(`${BASE}/specialists`);
 await page.waitForLoadState("networkidle");

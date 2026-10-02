@@ -9,7 +9,7 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { getClientAlerts, monthRange } from "@/lib/stats";
-import { dateTimeUz, money, monthYearUz } from "@/lib/format";
+import { dateTimeUz, money, monthYearUz, toDateInput } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -24,6 +24,7 @@ import {
   td,
   th,
 } from "@/components/ui";
+import { addPayment } from "@/app/(app)/clients/actions";
 
 type Search = { m?: string; b?: string; pm?: string };
 
@@ -46,7 +47,7 @@ export default async function PaymentsPage({
     ? (sp.pm as PaymentMethod)
     : null;
 
-  const [payments, branches, alerts] = await Promise.all([
+  const [payments, branches, alerts, clients] = await Promise.all([
     prisma.payment.findMany({
       where: {
         paidAt: { gte: from, lt: to },
@@ -62,6 +63,11 @@ export default async function PaymentsPage({
     }),
     user.role === "OWNER" ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
     getClientAlerts({ branchId }),
+    prisma.client.findMany({
+      where: { status: "ACTIVE", ...(branchId ? { branchId } : {}) },
+      select: { id: true, fullName: true, branch: { select: { name: true } } },
+      orderBy: [{ branch: { name: "asc" } }, { fullName: "asc" }],
+    }),
   ]);
 
   const total = payments.reduce((s, p) => s + p.amount, 0);
@@ -70,6 +76,23 @@ export default async function PaymentsPage({
     sum: payments.filter((p) => p.method === m).reduce((s, p) => s + p.amount, 0),
   }));
   const totalDebt = alerts.debtors.reduce((s, d) => s + d.debt, 0);
+
+  const debtByClient = new Map<string, number>();
+  for (const d of alerts.debtors) {
+    debtByClient.set(d.clientId, (debtByClient.get(d.clientId) ?? 0) + d.debt);
+  }
+
+  // Egasi barcha filiallarni ko'radi — ro'yxatni filial bo'yicha guruhlaymiz
+  const clientGroups = new Map<string, typeof clients>();
+  for (const c of clients) {
+    const list = clientGroups.get(c.branch.name) ?? [];
+    list.push(c);
+    clientGroups.set(c.branch.name, list);
+  }
+  const clientLabel = (c: (typeof clients)[number]) => {
+    const debt = debtByClient.get(c.id) ?? 0;
+    return debt > 0 ? `${c.fullName} — qarz ${money(debt)}` : c.fullName;
+  };
 
   const qs = (o: number) => {
     const p = new URLSearchParams();
@@ -150,6 +173,97 @@ export default async function PaymentsPage({
           Filtrlash
         </button>
       </form>
+
+      <details className={`${card} mb-5 p-4`} open={payments.length === 0}>
+        <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
+          + To&apos;lov qabul qilish
+        </summary>
+        {clients.length === 0 ? (
+          <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+            Avval mijoz qo&apos;shing.
+          </p>
+        ) : (
+          <>
+            <form action={addPayment} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="lg:col-span-2">
+                <label className={label} htmlFor="clientId">
+                  Mijoz *
+                </label>
+                <select id="clientId" name="clientId" className={input} required>
+                  {user.role === "OWNER" && !branchId
+                    ? [...clientGroups.entries()].map(([branchName, items]) => (
+                        <optgroup key={branchName} label={branchName}>
+                          {items.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {clientLabel(c)}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))
+                    : clients.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {clientLabel(c)}
+                        </option>
+                      ))}
+                </select>
+              </div>
+              <div>
+                <label className={label} htmlFor="amount">
+                  Summa (so&apos;m) *
+                </label>
+                <input
+                  id="amount"
+                  name="amount"
+                  inputMode="numeric"
+                  placeholder="500000"
+                  className={input}
+                  required
+                />
+              </div>
+              <div>
+                <label className={label} htmlFor="method">
+                  Usul
+                </label>
+                <select id="method" name="method" className={input}>
+                  {PAYMENT_METHOD_KEYS.map((m) => (
+                    <option key={m} value={m}>
+                      {PAYMENT_METHODS[m]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={label} htmlFor="paidAt">
+                  Sana
+                </label>
+                <input
+                  id="paidAt"
+                  name="paidAt"
+                  type="date"
+                  defaultValue={toDateInput(new Date())}
+                  className={input}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={label} htmlFor="note">
+                  Izoh
+                </label>
+                <input id="note" name="note" className={input} placeholder="ixtiyoriy" />
+              </div>
+              <div className="flex items-end">
+                <button type="submit" className={`${btnPrimary} w-full`}>
+                  Qabul qilish
+                </button>
+              </div>
+            </form>
+            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+              Summa mijozning qarzi bor abonementlariga eng eskisidan boshlab taqsimlanadi.
+              Ortgan qismi oldindan to&apos;lov sifatida yoziladi. Aniq bir abonementga
+              yozmoqchi bo&apos;lsangiz — mijoz kartasidan kiriting.
+            </p>
+          </>
+        )}
+      </details>
 
       <div className="grid gap-5 xl:grid-cols-3">
         <Card className="xl:col-span-2" title="To'lovlar ro'yxati">

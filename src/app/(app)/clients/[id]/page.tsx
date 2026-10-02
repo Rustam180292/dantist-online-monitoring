@@ -376,7 +376,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                         Abonement
                       </label>
                       <select id="packageId" name="packageId" className={input}>
-                        <option value="">Bog&apos;lanmagan</option>
+                        <option value="">Avtomatik — qarzi bor abonementga</option>
                         {packages.map((p) => (
                           <option key={p.id} value={p.id}>
                             {SPECIALIZATIONS[p.specialization as Specialization]} ·{" "}
