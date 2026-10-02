@@ -18,7 +18,7 @@ export async function login(formData: FormData) {
   }
 
   await startSession(user.id);
-  redirect(user.role === "PARENT" ? "/my" : "/");
+  redirect(user.role === "SPECIALIST" || user.role === "PARENT" ? "/m" : "/");
 }
 
 export async function logout() {

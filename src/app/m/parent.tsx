@@ -37,9 +37,9 @@ export async function ParentApp({
   if (children.length === 0) {
     return (
       <main className="mx-auto max-w-md px-4 py-10">
-        <div className="tg-card p-5 text-center">
+        <div className="app-card p-5 text-center">
           <p className="text-base font-bold">Farzand biriktirilmagan</p>
-          <p className="mt-2 text-sm tg-muted">
+          <p className="mt-2 text-sm app-muted">
             Hisobingizga farzandingiz bog&apos;lanmagan. Iltimos, markaz administratoriga
             murojaat qiling.
           </p>
@@ -73,14 +73,14 @@ export async function ParentApp({
 
   const link = (params: Record<string, string>) => {
     const p = new URLSearchParams({ child: child.id, tab, ...params });
-    return `/tg/app?${p.toString()}`;
+    return `/m?${p.toString()}`;
   };
 
   return (
     <main className="mx-auto max-w-md px-4 pb-10 pt-4">
       <header className="mb-3">
         <p className="text-base font-bold">{child.fullName}</p>
-        <p className="text-xs tg-muted">
+        <p className="text-xs app-muted">
           {ageUz(child.birthDate)} · {child.branch.name}
         </p>
       </header>
@@ -90,9 +90,9 @@ export async function ParentApp({
           {children.map((c) => (
             <Link
               key={c.id}
-              href={`/tg/app?child=${c.id}&tab=${tab}`}
+              href={`/m?child=${c.id}&tab=${tab}`}
               className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-medium ${
-                c.id === child.id ? "tg-accent" : "tg-card tg-muted"
+                c.id === child.id ? "app-accent" : "app-card app-muted"
               }`}
             >
               {c.fullName.split(" ")[0]}
@@ -102,8 +102,8 @@ export async function ParentApp({
       ) : null}
 
       {/* Keyingi mashg'ulot — eng kerakli ma'lumot yuqorida */}
-      <section className="tg-card mb-3 p-4">
-        <p className="text-xs tg-muted">Keyingi mashg&apos;ulot</p>
+      <section className="app-card mb-3 p-4">
+        <p className="text-xs app-muted">Keyingi mashg&apos;ulot</p>
         {next ? (
           <>
             <p className="mt-1 text-lg font-bold">
@@ -113,18 +113,18 @@ export async function ParentApp({
               {dateShort(next.startsAt)} ·{" "}
               {SPECIALIZATIONS[next.specialist.specialization as Specialization]}
             </p>
-            <p className="text-xs tg-muted">
+            <p className="text-xs app-muted">
               {next.specialist.user.fullName} · {next.durationMin} daqiqa
             </p>
           </>
         ) : (
-          <p className="mt-1 text-sm tg-muted">Rejada mashg&apos;ulot yo&apos;q.</p>
+          <p className="mt-1 text-sm app-muted">Rejada mashg&apos;ulot yo&apos;q.</p>
         )}
       </section>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
-        <div className="tg-card p-3">
-          <p className="text-xs tg-muted">Qolgan seans</p>
+        <div className="app-card p-3">
+          <p className="text-xs app-muted">Qolgan seans</p>
           <p
             className={`mt-1 text-lg font-bold tabular-nums ${
               remaining === 0 ? "text-rose-600" : remaining <= 2 ? "text-amber-600" : ""
@@ -133,8 +133,8 @@ export async function ParentApp({
             {remaining}
           </p>
         </div>
-        <div className="tg-card p-3">
-          <p className="text-xs tg-muted">Qarzdorlik</p>
+        <div className="app-card p-3">
+          <p className="text-xs app-muted">Qarzdorlik</p>
           <p
             className={`mt-1 text-lg font-bold tabular-nums ${debt > 0 ? "text-rose-600" : ""}`}
           >
@@ -147,9 +147,9 @@ export async function ParentApp({
         {TABS.map((t) => (
           <Link
             key={t.key}
-            href={`/tg/app?child=${child.id}&tab=${t.key}`}
+            href={`/m?child=${child.id}&tab=${t.key}`}
             className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-medium ${
-              t.key === tab ? "tg-accent" : "tg-card tg-muted"
+              t.key === tab ? "app-accent" : "app-card app-muted"
             }`}
           >
             {t.label}
@@ -159,22 +159,22 @@ export async function ParentApp({
 
       {tab === "schedule" ? (
         upcoming.length === 0 ? (
-          <p className="tg-card px-4 py-8 text-center text-sm tg-muted">
+          <p className="app-card px-4 py-8 text-center text-sm app-muted">
             Rejada mashg&apos;ulot yo&apos;q.
           </p>
         ) : (
           <ul className="space-y-2">
             {upcoming.map((s) => (
-              <li key={s.id} className="tg-card flex items-center gap-3 p-3">
+              <li key={s.id} className="app-card flex items-center gap-3 p-3">
                 <div className="w-16 shrink-0">
                   <p className="text-sm font-bold tabular-nums">{timeUz(s.startsAt)}</p>
-                  <p className="text-xs tg-muted">{dateShort(s.startsAt)}</p>
+                  <p className="text-xs app-muted">{dateShort(s.startsAt)}</p>
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {SPECIALIZATIONS[s.specialist.specialization as Specialization]}
                   </p>
-                  <p className="truncate text-xs tg-muted">
+                  <p className="truncate text-xs app-muted">
                     {s.specialist.user.fullName} · {weekdayUz(s.startsAt)}
                   </p>
                 </div>
@@ -186,18 +186,18 @@ export async function ParentApp({
 
       {tab === "history" ? (
         history.length === 0 ? (
-          <p className="tg-card px-4 py-8 text-center text-sm tg-muted">
+          <p className="app-card px-4 py-8 text-center text-sm app-muted">
             Hali mashg&apos;ulot bo&apos;lmagan.
           </p>
         ) : (
           <ul className="space-y-2">
             {history.map((s) => (
-              <li key={s.id} className="tg-card flex items-center justify-between gap-3 p-3">
+              <li key={s.id} className="app-card flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {SPECIALIZATIONS[s.specialist.specialization as Specialization]}
                   </p>
-                  <p className="text-xs tg-muted">
+                  <p className="text-xs app-muted">
                     {dateShort(s.startsAt)} {timeUz(s.startsAt)} · {s.specialist.user.fullName}
                   </p>
                 </div>
@@ -221,15 +221,15 @@ export async function ParentApp({
       {tab === "billing" ? (
         <div className="space-y-2">
           {packages.length === 0 ? (
-            <p className="tg-card px-4 py-8 text-center text-sm tg-muted">Abonement yo&apos;q.</p>
+            <p className="app-card px-4 py-8 text-center text-sm app-muted">Abonement yo&apos;q.</p>
           ) : (
             packages.map((p) => (
-              <section key={p.id} className="tg-card p-3">
+              <section key={p.id} className="app-card p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">
                     {SPECIALIZATIONS[p.specialization as Specialization]}
                   </p>
-                  <p className="text-sm tabular-nums tg-muted">
+                  <p className="text-sm tabular-nums app-muted">
                     {p.remaining} / {p.totalSessions} qoldi
                   </p>
                 </div>
@@ -241,7 +241,7 @@ export async function ParentApp({
                     }}
                   />
                 </div>
-                <p className="mt-1.5 text-xs tg-muted">
+                <p className="mt-1.5 text-xs app-muted">
                   Seans narxi {money(p.pricePerSession)} · jami {money(p.cost)} · to&apos;langan{" "}
                   {money(p.paid)}
                   {p.expiresAt ? ` · ${dateShort(p.expiresAt)} gacha` : ""}
@@ -257,11 +257,11 @@ export async function ParentApp({
         </div>
       ) : null}
 
-      <footer className="mt-4 tg-card p-3 text-xs tg-muted">
+      <footer className="mt-4 app-card p-3 text-xs app-muted">
         <p className="font-semibold">{child.branch.name}</p>
         {child.branch.address ? <p>{child.branch.address}</p> : null}
         {child.branch.phone ? (
-          <a href={`tel:${child.branch.phone}`} className="tg-link">
+          <a href={`tel:${child.branch.phone}`} className="app-link">
             {child.branch.phone}
           </a>
         ) : null}

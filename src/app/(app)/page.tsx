@@ -21,20 +21,20 @@ import { Badge, Card, Empty, PageHeader, StatCard, td, th } from "@/components/u
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  if (user.role === "PARENT") redirect("/my");
+  // Mutaxassis va ota-ona uchun telefon kabineti qulayroq — katta jadvallar
+  // ularga kerak emas. "To'liq ko'rinish" havolasi orqali bu yerga qaytishadi.
+  if (user.role === "SPECIALIST" || user.role === "PARENT") redirect("/m");
 
   const branchId = user.role === "OWNER" ? null : user.branchId;
-  const specialistId = user.role === "SPECIALIST" ? user.specialistId : null;
   const month = monthRange();
   const today = dayRange();
 
   const [overview, todaySessions, activeClients, specialistRows, alerts] = await Promise.all([
-    getOverview({ branchId, specialistId, ...month }),
+    getOverview({ branchId, ...month }),
     prisma.session.findMany({
       where: {
         startsAt: { gte: today.from, lt: today.to },
         ...(branchId ? { branchId } : {}),
-        ...(specialistId ? { specialistId } : {}),
       },
       orderBy: { startsAt: "asc" },
       include: {
@@ -47,18 +47,11 @@ export default async function DashboardPage() {
       where: {
         status: "ACTIVE",
         ...(branchId ? { branchId } : {}),
-        ...(specialistId ? { specialists: { some: { specialistId } } } : {}),
       },
     }),
-    user.role === "SPECIALIST"
-      ? Promise.resolve([])
-      : getSpecialistRows({ branchId, ...month }),
-    user.role === "SPECIALIST"
-      ? Promise.resolve({ debtors: [], ending: [] })
-      : getClientAlerts({ branchId }),
+    getSpecialistRows({ branchId, ...month }),
+    getClientAlerts({ branchId }),
   ]);
-
-  const isSpec = user.role === "SPECIALIST";
 
   return (
     <>
@@ -73,7 +66,7 @@ export default async function DashboardPage() {
         <StatCard
           label="Faol mijozlar"
           value={num(activeClients)}
-          hint={isSpec ? "menga biriktirilgan" : branchId ? "bu filialda" : "barcha filiallarda"}
+          hint={branchId ? "bu filialda" : "barcha filiallarda"}
         />
         <StatCard
           label="O'tgan seanslar"
@@ -95,23 +88,14 @@ export default async function DashboardPage() {
                   : "bad"
           }
         />
-        {isSpec ? (
-          <StatCard
-            label="Ish haqim (hisoblangan)"
-            value={money(overview.salary)}
-            hint="o'tgan seanslardan"
-          />
-        ) : (
-          <StatCard
-            label="Kassaga tushgan"
-            value={money(overview.collected)}
-            hint={`xizmat qiymati ${money(overview.earned)}`}
-          />
-        )}
+        <StatCard
+          label="Kassaga tushgan"
+          value={money(overview.collected)}
+          hint={`xizmat qiymati ${money(overview.earned)}`}
+        />
       </div>
 
-      {!isSpec ? (
-        <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label="Xizmat qiymati" value={money(overview.earned)} hint="o'tgan seanslar" />
           <StatCard
             label="Mutaxassis haqi"
@@ -130,10 +114,9 @@ export default async function DashboardPage() {
             value={money(alerts.debtors.reduce((s, d) => s + d.debt, 0))}
             hint={`${alerts.debtors.length} ta abonement`}
             tone={alerts.debtors.length ? "bad" : "default"}
-            href="/payments"
-          />
-        </div>
-      ) : null}
+          href="/payments"
+        />
+      </div>
 
       <div className="mt-6 grid gap-5 xl:grid-cols-3">
         <Card
@@ -193,8 +176,7 @@ export default async function DashboardPage() {
         </Card>
 
         <div className="space-y-5">
-          {!isSpec ? (
-            <Card title="Abonementi tugayotganlar" subtitle="2 va kamroq seans qolgan">
+          <Card title="Abonementi tugayotganlar" subtitle="2 va kamroq seans qolgan">
               {alerts.ending.length === 0 ? (
                 <Empty>Hammasining abonementi yetarli.</Empty>
               ) : (
@@ -225,11 +207,9 @@ export default async function DashboardPage() {
                   ))}
                 </ul>
               )}
-            </Card>
-          ) : null}
+          </Card>
 
-          {!isSpec ? (
-            <Card title="Mutaxassislar" subtitle={`${monthYearUz(new Date())} natijalari`}>
+          <Card title="Mutaxassislar" subtitle={`${monthYearUz(new Date())} natijalari`}>
               {specialistRows.length === 0 ? (
                 <Empty>Mutaxassis qo&apos;shilmagan.</Empty>
               ) : (
@@ -250,10 +230,9 @@ export default async function DashboardPage() {
                       </p>
                     </li>
                   ))}
-                </ul>
-              )}
-            </Card>
-          ) : null}
+              </ul>
+            )}
+          </Card>
         </div>
       </div>
     </>

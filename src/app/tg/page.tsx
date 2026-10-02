@@ -35,7 +35,7 @@ export default function TelegramEntryPage() {
     })
       .then(async (res) => {
         if (res.ok) {
-          window.location.replace("/tg/app");
+          window.location.replace("/m");
           return;
         }
         const body = (await res.json().catch(() => ({}))) as { error?: string };
@@ -49,22 +49,22 @@ export default function TelegramEntryPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-5 py-10">
-      <div className="tg-card w-full max-w-sm p-6 text-center">
+      <div className="app-card w-full max-w-sm p-6 text-center">
         {state.kind === "loading" ? (
           <>
             <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-indigo-600" />
-            <p className="text-sm tg-muted">Kabinet ochilmoqda…</p>
+            <p className="text-sm app-muted">Kabinet ochilmoqda…</p>
           </>
         ) : null}
 
         {state.kind === "not_linked" ? (
           <>
             <p className="text-base font-bold">Kabinet topilmadi</p>
-            <p className="mt-2 text-sm tg-muted">
+            <p className="mt-2 text-sm app-muted">
               Telegram akkauntingiz markaz bazasiga bog&apos;lanmagan. Botga qaytib{" "}
               <b>/start</b> yuboring va telefon raqamingizni ulashing.
             </p>
-            <p className="mt-2 text-sm tg-muted">
+            <p className="mt-2 text-sm app-muted">
               Raqamingiz bazada bo&apos;lmasa, administratorga murojaat qiling.
             </p>
           </>
@@ -73,11 +73,11 @@ export default function TelegramEntryPage() {
         {state.kind === "outside" ? (
           <>
             <p className="text-base font-bold">Telegram orqali oching</p>
-            <p className="mt-2 text-sm tg-muted">
+            <p className="mt-2 text-sm app-muted">
               Bu sahifa Telegram ichida ochilishi kerak. Botdagi{" "}
               <b>&quot;Kabinetni ochish&quot;</b> tugmasini bosing.
             </p>
-            <a href="/login" className="tg-link mt-4 inline-block text-sm font-semibold">
+            <a href="/login" className="app-link mt-4 inline-block text-sm font-semibold">
               Yoki brauzerdan kirish →
             </a>
           </>
@@ -86,7 +86,7 @@ export default function TelegramEntryPage() {
         {state.kind === "error" ? (
           <>
             <p className="text-base font-bold">Xatolik</p>
-            <p className="mt-2 text-sm tg-muted">{state.message}</p>
+            <p className="mt-2 text-sm app-muted">{state.message}</p>
           </>
         ) : null}
       </div>

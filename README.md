@@ -134,6 +134,19 @@ Tizim telefon bosh ekraniga **ilova sifatida o'rnatiladi** — do'kondan yuklab
 olish, APK tarqatish yoki hech narsa imzolash shart emas. O'rnatilgach alohida
 ikonka paydo bo'ladi va brauzer satrisiz, to'liq ekranda ochiladi.
 
+**Ilova kim kirganiga qarab o'zi to'g'ri ekranni ochadi:**
+
+| Kim | Nima ochiladi |
+|---|---|
+| Mutaxassis | Telefon kabineti (`/m`): Bugun, Hafta, Mijozlarim, Pulim |
+| Ota-ona | Telefon kabineti (`/m`): keyingi mashg'ulot, jadval, davomat, abonement |
+| Markaz egasi / filial admini | To'liq boshqaruv paneli (katta jadvallar va hisobotlar) |
+
+Mutaxassis va ota-ona kabineti — Telegram Mini App bilan **aynan bir xil
+ekran**. Ya'ni xodim xohlasa Telegram'dan, xohlasa telefonga o'rnatilgan
+ilovadan kiradi, ko'rinish bir xil. Kabinet pastida «To'liq ko'rinish»
+havolasi bor — katta jadval kerak bo'lsa o'sha yerga o'tadi.
+
 - **Android (Chrome):** `/install` sahifasidagi «Ilovani o'rnatish» tugmasi,
   yoki menyudan «Ilovani o'rnatish»
 - **iPhone / iPad (Safari):** «Ulashish» → «Bosh ekranga qo'shish»
@@ -206,7 +219,9 @@ src/
     login/             kirish sahifasi va auth action'lari
     (app)/             tizim ichi: panel, jadval, mijozlar, mutaxassislar,
                        to'lovlar, hisobotlar, pulim, ota-ona kabineti
-    tg/                Telegram Mini App (mutaxassis va ota-ona kabineti)
+    m/                 telefon kabineti (mutaxassis va ota-ona) — ilova ham,
+                       Telegram Mini App ham shu sahifani ochadi
+    tg/                Telegram kirish nuqtasi (imzoni tekshirib /m ga o'tkazadi)
     api/tg/            bot webhook'i, Mini App imzo tekshiruvi, eslatmalar cron'i
   lib/
     auth.ts            sessiya, parol, rol bo'yicha ko'rish doirasi
@@ -219,7 +234,7 @@ src/
   components/          umumiy UI (kartalar, jadval, menyu, ikonkalar)
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (33 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (35 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
@@ -249,13 +264,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 69 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 71 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, PWA (33)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, PWA (35)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```

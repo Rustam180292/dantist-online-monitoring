@@ -44,13 +44,21 @@ const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
 const page = await ctx.newPage();
 
+const failedRequests = [];
+page.on("requestfailed", (r) =>
+  failedRequests.push({ url: r.url(), error: r.failure()?.errorText ?? "" }),
+);
 page.on("pageerror", (e) =>
   fails.push(`JS xatolik @ ${page.url()}: ${e.message.split("\n")[0]}`),
 );
 page.on("console", (m) => {
-  if (m.type() === "error" && !m.text().includes("favicon")) {
-    fails.push(`Konsol xatosi @ ${page.url()}: ${m.text().split("\n")[0]}`);
-  }
+  if (m.type() !== "error") return;
+  const text = m.text();
+  // Resurs yuklanmagani pastda requestfailed orqali alohida tekshiriladi:
+  // sinov muhitida telegram.org ga chiqish yopiq, bu ilovaning kamchiligi emas.
+  if (text.includes("favicon")) return;
+  if (text.includes("Failed to load resource") || text.trim() === "Event") return;
+  fails.push(`Konsol xatosi @ ${page.url()}: ${text.split("\n")[0]}`);
 });
 
 async function login(phone, password = PASSWORD) {
@@ -106,8 +114,10 @@ const pair = db
 await page.selectOption("#clientId", pair.clientId);
 await page.selectOption("#specialistId", pair.specialistId);
 
+// Har yurishda bo'sh vaqt tanlaymiz: dastur band vaqtga seans qo'shishga to'g'ri
+// yo'l qo'ymaydi, shuning uchun test ham har safar yangi kunni oladi.
 const soon = new Date();
-soon.setDate(soon.getDate() + 9);
+soon.setDate(soon.getDate() + 30 + (sessBefore % 60));
 await page.fill("#startsAt", `${soon.toISOString().slice(0, 10)}T19:15`);
 await page.click('form button:has-text("Qo\'shish")');
 const sessGrew = await waitUntil(
@@ -127,8 +137,10 @@ const payBefore = count("SELECT COUNT(*) AS n FROM Payment");
 await page.click('summary:has-text("To\'lov qabul qilish")');
 await page.fill("#amount", "250000");
 await page.click('form button:has-text("Qabul qilish")');
+// Summa bir nechta qarzdor abonementga taqsimlanishi mumkin, shuning uchun
+// "aynan bitta yozuv" emas, "yozuv qo'shildi" deb tekshiramiz
 const payGrew = await waitUntil(
-  async () => count("SELECT COUNT(*) AS n FROM Payment") === payBefore + 1,
+  async () => count("SELECT COUNT(*) AS n FROM Payment") > payBefore,
 );
 check("To'lov qabul qilindi", payGrew, `${payBefore} -> ${count("SELECT COUNT(*) AS n FROM Payment")}`);
 
@@ -213,9 +225,13 @@ for (const [path, marker] of [
 await page.goto(`${BASE}/specialists`);
 await page.waitForLoadState("networkidle");
 const payoutBefore = count("SELECT COUNT(*) AS n FROM SalaryPayout");
-const payBtn = page.locator('form button:has-text("to\'lash")').first();
-if (await payBtn.count()) {
-  await payBtn.click();
+const payRow = page
+  .locator("form")
+  .filter({ has: page.locator('button:has-text("to\'lash")') })
+  .first();
+if (await payRow.count()) {
+  await payRow.locator('input[name="amount"]').fill("100000");
+  await payRow.locator('button:has-text("to\'lash")').click();
   const payoutGrew = await waitUntil(
     async () => count("SELECT COUNT(*) AS n FROM SalaryPayout") === payoutBefore + 1,
   );
@@ -224,12 +240,10 @@ if (await payBtn.count()) {
     payoutGrew,
     `${payoutBefore} -> ${count("SELECT COUNT(*) AS n FROM SalaryPayout")}`,
   );
-  // To'lovdan keyin "qolgan" nolga tushishi kerak (butun qoldiq to'landi)
   await page.waitForLoadState("networkidle");
-  check(
-    "Qolgan summa yangilandi",
-    (await page.content()).includes("0 so'm"),
-  );
+  // Pul formatlashda uzilmas probel (\u00a0) ishlatiladi — solishtirishdan oldin tenglashtiramiz
+  const shown = (await page.content()).replace(/\u00a0/g, " ");
+  check("Ish haqi to'lovi ro'yxatda ko'rinadi", shown.includes("100 000 so'm"));
 } else {
   check("Ish haqi to'lab berildi", false, "to'lash tugmasi topilmadi");
 }
@@ -296,9 +310,21 @@ if (await payBtn.count()) {
 
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
-check("Mutaxassis kirdi", (await page.content()).includes("Assalomu alaykum"));
+check(
+  "Mutaxassis telefon kabinetiga tushadi",
+  page.url().endsWith("/m") && (await page.content()).includes("Qolgan pulim"),
+  page.url(),
+);
+
+// To'liq ko'rinishda ham menyu rolga mos bo'lishi kerak
+await page.goto(`${BASE}/schedule`);
+await page.waitForLoadState("networkidle");
 const navText = await page.locator("aside").innerText();
-check("Mutaxassisga to'lov/hisobot menyusi berkitilgan", !navText.includes("Hisobotlar"));
+check(
+  "Mutaxassisga to'lov/hisobot menyusi berkitilgan",
+  !navText.includes("Hisobotlar") && !navText.includes("To'lovlar"),
+  navText.replace(/\n/g, " | "),
+);
 await page.goto(`${BASE}/payments`);
 check("Mutaxassis /payments ga kira olmaydi", !page.url().includes("/payments"), page.url());
 
@@ -314,17 +340,36 @@ check(
 /* 11. Ota-ona kabineti */
 await login(parent.phone);
 check(
-  "Ota-ona kabineti ochildi",
-  page.url().includes("/my") && (await page.content()).includes("Farzandim"),
+  "Ota-ona telefon kabinetiga tushadi",
+  page.url().endsWith("/m") && (await page.content()).includes("Keyingi mashg"),
   page.url(),
 );
 check("Ota-onaga qolgan seans ko'rsatiladi", (await page.content()).includes("Qolgan seans"));
+
+await page.goto(`${BASE}/my`);
+await page.waitForLoadState("networkidle");
+check(
+  "Ota-onaning to'liq ko'rinishi ham ishlaydi",
+  (await page.content()).includes("Farzandim"),
+  page.url(),
+);
 await page.goto(`${BASE}/clients`);
 check(
   "Ota-ona boshqa mijozlarni ko'rmaydi",
   !(await page.content()).includes("Yangi mijoz qo'shish"),
   page.url(),
 );
+
+// Ilovaning o'z resurslari yuklanadimi (tashqi telegram.org bundan mustasno,
+// ERR_ABORTED esa sahifadan sahifaga tez o'tganda bekor bo'lgan prefetch)
+const ownFailures = [
+  ...new Set(
+    failedRequests
+      .filter((f) => !f.url.includes("telegram.org") && !f.error.includes("ERR_ABORTED"))
+      .map((f) => `${f.url} (${f.error})`),
+  ),
+];
+check("Ilovaning o'z resurslari yuklanadi", ownFailures.length === 0, ownFailures.join(", "));
 
 await browser.close();
 

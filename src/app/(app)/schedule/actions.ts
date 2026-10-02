@@ -81,7 +81,7 @@ export async function setSessionStatus(formData: FormData) {
   revalidatePath(`/clients/${session.clientId}`);
   revalidatePath("/reports");
   revalidatePath("/earnings");
-  revalidatePath("/tg/app");
+  revalidatePath("/m");
 }
 
 /** Yangi seans qo'shish */

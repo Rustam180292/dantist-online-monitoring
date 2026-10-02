@@ -9,10 +9,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const items: NavItem[] = [];
   if (user.role === "PARENT") {
+    items.push({ href: "/m", label: "Kabinet", icon: "phone" });
     items.push({ href: "/my", label: "Farzandim", icon: "child" });
-    items.push({ href: "/schedule", label: "Jadval", icon: "calendar" });
   } else {
-    items.push({ href: "/", label: "Panel", icon: "home" });
+    // Mutaxassisning uy sahifasi — telefon kabineti
+    items.push(
+      user.role === "SPECIALIST"
+        ? { href: "/m", label: "Kabinet", icon: "phone" }
+        : { href: "/", label: "Panel", icon: "home" },
+    );
     items.push({ href: "/schedule", label: "Jadval", icon: "calendar" });
     items.push({ href: "/clients", label: "Mijozlar", icon: "users" });
     if (user.role === "SPECIALIST") {

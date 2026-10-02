@@ -14,7 +14,7 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === "PARENT" ? "/my" : "/");
+  if (user) redirect(user.role === "SPECIALIST" || user.role === "PARENT" ? "/m" : "/");
 
   const { error } = await searchParams;
   const message = error ? ERRORS[error] ?? "Kirishda xatolik." : null;
