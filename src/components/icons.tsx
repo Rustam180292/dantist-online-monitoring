@@ -8,6 +8,7 @@ export type IconKey =
   | "wallet"
   | "chart"
   | "child"
+  | "phone"
   | "logout";
 
 const PATHS: Record<IconKey, string> = {
@@ -23,6 +24,8 @@ const PATHS: Record<IconKey, string> = {
   chart: "M4 20V4m0 16h16M8 16.5V11m4 5.5V7.5m4 9v-4",
   child:
     "M12 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm0 0v3m0 0-3 5m3-5 3 5M8 13.5h8",
+  phone:
+    "M7.5 3.5h9a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1Zm3 14h3",
   logout: "M15 8.5V6a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-2.5M9.5 12h11m0 0-3-3m3 3-3 3",
 };
 

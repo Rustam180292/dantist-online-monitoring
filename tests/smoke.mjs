@@ -248,6 +248,52 @@ if (await payBtn.count()) {
   check("Mutaxassisga ish haqi hisoblangan", accrued > 0, `${accrued} so'm`);
 }
 
+/* 9d. PWA: telefon bosh ekraniga o'rnatish uchun kerakli fayllar */
+{
+  const manifestRes = await fetch(`${BASE}/manifest.webmanifest`);
+  const manifest = await manifestRes.json().catch(() => ({}));
+  check(
+    "Manifest fayli beriladi",
+    manifestRes.status === 200 &&
+      manifest.display === "standalone" &&
+      Array.isArray(manifest.icons) &&
+      manifest.icons.length >= 2,
+    `status ${manifestRes.status}`,
+  );
+  check(
+    "Maskable ikonka bor",
+    (manifest.icons ?? []).some((i) => i.purpose === "maskable"),
+  );
+
+  for (const path of ["/sw.js", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png", "/offline.html"]) {
+    const res = await fetch(`${BASE}${path}`);
+    check(`PWA fayli ${path}`, res.status === 200, `status ${res.status}`);
+  }
+
+  // Xizmat ishchisi brauzerda haqiqatan ro'yxatdan o'tadimi
+  await page.goto(`${BASE}/install`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "O'rnatish sahifasi ochiladi",
+    (await page.content()).includes("bosh ekraniga o"),
+    page.url(),
+  );
+
+  const swReady = await page
+    .waitForFunction(
+      async () => {
+        if (!("serviceWorker" in navigator)) return false;
+        const regs = await navigator.serviceWorker.getRegistrations();
+        return regs.length > 0;
+      },
+      null,
+      { timeout: 8000 },
+    )
+    .then(() => true)
+    .catch(() => false);
+  check("Xizmat ishchisi ro'yxatdan o'tadi", swReady);
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check("Mutaxassis kirdi", (await page.content()).includes("Assalomu alaykum"));

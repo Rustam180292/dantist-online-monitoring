@@ -53,6 +53,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {user.fullName}
           </p>
           <p className="mb-2 px-2 text-xs text-slate-500 dark:text-slate-400">{roleLine}</p>
+          <a
+            href="/install"
+            className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            <Icon name="phone" className="h-4 w-4" />
+            Telefonga o&apos;rnatish
+          </a>
           <form action={logout}>
             <button
               type="submit"

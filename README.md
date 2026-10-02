@@ -128,6 +128,32 @@ curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=<APP_URL>/api/tg/webhoo
 - `initData` 24 soatdan eski bo'lsa qabul qilinmaydi.
 - Bazada yo'q raqam bog'lanmaydi — avval admin uni tizimga kiritishi kerak.
 
+## Telefonga o'rnatish (PWA)
+
+Tizim telefon bosh ekraniga **ilova sifatida o'rnatiladi** — do'kondan yuklab
+olish, APK tarqatish yoki hech narsa imzolash shart emas. O'rnatilgach alohida
+ikonka paydo bo'ladi va brauzer satrisiz, to'liq ekranda ochiladi.
+
+- **Android (Chrome):** `/install` sahifasidagi «Ilovani o'rnatish» tugmasi,
+  yoki menyudan «Ilovani o'rnatish»
+- **iPhone / iPad (Safari):** «Ulashish» → «Bosh ekranga qo'shish»
+- **Kompyuter (Chrome / Edge):** manzil satridagi o'rnatish belgisi
+
+Xodimlarga shunchaki `<domen>/install` havolasini yuborsangiz yetadi — sahifa
+telefon turini o'zi aniqlab, mos yo'riqnomani ko'rsatadi. Tizim ichida ham
+menyuning pastida «Telefonga o'rnatish» havolasi bor.
+
+> **Nega APK emas?** APK Google Play'siz tarqatilganda har bir telefonda
+> «noma'lum manbalardan o'rnatish» ni yoqish kerak, Play Protect ogohlantiradi
+> va eng muhimi — iPhone'da umuman ishlamaydi. PWA ikkala tizimda ham bir xil
+> ishlaydi. Keyinchalik haqiqatan APK kerak bo'lsa, shu PWA'dan PWABuilder yoki
+> Bubblewrap orqali yasash mumkin — ya'ni bu yo'l APK eshigini yopmaydi.
+
+**Offline holat:** sahifalar hech qachon keshlanmaydi — ularda shaxsiy ma'lumot
+bor va bitta telefondan ikki kishi kirsa birining ma'lumoti ikkinchisiga
+ko'rinib qolishi mumkin edi. Faqat o'zgarmaydigan fayllar (ikonka, shriftlar,
+skriptlar) saqlanadi, internet uzilsa esa "aloqa yo'q" sahifasi chiqadi.
+
 ## Ishga tushirish
 
 ```bash
@@ -191,8 +217,9 @@ src/
     notify.ts          eslatmalarni navbatga qo'yish va yuborish
     format.ts          sana, vaqt, pul va yosh formatlash
   components/          umumiy UI (kartalar, jadval, menyu, ikonkalar)
+public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar (22 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (33 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
@@ -222,13 +249,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 58 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 69 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar (22)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, PWA (33)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```
