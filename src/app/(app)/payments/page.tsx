@@ -33,7 +33,7 @@ export default async function PaymentsPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const user = await requireRole("OWNER", "BRANCH_ADMIN");
+  const user = await requireRole("OWNER", "BRANCH_ADMIN", "RECEPTION");
   const sp = await searchParams;
 
   const offset = Number.parseInt(sp.m ?? "0", 10) || 0;

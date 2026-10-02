@@ -24,6 +24,8 @@ export default async function DashboardPage() {
   // Mutaxassis va ota-ona uchun telefon kabineti qulayroq — katta jadvallar
   // ularga kerak emas. "To'liq ko'rinish" havolasi orqali bu yerga qaytishadi.
   if (user.role === "SPECIALIST" || user.role === "PARENT") redirect("/m");
+  // Qabulxona xodimiga foyda va maosh ko'rsatkichlari kerak emas — uning ishi jadvalda
+  if (user.role === "RECEPTION") redirect("/schedule");
 
   const branchId = user.role === "OWNER" ? null : user.branchId;
   const month = monthRange();

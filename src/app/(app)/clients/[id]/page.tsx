@@ -50,7 +50,10 @@ const NOTIFICATION_KINDS: Record<string, string> = {
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await requireUser();
-  const isAdmin = user.role === "OWNER" || user.role === "BRANCH_ADMIN";
+  // Qabulxona xodimi mijoz bilan ishlaydi, lekin yozuvni o'chira olmaydi
+  const canManage =
+    user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
+  const canDelete = user.role === "OWNER" || user.role === "BRANCH_ADMIN";
 
   const client = await prisma.client.findFirst({
     where: { id, ...clientScope(user) },
@@ -77,7 +80,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   const [packages, freeSpecialists, notifications] = await Promise.all([
     getClientPackages(client.id),
-    isAdmin
+    canManage
       ? prisma.specialist.findMany({
           where: {
             branchId: client.branchId,
@@ -88,7 +91,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           orderBy: { specialization: "asc" },
         })
       : Promise.resolve([]),
-    isAdmin
+    canManage
       ? prisma.notification.findMany({
           where: { clientId: client.id },
           orderBy: { createdAt: "desc" },
@@ -172,7 +175,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               </ul>
             )}
 
-            {isAdmin ? (
+            {canManage ? (
               <details className="border-t border-slate-200 p-4 dark:border-slate-800">
                 <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
                   + Abonement sotish
@@ -283,7 +286,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             )}
           </Card>
 
-          {isAdmin || user.role === "PARENT" ? (
+          {canManage || user.role === "PARENT" ? (
             <Card title="To'lovlar" subtitle={`jami ${money(totalPaid)}`}>
               {client.payments.length === 0 ? (
                 <Empty>To&apos;lov yo&apos;q.</Empty>
@@ -296,7 +299,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                         <th className={th}>Summa</th>
                         <th className={th}>Usul</th>
                         <th className={th}>Izoh</th>
-                        {isAdmin ? <th className={th} /> : null}
+                        {canDelete ? <th className={th} /> : null}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -306,7 +309,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                           <td className={`${td} font-semibold tabular-nums`}>{money(p.amount)}</td>
                           <td className={td}>{PAYMENT_METHODS[p.method as PaymentMethod]}</td>
                           <td className={td}>{p.note ?? "—"}</td>
-                          {isAdmin ? (
+                          {canDelete ? (
                             <td className={td}>
                               <form action={deletePayment}>
                                 <input type="hidden" name="paymentId" value={p.id} />
@@ -327,7 +330,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                 </div>
               )}
 
-              {isAdmin ? (
+              {canManage ? (
                 <details className="border-t border-slate-200 p-4 dark:border-slate-800">
                   <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
                     + To&apos;lov qabul qilish
@@ -445,7 +448,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                         {SPECIALIZATIONS[a.specialist.specialization as Specialization]}
                       </p>
                     </div>
-                    {isAdmin ? (
+                    {canManage ? (
                       <form action={unassignSpecialist}>
                         <input type="hidden" name="clientId" value={client.id} />
                         <input type="hidden" name="specialistId" value={a.specialistId} />
@@ -463,7 +466,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               </ul>
             )}
 
-            {isAdmin && freeSpecialists.length > 0 ? (
+            {canManage && freeSpecialists.length > 0 ? (
               <form
                 action={assignSpecialist}
                 className="flex items-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"
@@ -488,7 +491,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             ) : null}
           </Card>
 
-          {isAdmin ? (
+          {canManage ? (
             <Card title="Ota-onaga ketgan xabarlar" subtitle="oxirgi 8 ta">
               {!client.parent?.telegramId ? (
                 <Empty>
@@ -525,7 +528,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             </Card>
           ) : null}
 
-          {isAdmin ? (
+          {canManage ? (
             <Card title="Holat">
               <div className="flex flex-wrap gap-2 p-4">
                 {CLIENT_STATUS_KEYS.map((s) => (

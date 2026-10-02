@@ -2,6 +2,7 @@
 export const ROLES = {
   OWNER: "Markaz egasi",
   BRANCH_ADMIN: "Filial admini",
+  RECEPTION: "Qabulxona xodimi",
   SPECIALIST: "Mutaxassis",
   PARENT: "Ota-ona",
 } as const;

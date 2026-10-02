@@ -13,17 +13,20 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     items.push({ href: "/my", label: "Farzandim", icon: "child" });
   } else {
     // Mutaxassisning uy sahifasi — telefon kabineti
-    items.push(
-      user.role === "SPECIALIST"
-        ? { href: "/m", label: "Kabinet", icon: "phone" }
-        : { href: "/", label: "Panel", icon: "home" },
-    );
+    if (user.role === "SPECIALIST") {
+      items.push({ href: "/m", label: "Kabinet", icon: "phone" });
+    } else if (user.role !== "RECEPTION") {
+      items.push({ href: "/", label: "Panel", icon: "home" });
+    }
     items.push({ href: "/schedule", label: "Jadval", icon: "calendar" });
     items.push({ href: "/clients", label: "Mijozlar", icon: "users" });
     if (user.role === "SPECIALIST") {
       items.push({ href: "/earnings", label: "Pulim", icon: "wallet" });
+    } else if (user.role === "RECEPTION") {
+      // Qabulxona xodimiga maosh, xodimlar va hisobotlar ko'rinmaydi
+      items.push({ href: "/payments", label: "To'lovlar", icon: "wallet" });
     } else {
-      items.push({ href: "/specialists", label: "Mutaxassislar", icon: "badge" });
+      items.push({ href: "/specialists", label: "Xodimlar", icon: "badge" });
       items.push({ href: "/payments", label: "To'lovlar", icon: "wallet" });
       items.push({ href: "/reports", label: "Hisobotlar", icon: "chart" });
     }

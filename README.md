@@ -17,7 +17,7 @@ mutaxassisning **o'z mijozlari** bor.
 | **Panel** | Oylik ko'rsatkichlar: faol mijozlar, o'tgan seanslar, davomat %, kassa, xizmat qiymati, mutaxassis haqi, markaz ulushi, qarzdorlik. Bugungi jadval. Abonementi tugayotganlar ro'yxati. |
 | **Jadval** | Haftalik jadval, oldinga/orqaga o'tish, filial va mutaxassis bo'yicha filtr. Bir bosishda davomat: **O'tdi / Kelmadi / Bekor**. Yangi seans qo'shish (mutaxassisning band vaqti tekshiriladi). |
 | **Mijozlar** | Qidiruv va filtr, qolgan seans va qarz ustunlari. Mijoz kartasi: abonementlar (progress bilan), seanslar tarixi, to'lovlar, biriktirilgan mutaxassislar, holat (Faol / To'xtatilgan / Arxiv). |
-| **Mutaxassislar** | Oylik natijalar: mijoz soni, o'tdi/kelmadi/rejada, xizmat qiymati, ish haqi foizi va hisoblangan ish haqi. Yangi mutaxassis (login bilan) qo'shish, foizni o'zgartirish, ishdan bo'shatish/qaytarish. **Ish haqi hisob-kitobi**: hisoblangan − to'langan = qolgan, bir bosishda to'lab berish. |
+| **Xodimlar** | Oylik natijalar: mijoz soni, o'tdi/kelmadi/rejada, xizmat qiymati, ish haqi foizi va hisoblangan ish haqi. Yangi mutaxassis (login bilan) qo'shish, foizni o'zgartirish, ishdan bo'shatish/qaytarish. **Ish haqi hisob-kitobi**: hisoblangan − to'langan = qolgan, bir bosishda to'lab berish. |
 | **Pulim** (mutaxassis) | Mutaxassisning o'z kabineti: qolgan (olishim kerak), shu oyda hisoblangan, jami hisoblangan va to'langan; har bir seansdan qancha tekkani va qo'lga tekkan to'lovlar tarixi. |
 | **To'lovlar** | Oy bo'yicha tushum, usul kesimi (naqd/karta/o'tkazma), to'lovlar ro'yxati va qarzdorlar. |
 | **Hisobotlar** | Oylik hisobot: filiallar kesimi, mutaxassislar kesimi, yo'nalishlar kesimi, markaz ulushi. |
@@ -29,7 +29,8 @@ mutaxassisning **o'z mijozlari** bor.
 | Rol | Nimani ko'radi |
 |---|---|
 | `OWNER` — markaz egasi | Barcha filiallar, barcha bo'limlar |
-| `BRANCH_ADMIN` — filial admini | Faqat o'z filiali |
+| `BRANCH_ADMIN` — filial admini | Faqat o'z filiali, barcha bo'limlar |
+| `RECEPTION` — qabulxona xodimi | O'z filialida faqat **Jadval, Mijozlar, To'lovlar**. Mijoz qabul qiladi, abonement sotadi, to'lov oladi, davomat belgilaydi. Maosh, xodimlar va hisobotlar ko'rinmaydi; yozilgan to'lovni o'chira olmaydi |
 | `SPECIALIST` — mutaxassis | Faqat o'ziga biriktirilgan mijozlar va o'z seanslari; davomat belgilaydi. To'lov/hisobot bo'limlari yopiq |
 | `PARENT` — ota-ona | Faqat o'z farzandi, o'zgartirish huquqisiz |
 
@@ -189,6 +190,7 @@ npm run build && npm start
 | Markaz egasi | `+998901234567` |
 | Filial admini (Chilonzor) | `+998901110011` |
 | Filial admini (Yunusobod) | `+998902220022` |
+| Qabulxona xodimi (Chilonzor) | `+998901110012` |
 | Mutaxassis (ABA, Chilonzor) | `+998901110101` |
 | Ota-ona | mijoz kartasida ko'rinadi |
 
@@ -234,7 +236,7 @@ src/
   components/          umumiy UI (kartalar, jadval, menyu, ikonkalar)
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (35 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (43 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
@@ -264,13 +266,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 71 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 79 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, PWA (35)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (43)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```

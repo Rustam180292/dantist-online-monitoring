@@ -135,14 +135,21 @@ export async function requireRole(...roles: Role[]): Promise<CurrentUser> {
 /* ---------- Ko'rish doirasi (rolga qarab) ---------- */
 
 export const isOwner = (u: CurrentUser) => u.role === "OWNER";
+/** Markaz egasi va filial admini — pul, maosh va hisobotlarni ko'radi */
 export const isAdmin = (u: CurrentUser) => u.role === "OWNER" || u.role === "BRANCH_ADMIN";
+/**
+ * Qabulxona ishini qiladiganlar: mijoz qabul qilish, jadval, abonement va to'lov.
+ * Maosh, hisobot va xodimlar bo'limi bularga ochilmaydi.
+ */
+export const isFrontDesk = (u: CurrentUser) =>
+  u.role === "OWNER" || u.role === "BRANCH_ADMIN" || u.role === "RECEPTION";
 export const isSpecialist = (u: CurrentUser) => u.role === "SPECIALIST";
 export const isParent = (u: CurrentUser) => u.role === "PARENT";
 
 /**
  * Mijozlar ro'yxatiga rolga mos Prisma filtri:
  * - OWNER: hammasi
- * - BRANCH_ADMIN: o'z filiali
+ * - BRANCH_ADMIN va RECEPTION: o'z filiali
  * - SPECIALIST: faqat o'ziga biriktirilgan mijozlar
  * - PARENT: faqat o'z farzandlari
  */
@@ -151,6 +158,7 @@ export function clientScope(user: CurrentUser) {
     case "OWNER":
       return {};
     case "BRANCH_ADMIN":
+    case "RECEPTION":
       return { branchId: user.branchId ?? "__yoq__" };
     case "SPECIALIST":
       return { specialists: { some: { specialistId: user.specialistId ?? "__yoq__" } } };
@@ -165,6 +173,7 @@ export function sessionScope(user: CurrentUser) {
     case "OWNER":
       return {};
     case "BRANCH_ADMIN":
+    case "RECEPTION":
       return { branchId: user.branchId ?? "__yoq__" };
     case "SPECIALIST":
       return { specialistId: user.specialistId ?? "__yoq__" };

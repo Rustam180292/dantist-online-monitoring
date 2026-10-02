@@ -13,7 +13,19 @@ import {
   type Specialization,
 } from "@/lib/constants";
 
-/** Faqat OWNER va BRANCH_ADMIN o'zgartirishi mumkin */
+/**
+ * Qabulxona ishi: mijoz qo'shish, abonement sotish, to'lov qabul qilish.
+ * Markaz egasi, filial admini va qabulxona xodimi qila oladi.
+ */
+async function requireFrontDesk(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (user.role !== "OWNER" && user.role !== "BRANCH_ADMIN" && user.role !== "RECEPTION") {
+    throw new Error("Sizda bu amal uchun ruxsat yo'q.");
+  }
+  return user;
+}
+
+/** Faqat markaz egasi va filial admini — pulni o'chirish kabi qaytarib bo'lmas amallar uchun */
 async function requireAdmin(): Promise<CurrentUser> {
   const user = await requireUser();
   if (user.role !== "OWNER" && user.role !== "BRANCH_ADMIN") {
@@ -28,7 +40,7 @@ async function assertClientAccess(user: CurrentUser, clientId: string) {
     select: { id: true, branchId: true },
   });
   if (!client) throw new Error("Mijoz topilmadi.");
-  if (user.role === "BRANCH_ADMIN" && client.branchId !== user.branchId) {
+  if (user.role !== "OWNER" && client.branchId !== user.branchId) {
     throw new Error("Bu mijoz sizning filialingizga tegishli emas.");
   }
   return client;
@@ -43,7 +55,7 @@ function parseAmount(raw: FormDataEntryValue | null, field: string): number {
 
 /** Yangi mijoz (bola) qo'shish */
 export async function createClient(formData: FormData) {
-  const user = await requireAdmin();
+  const user = await requireFrontDesk();
 
   const fullName = String(formData.get("fullName") ?? "").trim();
   const birthDateRaw = String(formData.get("birthDate") ?? "");
@@ -101,7 +113,7 @@ export async function createClient(formData: FormData) {
 
 /** Mijoz holatini o'zgartirish: Faol / To'xtatilgan / Arxiv */
 export async function setClientStatus(formData: FormData) {
-  const user = await requireAdmin();
+  const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const status = String(formData.get("status") ?? "") as ClientStatus;
   if (!CLIENT_STATUS_KEYS.includes(status)) throw new Error("Holat noto'g'ri.");
@@ -115,7 +127,7 @@ export async function setClientStatus(formData: FormData) {
 
 /** Mijozni mutaxassisga biriktirish */
 export async function assignSpecialist(formData: FormData) {
-  const user = await requireAdmin();
+  const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const specialistId = String(formData.get("specialistId") ?? "");
   if (!specialistId) throw new Error("Mutaxassisni tanlang.");
@@ -141,7 +153,7 @@ export async function assignSpecialist(formData: FormData) {
 
 /** Biriktirishni olib tashlash */
 export async function unassignSpecialist(formData: FormData) {
-  const user = await requireAdmin();
+  const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const specialistId = String(formData.get("specialistId") ?? "");
   await assertClientAccess(user, clientId);
@@ -155,7 +167,7 @@ export async function unassignSpecialist(formData: FormData) {
 
 /** Abonement (seans paketi) sotish */
 export async function addPackage(formData: FormData) {
-  const user = await requireAdmin();
+  const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const specialization = String(formData.get("specialization") ?? "") as Specialization;
   if (!SPECIALIZATION_KEYS.includes(specialization)) {
@@ -209,7 +221,7 @@ export async function addPackage(formData: FormData) {
 
 /** To'lov qabul qilish */
 export async function addPayment(formData: FormData) {
-  const user = await requireAdmin();
+  const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const amount = parseAmount(formData.get("amount"), "Summa");
   const method = String(formData.get("method") ?? "CASH") as PaymentMethod;
@@ -277,7 +289,7 @@ export async function deletePayment(formData: FormData) {
     select: { clientId: true, branchId: true },
   });
   if (!payment) throw new Error("To'lov topilmadi.");
-  if (user.role === "BRANCH_ADMIN" && payment.branchId !== user.branchId) {
+  if (user.role !== "OWNER" && payment.branchId !== user.branchId) {
     throw new Error("Bu to'lov sizning filialingizga tegishli emas.");
   }
 

@@ -17,9 +17,11 @@ import {
   th,
 } from "@/components/ui";
 import {
+  createReception,
   createSpecialist,
   deletePayout,
   paySalary,
+  toggleReceptionActive,
   toggleSpecialistActive,
   updateSalaryPercent,
 } from "./actions";
@@ -29,7 +31,7 @@ export default async function SpecialistsPage() {
   const branchId = user.role === "OWNER" ? null : user.branchId;
   const month = monthRange();
 
-  const [rows, inactive, branches, balances, payouts] = await Promise.all([
+  const [rows, inactive, branches, balances, payouts, reception] = await Promise.all([
     getSpecialistRows({ branchId, ...month }),
     prisma.specialist.findMany({
       where: { isActive: false, ...(branchId ? { branchId } : {}) },
@@ -43,6 +45,11 @@ export default async function SpecialistsPage() {
       take: 15,
       include: { specialist: { include: { user: { select: { fullName: true } } } } },
     }),
+    prisma.user.findMany({
+      where: { role: "RECEPTION", ...(branchId ? { branchId } : {}) },
+      include: { branch: { select: { name: true } } },
+      orderBy: { fullName: "asc" },
+    }),
   ]);
 
   const totalSalary = rows.reduce((s, r) => s + r.salary, 0);
@@ -51,7 +58,7 @@ export default async function SpecialistsPage() {
   return (
     <>
       <PageHeader
-        title="Mutaxassislar"
+        title="Xodimlar"
         subtitle={`${rows.length} ta faol mutaxassis · ${monthYearUz(new Date())}: xizmat ${money(
           totalRevenue,
         )}, ish haqi ${money(totalSalary)}`}
@@ -310,6 +317,100 @@ export default async function SpecialistsPage() {
             </ul>
           </div>
         ) : null}
+      </Card>
+
+      <Card
+        title="Qabulxona xodimlari"
+        subtitle="mijoz qabul qiladi va to'lov oladi; maosh, hisobot va xodimlar bo'limi ularga ko'rinmaydi"
+        className="mt-5"
+      >
+        {reception.length === 0 ? (
+          <Empty>Qabulxona xodimi qo&apos;shilmagan.</Empty>
+        ) : (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            {reception.map((r) => (
+              <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                    {r.fullName}
+                    {!r.isActive ? (
+                      <span className="ml-2 text-xs font-normal text-slate-400">(faol emas)</span>
+                    ) : null}
+                  </p>
+                  <p className="truncate text-xs text-slate-400">
+                    {r.phone}
+                    {!branchId ? ` · ${r.branch?.name ?? ""}` : ""}
+                  </p>
+                </div>
+                <form action={toggleReceptionActive}>
+                  <input type="hidden" name="userId" value={r.id} />
+                  <button
+                    type="submit"
+                    className={
+                      r.isActive
+                        ? "text-xs text-slate-400 hover:text-rose-600"
+                        : "text-xs font-semibold text-indigo-600 hover:underline"
+                    }
+                  >
+                    {r.isActive ? "bo'shatish" : "qaytarish"}
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <details className="border-t border-slate-200 p-4 dark:border-slate-800">
+          <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
+            + Qabulxona xodimi qo&apos;shish
+          </summary>
+          <form action={createReception} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label className={label} htmlFor="rFullName">
+                F.I.Sh. *
+              </label>
+              <input id="rFullName" name="fullName" className={input} required />
+            </div>
+            <div>
+              <label className={label} htmlFor="rPhone">
+                Telefon (login) *
+              </label>
+              <input
+                id="rPhone"
+                name="phone"
+                type="tel"
+                placeholder="+998901234567"
+                className={input}
+                required
+              />
+            </div>
+            <div>
+              <label className={label} htmlFor="rPassword">
+                Parol *
+              </label>
+              <input id="rPassword" name="password" type="text" className={input} required />
+            </div>
+            {branches.length > 0 ? (
+              <div>
+                <label className={label} htmlFor="rBranch">
+                  Filial *
+                </label>
+                <select id="rBranch" name="branchId" className={input} required>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className="flex items-end">
+              <button type="submit" className={`${btnPrimary} w-full`}>
+                Qo&apos;shish
+              </button>
+            </div>
+          </form>
+        </details>
       </Card>
 
       {inactive.length > 0 ? (

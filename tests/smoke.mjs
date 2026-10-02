@@ -22,6 +22,9 @@ const db = new Database(DB_PATH, { readonly: true });
 const parent = db.prepare("SELECT phone FROM User WHERE role='PARENT' LIMIT 1").get();
 const specialist = db.prepare("SELECT phone FROM User WHERE role='SPECIALIST' LIMIT 1").get();
 const owner = db.prepare("SELECT phone FROM User WHERE role='OWNER' LIMIT 1").get();
+const reception = db
+  .prepare("SELECT phone, fullName FROM User WHERE role='RECEPTION' AND isActive=1 LIMIT 1")
+  .get();
 
 const count = (sql) => db.prepare(sql).get().n;
 
@@ -336,6 +339,64 @@ check(
   earningsBody.includes("Qolgan (olishim kerak)") && earningsBody.includes("Jami hisoblangan"),
   page.url(),
 );
+
+/* 10b. Qabulxona xodimi: faqat jadval, mijozlar va to'lovlar */
+if (!reception) {
+  check("Qabulxona xodimi mavjud", false, "seed'da yo'q");
+} else {
+  await login(reception.phone);
+  check(
+    "Qabulxona xodimi jadvalga tushadi",
+    page.url().includes("/schedule"),
+    page.url(),
+  );
+
+  const recNav = await page.locator("aside").innerText();
+  check(
+    "Qabulxonada faqat 3 bo'lim bor",
+    recNav.includes("Jadval") &&
+      recNav.includes("Mijozlar") &&
+      recNav.includes("To'lovlar") &&
+      !recNav.includes("Hisobotlar") &&
+      !recNav.includes("Xodimlar") &&
+      !recNav.includes("Panel"),
+    recNav.replace(/\n/g, " | "),
+  );
+
+  await page.goto(`${BASE}/reports`);
+  check("Qabulxona hisobotlarni ko'ra olmaydi", !page.url().includes("/reports"), page.url());
+
+  await page.goto(`${BASE}/specialists`);
+  check("Qabulxona xodimlar bo'limiga kira olmaydi", !page.url().includes("/specialists"), page.url());
+
+  // To'lov qabul qila oladimi
+  const recPayBefore = count("SELECT COUNT(*) AS n FROM Payment");
+  await page.goto(`${BASE}/payments`);
+  await page.waitForLoadState("networkidle");
+  check("Qabulxona to'lovlar sahifasini ko'radi", (await page.content()).includes("Jami tushum"));
+
+  await page.click('summary:has-text("To\'lov qabul qilish")');
+  await page.fill("#amount", "150000");
+  await page.click('form button:has-text("Qabul qilish")');
+  const recPaid = await waitUntil(
+    async () => count("SELECT COUNT(*) AS n FROM Payment") > recPayBefore,
+  );
+  check("Qabulxona to'lov qabul qila oladi", recPaid);
+
+  // Mijoz kartasida to'lovni o'chirish tugmasi ko'rinmasligi kerak
+  await page.goto(`${BASE}/clients`);
+  await page.locator("tbody tr a").first().click();
+  await page.waitForLoadState("networkidle");
+  const cardHtml = await page.content();
+  check(
+    "Qabulxona abonement sotishi mumkin",
+    cardHtml.includes("Abonement sotish"),
+  );
+  check(
+    "Qabulxona to'lovni o'chira olmaydi",
+    !cardHtml.includes('name="paymentId"'),
+  );
+}
 
 /* 11. Ota-ona kabineti */
 await login(parent.phone);

@@ -38,6 +38,7 @@ const BRANCHES = [
     address: "Toshkent, Chilonzor tumani, Bunyodkor shoh ko'chasi 12",
     phone: "+998 71 200 10 10",
     admin: { fullName: "Nilufar Qosimova", phone: "+998901110011" },
+    reception: { fullName: "Shahnoza Rajabova", phone: "+998901110012" },
     specialists: [
       { fullName: "Dilnoza Rahimova", phone: "+998901110101", specialization: "ABA", salaryPercent: 45 },
       { fullName: "Gulnora Yusupova", phone: "+998901110102", specialization: "LOGOPED", salaryPercent: 45 },
@@ -51,6 +52,7 @@ const BRANCHES = [
     address: "Toshkent, Yunusobod tumani, Amir Temur shoh ko'chasi 108",
     phone: "+998 71 200 20 20",
     admin: { fullName: "Zulfiya Karimova", phone: "+998902220022" },
+    reception: { fullName: "Gulbahor Ernazarova", phone: "+998902220023" },
     specialists: [
       { fullName: "Madina Saidova", phone: "+998902220201", specialization: "ABA", salaryPercent: 45 },
       { fullName: "Shahzoda Umarova", phone: "+998902220202", specialization: "LOGOPED", salaryPercent: 45 },
@@ -137,6 +139,16 @@ async function main() {
         fullName: b.admin.fullName,
         passwordHash: pwd,
         role: "BRANCH_ADMIN",
+        branchId: branch.id,
+      },
+    });
+
+    await prisma.user.create({
+      data: {
+        phone: b.reception.phone,
+        fullName: b.reception.fullName,
+        passwordHash: pwd,
+        role: "RECEPTION",
         branchId: branch.id,
       },
     });
@@ -376,6 +388,7 @@ Demo ma'lumotlar tayyor:
 Kirish (barcha demo parol: ${DEMO_PASSWORD})
   Markaz egasi:    +998901234567
   Filial admini:   +998901110011  (Chilonzor)
+  Qabulxona:       +998901110012  (Chilonzor)
   Mutaxassis:      +998901110101  (ABA terapevt, Chilonzor)
   Ota-ona:         birinchi mijozning telefoni — mijoz kartasida ko'rinadi
 `);

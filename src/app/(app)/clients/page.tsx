@@ -39,7 +39,8 @@ export default async function ClientsPage({
 }) {
   const user = await requireUser();
   const sp = await searchParams;
-  const isAdmin = user.role === "OWNER" || user.role === "BRANCH_ADMIN";
+  const canManage =
+    user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
 
   const q = (sp.q ?? "").trim();
   const statusFilter = CLIENT_STATUS_KEYS.includes(sp.st as ClientStatus)
@@ -151,7 +152,7 @@ export default async function ClientsPage({
         </button>
       </form>
 
-      {isAdmin ? (
+      {canManage ? (
         <details className={`${card} mb-5 p-4`}>
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
             + Yangi mijoz qo&apos;shish

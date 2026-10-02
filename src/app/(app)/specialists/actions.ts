@@ -157,3 +157,50 @@ export async function deletePayout(formData: FormData) {
   revalidatePath("/specialists");
   revalidatePath("/earnings");
 }
+
+/** Qabulxona xodimi uchun akkaunt ochish */
+export async function createReception(formData: FormData) {
+  const user = await requireAdmin();
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const branchId =
+    user.role === "OWNER" ? String(formData.get("branchId") ?? "") : (user.branchId ?? "");
+
+  if (!fullName || !phone || !branchId) throw new Error("Ism, telefon va filial majburiy.");
+  if (password.length < 5) throw new Error("Parol kamida 5 belgidan bo'lsin.");
+
+  const exists = await prisma.user.findUnique({ where: { phone } });
+  if (exists) throw new Error("Bu telefon raqam allaqachon ro'yxatda.");
+
+  await prisma.user.create({
+    data: {
+      phone,
+      fullName,
+      passwordHash: hashPassword(password),
+      role: "RECEPTION",
+      branchId,
+    },
+  });
+
+  revalidatePath("/specialists");
+}
+
+/** Qabulxona xodimini o'chirish / qaytarish */
+export async function toggleReceptionActive(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, branchId: true, isActive: true },
+  });
+  if (!target || target.role !== "RECEPTION") throw new Error("Xodim topilmadi.");
+  if (admin.role === "BRANCH_ADMIN" && target.branchId !== admin.branchId) {
+    throw new Error("Bu xodim sizning filialingizda ishlamaydi.");
+  }
+
+  await prisma.user.update({ where: { id: userId }, data: { isActive: !target.isActive } });
+  revalidatePath("/specialists");
+}

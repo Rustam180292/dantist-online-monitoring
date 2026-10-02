@@ -20,6 +20,7 @@ async function assertCanEdit(sessionId: string) {
     case "OWNER":
       break;
     case "BRANCH_ADMIN":
+    case "RECEPTION":
       if (session.branchId !== user.branchId) throw new Error("Bu filial sizga tegishli emas.");
       break;
     case "SPECIALIST":
@@ -110,7 +111,7 @@ export async function createSession(formData: FormData) {
   ]);
   if (!client || !specialist) throw new Error("Mijoz yoki mutaxassis topilmadi.");
 
-  if (user.role === "BRANCH_ADMIN" && client.branchId !== user.branchId) {
+  if (user.role !== "OWNER" && user.role !== "SPECIALIST" && client.branchId !== user.branchId) {
     throw new Error("Bu mijoz sizning filialingizga tegishli emas.");
   }
   if (user.role === "SPECIALIST" && specialist.id !== user.specialistId) {

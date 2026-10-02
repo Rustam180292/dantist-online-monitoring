@@ -14,7 +14,15 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === "SPECIALIST" || user.role === "PARENT" ? "/m" : "/");
+  if (user) {
+    redirect(
+      user.role === "SPECIALIST" || user.role === "PARENT"
+        ? "/m"
+        : user.role === "RECEPTION"
+          ? "/schedule"
+          : "/",
+    );
+  }
 
   const { error } = await searchParams;
   const message = error ? ERRORS[error] ?? "Kirishda xatolik." : null;
