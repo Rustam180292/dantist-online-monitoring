@@ -11,22 +11,17 @@
  * Manzilni o'zgartirish:  BASE_URL=http://localhost:3000 node tests/smoke.mjs
  */
 import playwright from "playwright";
-import Database from "better-sqlite3";
+import { all, closeDb, count, one } from "./db.mjs";
 
 const { chromium } = playwright;
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
-const DB_PATH = process.env.SMOKE_DB ?? "prisma/dev.db";
 const PASSWORD = process.env.SMOKE_PASSWORD ?? "parol123";
 
-const db = new Database(DB_PATH, { readonly: true });
-const parent = db.prepare("SELECT phone FROM User WHERE role='PARENT' LIMIT 1").get();
-const specialist = db.prepare("SELECT phone FROM User WHERE role='SPECIALIST' LIMIT 1").get();
-const owner = db.prepare("SELECT phone FROM User WHERE role='OWNER' LIMIT 1").get();
-const reception = db
-  .prepare("SELECT phone, fullName FROM User WHERE role='RECEPTION' AND isActive=1 LIMIT 1")
-  .get();
+const parent = await one("SELECT phone FROM User WHERE role='PARENT' LIMIT 1");
+const specialist = await one("SELECT phone FROM User WHERE role='SPECIALIST' LIMIT 1");
+const owner = await one("SELECT phone FROM User WHERE role='OWNER' LIMIT 1");
+const reception = await one("SELECT phone, fullName FROM User WHERE role='RECEPTION' AND isActive = true LIMIT 1");
 
-const count = (sql) => db.prepare(sql).get().n;
 
 /** Shart bajarilishini kutadi (server action fon rejimida tugashi uchun) */
 async function waitUntil(fn, timeoutMs = 8000) {
@@ -86,34 +81,51 @@ await login(owner.phone);
 check("Markaz egasi kirdi", (await page.content()).includes("Assalomu alaykum"), page.url());
 
 /* 4. Davomat belgilash */
-await page.goto(`${BASE}/schedule`);
-const doneBefore = count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'");
+
+/** Sana qaysi haftaga tushishini hisoblaydi (0 = shu hafta) */
+const mondayOf = (d) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x;
+};
+const weekOffsetOf = (date) =>
+  Math.round((mondayOf(date) - mondayOf(new Date())) / (7 * 86400000));
+
+// Joriy haftada rejadagi seans qolmagan bo'lishi mumkin (masalan hafta oxirida),
+// shuning uchun eng yaqin rejadagi seansni topib, o'sha haftaga o'tamiz.
+const nextPlanned = await one(
+  "SELECT startsAt FROM Session WHERE status='PLANNED' ORDER BY startsAt ASC LIMIT 1",
+);
+const plannedWeek = nextPlanned ? weekOffsetOf(nextPlanned.startsAt) : 0;
+
+await page.goto(`${BASE}/schedule?w=${plannedWeek}`);
+await page.waitForLoadState("networkidle");
+const doneBefore = await count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'");
 const doneBtn = page.locator('form button:has-text("O\'tdi")').first();
 if (await doneBtn.count()) {
   await doneBtn.click();
   const grew = await waitUntil(
-    async () => count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'") === doneBefore + 1,
+    async () => await count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'") === doneBefore + 1,
   );
-  check("Davomat \"O'tdi\" deb belgilanadi", grew, `${doneBefore} -> ${count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'")}`);
+  check("Davomat \"O'tdi\" deb belgilanadi", grew, `${doneBefore} -> ${await count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'")}`);
 } else {
   check("Davomat belgilash", false, "rejadagi seans topilmadi");
 }
 
 /* 5. Yangi seans qo'shish */
 await page.goto(`${BASE}/schedule?w=1`);
-const sessBefore = count("SELECT COUNT(*) AS n FROM Session");
+const sessBefore = await count("SELECT COUNT(*) AS n FROM Session");
 await page.click('summary:has-text("Yangi seans")');
 
 // Mijoz va mutaxassis bitta filialdan bo'lishi kerak — ataylab mos juftlikni tanlaymiz
-const pair = db
-  .prepare(
-    `SELECT c.id AS clientId, sp.id AS specialistId
-       FROM Client c
-       JOIN Specialist sp ON sp.branchId = c.branchId AND sp.isActive = 1
-      WHERE c.status = 'ACTIVE'
-      LIMIT 1`,
-  )
-  .get();
+const pair = await one(
+  `SELECT c.id AS clientId, sp.id AS specialistId
+     FROM Client c
+     JOIN Specialist sp ON sp.branchId = c.branchId AND sp.isActive = true
+    WHERE c.status = 'ACTIVE'
+    LIMIT 1`,
+);
 await page.selectOption("#clientId", pair.clientId);
 await page.selectOption("#specialistId", pair.specialistId);
 
@@ -124,9 +136,9 @@ soon.setDate(soon.getDate() + 30 + (sessBefore % 60));
 await page.fill("#startsAt", `${soon.toISOString().slice(0, 10)}T19:15`);
 await page.click('form button:has-text("Qo\'shish")');
 const sessGrew = await waitUntil(
-  async () => count("SELECT COUNT(*) AS n FROM Session") === sessBefore + 1,
+  async () => await count("SELECT COUNT(*) AS n FROM Session") === sessBefore + 1,
 );
-check("Yangi seans qo'shildi", sessGrew, `${sessBefore} -> ${count("SELECT COUNT(*) AS n FROM Session")}`);
+check("Yangi seans qo'shildi", sessGrew, `${sessBefore} -> ${await count("SELECT COUNT(*) AS n FROM Session")}`);
 
 /* 6. Mijozlar ro'yxati va kartasi */
 await page.goto(`${BASE}/clients`);
@@ -136,26 +148,26 @@ await page.waitForLoadState("networkidle");
 check("Mijoz kartasi ochildi", (await page.content()).includes("Abonementlar"), page.url());
 
 /* 7. To'lov qabul qilish */
-const payBefore = count("SELECT COUNT(*) AS n FROM Payment");
+const payBefore = await count("SELECT COUNT(*) AS n FROM Payment");
 await page.click('summary:has-text("To\'lov qabul qilish")');
 await page.fill("#amount", "250000");
 await page.click('form button:has-text("Qabul qilish")');
 // Summa bir nechta qarzdor abonementga taqsimlanishi mumkin, shuning uchun
 // "aynan bitta yozuv" emas, "yozuv qo'shildi" deb tekshiramiz
 const payGrew = await waitUntil(
-  async () => count("SELECT COUNT(*) AS n FROM Payment") > payBefore,
+  async () => await count("SELECT COUNT(*) AS n FROM Payment") > payBefore,
 );
-check("To'lov qabul qilindi", payGrew, `${payBefore} -> ${count("SELECT COUNT(*) AS n FROM Payment")}`);
+check("To'lov qabul qilindi", payGrew, `${payBefore} -> ${await count("SELECT COUNT(*) AS n FROM Payment")}`);
 
 /* 8. Abonement sotish */
-const pkgBefore = count("SELECT COUNT(*) AS n FROM Package");
+const pkgBefore = await count("SELECT COUNT(*) AS n FROM Package");
 await page.click('summary:has-text("Abonement sotish")');
 await page.fill("#pricePerSession", "130000");
 await page.click('form button:has-text("Sotish")');
 const pkgGrew = await waitUntil(
-  async () => count("SELECT COUNT(*) AS n FROM Package") === pkgBefore + 1,
+  async () => await count("SELECT COUNT(*) AS n FROM Package") === pkgBefore + 1,
 );
-check("Abonement sotildi", pkgGrew, `${pkgBefore} -> ${count("SELECT COUNT(*) AS n FROM Package")}`);
+check("Abonement sotildi", pkgGrew, `${pkgBefore} -> ${await count("SELECT COUNT(*) AS n FROM Package")}`);
 
 /* 9. Qolgan sahifalar ochiladi */
 for (const [path, marker] of [
@@ -174,32 +186,29 @@ for (const [path, marker] of [
 /* 9a. To'lovlar sahifasidan qo'lda to'lov kiritish (qarzni yopadi) */
 {
   const packageDebt = (packageId) =>
-    db
-      .prepare(
-        `SELECT (p.totalSessions * p.pricePerSession)
-                - COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0) AS n
-           FROM Package p WHERE p.id = ?`,
-      )
-      .get(packageId).n;
+    count(
+      `SELECT (p.totalSessions * p.pricePerSession)
+              - COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0) AS n
+         FROM Package p WHERE p.id = ?`,
+      packageId,
+    );
 
-  const debtor = db
-    .prepare(
-      `SELECT c.id AS clientId, c.fullName AS clientName, p.id AS packageId
-         FROM Package p
-         JOIN Client c ON c.id = p.clientId
-        WHERE p.isActive = 1 AND c.status = 'ACTIVE'
-          AND (p.totalSessions * p.pricePerSession) >
-              COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0)
-        ORDER BY p.purchasedAt ASC
-        LIMIT 1`,
-    )
-    .get();
+  const debtor = await one(
+    `SELECT c.id AS clientId, c.fullName AS clientName, p.id AS packageId
+       FROM Package p
+       JOIN Client c ON c.id = p.clientId
+      WHERE p.isActive = true AND c.status = 'ACTIVE'
+        AND (p.totalSessions * p.pricePerSession) >
+            COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0)
+      ORDER BY p.purchasedAt ASC
+      LIMIT 1`,
+  );
 
   if (!debtor) {
     check("To'lovlar sahifasidan to'lov kiritiladi", false, "qarzdor topilmadi");
   } else {
-    const debtBefore = packageDebt(debtor.packageId);
-    const paymentsBefore = count("SELECT COUNT(*) AS n FROM Payment");
+    const debtBefore = await packageDebt(debtor.packageId);
+    const paymentsBefore = await count("SELECT COUNT(*) AS n FROM Payment");
 
     await page.goto(`${BASE}/payments`);
     await page.waitForLoadState("networkidle");
@@ -209,17 +218,17 @@ for (const [path, marker] of [
     await page.click('form button:has-text("Qabul qilish")');
 
     const paid = await waitUntil(
-      async () => count("SELECT COUNT(*) AS n FROM Payment") > paymentsBefore,
+      async () => await count("SELECT COUNT(*) AS n FROM Payment") > paymentsBefore,
     );
     check(
       "To'lovlar sahifasidan to'lov kiritiladi",
       paid,
-      `${paymentsBefore} -> ${count("SELECT COUNT(*) AS n FROM Payment")}`,
+      `${paymentsBefore} -> ${await count("SELECT COUNT(*) AS n FROM Payment")}`,
     );
     check(
       "To'lov qarzni avtomatik yopadi",
-      packageDebt(debtor.packageId) === 0,
-      `qarz: ${debtBefore} -> ${packageDebt(debtor.packageId)}`,
+      (await packageDebt(debtor.packageId)) === 0,
+      `qarz: ${debtBefore} -> ${await packageDebt(debtor.packageId)}`,
     );
   }
 }
@@ -227,7 +236,7 @@ for (const [path, marker] of [
 /* 9b. Mutaxassisga ish haqi to'lab berish */
 await page.goto(`${BASE}/specialists`);
 await page.waitForLoadState("networkidle");
-const payoutBefore = count("SELECT COUNT(*) AS n FROM SalaryPayout");
+const payoutBefore = await count("SELECT COUNT(*) AS n FROM SalaryPayout");
 const payRow = page
   .locator("form")
   .filter({ has: page.locator('button:has-text("to\'lash")') })
@@ -236,12 +245,12 @@ if (await payRow.count()) {
   await payRow.locator('input[name="amount"]').fill("100000");
   await payRow.locator('button:has-text("to\'lash")').click();
   const payoutGrew = await waitUntil(
-    async () => count("SELECT COUNT(*) AS n FROM SalaryPayout") === payoutBefore + 1,
+    async () => await count("SELECT COUNT(*) AS n FROM SalaryPayout") === payoutBefore + 1,
   );
   check(
     "Ish haqi to'lab berildi",
     payoutGrew,
-    `${payoutBefore} -> ${count("SELECT COUNT(*) AS n FROM SalaryPayout")}`,
+    `${payoutBefore} -> ${await count("SELECT COUNT(*) AS n FROM SalaryPayout")}`,
   );
   await page.waitForLoadState("networkidle");
   // Pul formatlashda uzilmas probel (\u00a0) ishlatiladi — solishtirishdan oldin tenglashtiramiz
@@ -253,12 +262,11 @@ if (await payRow.count()) {
 
 /* 9c. Mutaxassis o'z pulini ko'radi */
 {
-  const specRow = db
-    .prepare(
-      "SELECT s.id FROM Specialist s JOIN User u ON u.id = s.userId WHERE u.phone = ? LIMIT 1",
-    )
-    .get(specialist.phone);
-  const accrued = count(
+  const specRow = await one(
+    "SELECT s.id FROM Specialist s JOIN User u ON u.id = s.userId WHERE u.phone = ? LIMIT 1",
+    specialist.phone,
+  );
+  const accrued = await count(
     `SELECT COALESCE(SUM(CAST(price * COALESCE(salaryPercent, 0) / 100 AS INTEGER)), 0) AS n
        FROM Session WHERE specialistId = '${specRow.id}' AND status IN ('DONE','NO_SHOW')`,
   );
@@ -370,7 +378,7 @@ if (!reception) {
   check("Qabulxona xodimlar bo'limiga kira olmaydi", !page.url().includes("/specialists"), page.url());
 
   // To'lov qabul qila oladimi
-  const recPayBefore = count("SELECT COUNT(*) AS n FROM Payment");
+  const recPayBefore = await count("SELECT COUNT(*) AS n FROM Payment");
   await page.goto(`${BASE}/payments`);
   await page.waitForLoadState("networkidle");
   check("Qabulxona to'lovlar sahifasini ko'radi", (await page.content()).includes("Jami tushum"));
@@ -379,7 +387,7 @@ if (!reception) {
   await page.fill("#amount", "150000");
   await page.click('form button:has-text("Qabul qilish")');
   const recPaid = await waitUntil(
-    async () => count("SELECT COUNT(*) AS n FROM Payment") > recPayBefore,
+    async () => await count("SELECT COUNT(*) AS n FROM Payment") > recPayBefore,
   );
   check("Qabulxona to'lov qabul qila oladi", recPaid);
 
@@ -433,6 +441,8 @@ const ownFailures = [
 check("Ilovaning o'z resurslari yuklanadi", ownFailures.length === 0, ownFailures.join(", "));
 
 await browser.close();
+
+await closeDb();
 
 console.log("\n=== O'TDI ===");
 for (const line of ok) console.log(`  ✓ ${line}`);

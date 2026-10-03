@@ -177,10 +177,17 @@ skriptlar) saqlanadi, internet uzilsa esa "aloqa yo'q" sahifasi chiqadi.
 
 ```bash
 npm install
-cp .env.example .env        # kerak bo'lsa DATABASE_URL va SESSION_SECRET ni o'zgartiring
-npm run db:reset            # bazani yaratadi va demo ma'lumot to'ldiradi
+cp .env.example .env        # DATABASE_URL va SESSION_SECRET ni to'ldiring
+npm run db:reset            # jadvallarni yaratadi va demo ma'lumot to'ldiradi
 npm run dev                 # http://localhost:3000
 ```
+
+**Baza kerak.** Eng tez yo'l — [neon.tech](https://neon.tech) da bepul
+PostgreSQL ochib, ulanish manzilini `.env` dagi `DATABASE_URL` ga qo'yish.
+Lokalda o'rnatilgan PostgreSQL ham bo'ladi.
+
+Internetga chiqarish uchun: **[DEPLOY.md](DEPLOY.md)** — bosqichma-bosqich
+yo'riqnoma (bepul manzil, Telegram bot va eslatmalar bilan).
 
 Production uchun:
 
@@ -206,7 +213,7 @@ npm run build && npm start
 ## Texnologiyalar
 
 - **Next.js 16** (App Router, Server Actions) + **React 19** + **TypeScript**
-- **Prisma 7** + **SQLite** (`better-sqlite3` driver adapteri orqali)
+- **Prisma 7** + **PostgreSQL** (`pg` driver adapteri orqali)
 - **Tailwind CSS v4**
 - Auth: `scrypt` bilan parol xeshi + HMAC-SHA256 bilan imzolangan httpOnly cookie
   (tashqi kutubxonasiz, `src/lib/auth.ts`)
@@ -241,6 +248,7 @@ src/
   components/          umumiy UI (kartalar, jadval, menyu, ikonkalar)
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
+  db.mjs               testlar uchun bazaga kichik ulanish
   smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (43 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
@@ -282,25 +290,28 @@ node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```
 
-`tests/telegram.mjs` va `tests/parent.mjs` ishlashi uchun `.env` da
-`TELEGRAM_BOT_TOKEN` va `CRON_SECRET` bo'lishi kerak — lokal sinov uchun istalgan
-satr yetadi, ular faqat imzo yasash va tekshirish uchun ishlatiladi.
+Testlar bazaga to'g'ridan-to'g'ri ham qaraydi (`tests/db.mjs`), shuning uchun
+`.env` da `DATABASE_URL` bo'lishi shart. `tests/telegram.mjs` va
+`tests/parent.mjs` uchun qo'shimcha `TELEGRAM_BOT_TOKEN` va `CRON_SECRET`
+kerak — lokal sinov uchun istalgan satr yetadi, ular faqat imzo yasash va
+tekshirish uchun ishlatiladi.
 
-> `npm run db:reset` baza faylini o'chirib qaytadan yaratadi. Ishlab turgan
-> server eski faylga ulangan holda qoladi, shuning uchun reset'dan keyin
-> serverni qayta ishga tushiring.
+> `npm run db:reset` bazadagi hamma ma'lumotni o'chirib, demo ma'lumotni
+> qayta yozadi. Haqiqiy mijozlar kiritilgandan keyin uni ishlatmang.
 
-## Postgres'ga o'tish
+## Baza haqida
 
-SQLite bitta fayl — bir filialning kundalik ishiga yetadi, lekin bir nechta
-odam bir vaqtda yozsa Postgres afzal:
+Ma'lumotlar **PostgreSQL** da saqlanadi. Prisma `pg` driver-adapteri orqali
+ulanadi, ya'ni istalgan PostgreSQL to'g'ri keladi: Neon, Supabase, o'z
+serveringizdagi baza yoki mahalliy hosting. Ko'chish uchun faqat
+`DATABASE_URL` ni almashtirish va `npx prisma db push` ishlatish kifoya —
+kod o'zgarmaydi.
 
-1. `prisma/schema.prisma` da `provider = "postgresql"`;
-2. `npm i @prisma/adapter-pg pg` va `src/lib/prisma.ts` da adapterni almashtirish;
-3. `.env` da `DATABASE_URL="postgresql://..."`;
-4. `npx prisma migrate dev`.
+Zaxira nusxa:
 
-Qolgan kod o'zgarishsiz qoladi.
+```bash
+pg_dump "$DATABASE_URL" > zaxira-$(date +%F).sql
+```
 
 ## Keyingi bosqichlar uchun g'oyalar
 

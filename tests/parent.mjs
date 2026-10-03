@@ -6,12 +6,11 @@
  */
 import { createHmac } from "node:crypto";
 import playwright from "playwright";
-import Database from "better-sqlite3";
+import { all, closeDb, count, one } from "./db.mjs";
 import "dotenv/config";
 
 const { chromium } = playwright;
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
-const DB_PATH = process.env.SMOKE_DB ?? "prisma/dev.db";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
@@ -21,10 +20,6 @@ if (!BOT_TOKEN || !CRON_SECRET) {
   process.exit(1);
 }
 
-const db = new Database(DB_PATH, { readonly: true });
-const one = (sql, ...a) => db.prepare(sql).get(...a);
-const all = (sql, ...a) => db.prepare(sql).all(...a);
-const count = (sql, ...a) => db.prepare(sql).get(...a).n;
 
 const ok = [];
 const fails = [];
@@ -52,7 +47,7 @@ function makeInitData(user) {
 }
 
 /* Rejadagi seansi bor bolaning ota-onasini tanlaymiz */
-const target = one(`
+const target = await one(`
   SELECT u.id AS userId, u.phone, u.fullName, c.id AS clientId, c.fullName AS childName,
          s.id AS sessionId, s.startsAt
     FROM Session s
@@ -86,7 +81,7 @@ const PARENT_TG_ID = 910000001;
       },
     }),
   });
-  const row = one("SELECT telegramId FROM User WHERE id=?", target.userId);
+  const row = await one("SELECT telegramId FROM User WHERE id=?", target.userId);
   check(
     "Ota-ona Telegram'ga bog'landi",
     res.status === 200 && row.telegramId === String(PARENT_TG_ID),
@@ -161,8 +156,8 @@ if (!cookieMatch) {
 
   /* 5. Ota-ona boshqa bolani ko'ra olmaydi */
   {
-    const other = one(
-      "SELECT id, fullName FROM Client WHERE parentUserId IS NOT ? AND parentUserId IS NOT NULL LIMIT 1",
+    const other = await one(
+      "SELECT id, fullName FROM Client WHERE parentUserId <> ? AND parentUserId IS NOT NULL LIMIT 1",
       target.userId,
     );
     await page.goto(`${BASE}/tg/app?child=${other.id}`);
@@ -193,23 +188,23 @@ if (!cookieMatch) {
       }),
     });
 
-  const debtor = one(`
+  const debtor = await one(`
     SELECT u.phone AS phone
       FROM Package p
       JOIN Client c ON c.id = p.clientId
       JOIN User u ON u.id = c.parentUserId
-     WHERE p.isActive = 1 AND c.status = 'ACTIVE'
+     WHERE p.isActive = true AND c.status = 'ACTIVE'
        AND (p.totalSessions * p.pricePerSession) >
            COALESCE((SELECT SUM(amount) FROM Payment WHERE packageId = p.id), 0)
      LIMIT 1
   `);
 
-  const lowPackage = one(`
+  const lowPackage = await one(`
     SELECT u.phone AS phone
       FROM Package p
       JOIN Client c ON c.id = p.clientId
       JOIN User u ON u.id = c.parentUserId
-     WHERE p.isActive = 1 AND c.status = 'ACTIVE'
+     WHERE p.isActive = true AND c.status = 'ACTIVE'
        AND p.totalSessions -
            (SELECT COUNT(*) FROM Session s
              WHERE s.packageId = p.id AND s.status IN ('DONE','NO_SHOW')) <= 2
@@ -226,7 +221,7 @@ if (!cookieMatch) {
   }
 
   /* 7. Eslatmalar navbatga qo'yiladi */
-  const before = count("SELECT COUNT(*) AS n FROM Notification");
+  const before = await count("SELECT COUNT(*) AS n FROM Notification");
   let firstRun;
   {
     const res = await fetch(`${BASE}/api/tg/notify`, {
@@ -234,14 +229,14 @@ if (!cookieMatch) {
       headers: { "x-cron-secret": CRON_SECRET },
     });
     firstRun = await res.json();
-    const after = count("SELECT COUNT(*) AS n FROM Notification");
+    const after = await count("SELECT COUNT(*) AS n FROM Notification");
     check(
       "Eslatmalar navbatga qo'yildi",
       res.status === 200 && after > before,
       `${before} -> ${after}`,
     );
 
-    const kinds = all("SELECT DISTINCT kind AS k FROM Notification").map((r) => r.k);
+    const kinds = (await all("SELECT DISTINCT kind AS k FROM Notification")).map((r) => r.k);
     check(
       "Eslatma turlari to'g'ri",
       kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PACKAGE_LOW", "DEBT"].includes(k)),
@@ -261,13 +256,13 @@ if (!cookieMatch) {
 
   /* 8. Ikkinchi yurishda takrorlanmaydi */
   {
-    const beforeSecond = count("SELECT COUNT(*) AS n FROM Notification");
+    const beforeSecond = await count("SELECT COUNT(*) AS n FROM Notification");
     const res = await fetch(`${BASE}/api/tg/notify`, {
       method: "POST",
       headers: { "x-cron-secret": CRON_SECRET },
     });
     const second = await res.json();
-    const afterSecond = count("SELECT COUNT(*) AS n FROM Notification");
+    const afterSecond = await count("SELECT COUNT(*) AS n FROM Notification");
     check(
       "Bir xil eslatma ikki marta yozilmaydi",
       afterSecond === beforeSecond,
@@ -277,7 +272,7 @@ if (!cookieMatch) {
 
   /* 9. Yuborilmagan xabar qayta urinish uchun qoladi */
   {
-    const pending = one(
+    const pending = await one(
       "SELECT attempts, error, sentAt FROM Notification ORDER BY createdAt DESC LIMIT 1",
     );
     check(
@@ -289,7 +284,7 @@ if (!cookieMatch) {
 
   /* 10. Xabar matni bolaning ismi bilan */
   {
-    const row = one(
+    const row = await one(
       "SELECT text FROM Notification WHERE clientId=? ORDER BY createdAt DESC LIMIT 1",
       target.clientId,
     );
@@ -336,7 +331,7 @@ if (!cookieMatch) {
       await btn.click();
       const notified = await waitUntil(
         async () =>
-          count("SELECT COUNT(*) AS n FROM Notification WHERE kind='SESSION_DONE'") > 0,
+          await count("SELECT COUNT(*) AS n FROM Notification WHERE kind='SESSION_DONE'") > 0,
       );
       check("Mashg'ulot o'tgani haqida xabar yoziladi", notified);
     } else {
@@ -359,7 +354,9 @@ if (!cookieMatch) {
 }
 
 function report() {
-  console.log("\n=== O'TDI ===");
+  closeDb();
+
+console.log("\n=== O'TDI ===");
   for (const line of ok) console.log(`  ✓ ${line}`);
   if (fails.length) {
     console.log("\n=== XATO ===");

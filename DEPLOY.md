@@ -1,0 +1,186 @@
+# Internetga chiqarish (deploy)
+
+Bu yo'riqnoma loyihani **bepul** manzilga chiqaradi va Telegram bot bilan
+ulaydi. Kompyuterda emas, internetda ishlaydigan bo'ladi — ya'ni mutaxassislar
+va ota-onalar telefonidan kira oladi.
+
+Taxminan **40–60 daqiqa** vaqt oladi. Dasturchi bo'lish shart emas.
+
+## Nima kerak (hammasi bepul)
+
+| Nima | Qayerdan | Narx |
+|---|---|---|
+| GitHub akkaunt | github.com | bepul |
+| Vercel akkaunt | vercel.com | bepul |
+| Neon akkaunt (baza) | neon.tech | bepul |
+| Telegram bot | @BotFather | bepul |
+
+Domen sotib olish shart emas — Vercel bepul manzil beradi
+(`loyiha-nomi.vercel.app`), u HTTPS bilan keladi va Telegram Mini App uchun
+yetarli.
+
+---
+
+## 1-qadam. Bepul baza (Neon)
+
+1. [neon.tech](https://neon.tech) ga kiring, GitHub orqali ro'yxatdan o'ting
+2. **Create project** → nom: `logoped`, region: Europe (eng yaqini)
+3. Ochilgan sahifada **Connection string** ni nusxalang. U shunga o'xshaydi:
+
+```
+postgresql://foydalanuvchi:parol@ep-xxx.eu-central-1.aws.neon.tech/logoped?sslmode=require
+```
+
+Bu matnni saqlab qo'ying — keyin ikki joyda kerak bo'ladi.
+
+> Neon bepul tarifi bu loyihaga bemalol yetadi: 10 ta markaz, minglab seans.
+
+## 2-qadam. Maxfiy kalitlarni yasash
+
+Terminalda:
+
+```bash
+openssl rand -hex 32   # SESSION_SECRET uchun
+openssl rand -hex 16   # TELEGRAM_WEBHOOK_SECRET uchun
+openssl rand -hex 16   # CRON_SECRET uchun
+```
+
+Uchalasini alohida saqlab qo'ying.
+
+## 3-qadam. Telegram bot
+
+1. [@BotFather](https://t.me/BotFather) ga `/newbot`
+2. Nom: masalan `Logoped Markaz`
+3. Username: `_bot` bilan tugasin, masalan `logoped_markaz_bot`
+4. BotFather bergan **tokenni** saqlang
+
+## 4-qadam. Vercel'ga chiqarish
+
+1. [vercel.com](https://vercel.com) ga GitHub orqali kiring
+2. **Add New → Project** → ro'yxatdan `dantist-online-monitoring` ni tanlang
+3. **Import** bosing
+4. **Environment Variables** bo'limiga quyidagilarni kiriting:
+
+| Nomi | Qiymati |
+|---|---|
+| `DATABASE_URL` | Neon bergan connection string |
+| `SESSION_SECRET` | 1-buyruq natijasi (64 belgi) |
+| `TELEGRAM_BOT_TOKEN` | BotFather bergan token |
+| `TELEGRAM_WEBHOOK_SECRET` | 2-buyruq natijasi |
+| `CRON_SECRET` | 3-buyruq natijasi |
+| `APP_URL` | hozircha bo'sh qoldiring, 6-qadamda to'ldiriladi |
+
+5. **Deploy** bosing va 2–3 daqiqa kuting
+
+Tayyor bo'lgach Vercel sizga manzil beradi, masalan:
+`https://dantist-online-monitoring.vercel.app`
+
+## 5-qadam. Bazani tayyorlash
+
+Baza hali bo'sh — jadvallarni yaratish kerak. Buni **o'z kompyuteringizdan**
+qilasiz:
+
+```bash
+cd ~/Documents/logoped-crm
+
+# Neon manzilini vaqtincha ishlatamiz
+export DATABASE_URL="<Neon connection string>"
+
+npx prisma db push      # jadvallarni yaratadi
+npm run db:seed         # demo ma'lumot to'ldiradi
+```
+
+> **Diqqat:** `npm run db:seed` bazadagi hamma narsani o'chirib, demo
+> ma'lumotni qayta yozadi. Haqiqiy mijozlar kiritilgandan keyin uni
+> **hech qachon ishlatmang**.
+
+Endi Vercel manzilini brauzerda oching va `+998901234567` / `parol123` bilan
+kiring — demo ma'lumot bilan ishlayotgan bo'lishi kerak.
+
+## 6-qadam. APP_URL ni to'ldirish
+
+1. Vercel'da loyihangiz → **Settings → Environment Variables**
+2. `APP_URL` ni tahrirlab, Vercel bergan manzilni yozing (oxirida `/` bo'lmasin):
+   `https://dantist-online-monitoring.vercel.app`
+3. **Deployments** → oxirgisining yonidagi uch nuqta → **Redeploy**
+
+## 7-qadam. Telegram botni ulash
+
+Terminalda (o'z qiymatlaringizni qo'ying):
+
+```bash
+TOKEN="<bot token>"
+APP="https://dantist-online-monitoring.vercel.app"
+SECRET="<TELEGRAM_WEBHOOK_SECRET>"
+
+curl "https://api.telegram.org/bot$TOKEN/setWebhook?url=$APP/api/tg/webhook&secret_token=$SECRET"
+```
+
+Javobda `"ok":true` chiqishi kerak.
+
+So'ng BotFather'da Mini App tugmasini qo'ying:
+
+1. `/mybots` → botingizni tanlang → **Bot Settings → Menu Button**
+2. **Configure menu button** → manzil: `https://.../tg`, matn: `Kabinet`
+
+**Tekshirish:** botga `/start` yuboring → "Raqamimni yuborish" tugmasini
+bosing → kabinet ochilishi kerak. (Raqamingiz bazada bo'lishi shart —
+demo ma'lumotdagi raqamlardan birini o'zingizga yozib qo'ying yoki
+tizimdan yangi xodim qo'shing.)
+
+## 8-qadam. Eslatmalar (cron)
+
+Ota-onalarga ertangi mashg'ulot, qarz va abonement haqida xabar yuborish
+uchun kuniga bir marta chaqirilishi kerak.
+
+[cron-job.org](https://cron-job.org) da bepul ro'yxatdan o'ting:
+
+- **URL:** `https://.../api/tg/notify?secret=<CRON_SECRET>`
+- **Schedule:** har kuni soat 19:00
+- **Method:** POST
+
+## Tekshirish ro'yxati
+
+- [ ] Vercel manzili ochiladi, kirish ishlaydi
+- [ ] Mutaxassis sifatida kirganda telefon kabineti ochiladi
+- [ ] Qabulxona xodimida faqat 3 bo'lim ko'rinadi
+- [ ] Botga `/start` → raqam → kabinet ochildi
+- [ ] Telefonda "Bosh ekranga qo'shish" ishladi (`/install` sahifasi)
+- [ ] Cron chaqirilganda `{"ok":true}` qaytdi
+
+---
+
+## Muhim ogohlantirishlar
+
+**1. Avval faqat demo ma'lumot bilan sinang.** Haqiqiy bolalar va ota-onalar
+ma'lumotini kiritishdan oldin quyidagi savolni hal qiling: O'zbekiston
+qonunchiligida fuqarolarning shaxsiy ma'lumotlari mamlakat hududidagi
+serverlarda saqlanishi talab qilinadi. Neon va Vercel — chet el serverlari.
+Yurist bilan maslahatlashing; kerak bo'lsa keyinchalik mahalliy hostingga
+ko'chamiz (kod o'zgarmaydi, faqat `DATABASE_URL` va server almashadi).
+
+**2. Vercel'ning bepul tarifi tijorat uchun emas.** Mijozlardan pul olishni
+boshlaganingizda pullik tarifga o'tish kerak.
+
+**3. `SESSION_SECRET` ni hech kimga bermang.** U o'zgarsa, hamma tizimdan
+chiqib ketadi (xavfli emas, shunchaki qayta kirish kerak bo'ladi).
+
+**4. Zaxira nusxa.** Neon avtomatik zaxira oladi, lekin oyiga bir marta
+o'zingiz ham nusxa oling:
+
+```bash
+pg_dump "<DATABASE_URL>" > zaxira-$(date +%F).sql
+```
+
+## Keyin kod o'zgarsa
+
+```bash
+git push    # Vercel o'zi ko'radi va yangi versiyani chiqaradi
+```
+
+Baza tuzilishi o'zgargan bo'lsa (yangi jadval yoki ustun), qo'shimcha:
+
+```bash
+export DATABASE_URL="<Neon connection string>"
+npx prisma db push
+```

@@ -9,16 +9,15 @@
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "npm run db:clean && prisma db push && tsx prisma/seed.ts",
-    "postinstall": "prisma generate",
-    "db:clean": "node -e \"for (const f of ['dev.db','dev.db-journal','dev.db-wal','dev.db-shm']) require('fs').rmSync('prisma/'+f,{force:true})\""
+    "db:reset": "prisma db push && tsx prisma/seed.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
-    "@prisma/adapter-better-sqlite3": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
-    "better-sqlite3": "^13.0.3",
     "dotenv": "^18.0.5",
     "next": "^16.3.8",
+    "pg": "^8.23.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "zod": "^4.6.5"
@@ -26,6 +25,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^26.6.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "postcss": "^8.5.28",

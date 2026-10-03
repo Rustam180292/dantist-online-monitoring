@@ -10,12 +10,11 @@
  */
 import { createHmac } from "node:crypto";
 import playwright from "playwright";
-import Database from "better-sqlite3";
+import { all, closeDb, count, one } from "./db.mjs";
 import "dotenv/config";
 
 const { chromium } = playwright;
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
-const DB_PATH = process.env.SMOKE_DB ?? "prisma/dev.db";
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET ?? "";
 
@@ -24,8 +23,6 @@ if (!BOT_TOKEN) {
   process.exit(1);
 }
 
-const db = new Database(DB_PATH, { readonly: true });
-const one = (sql, ...args) => db.prepare(sql).get(...args);
 
 const ok = [];
 const fails = [];
@@ -60,10 +57,10 @@ const webhook = (payload, secret = WEBHOOK_SECRET) =>
     body: JSON.stringify(payload),
   });
 
-const specialist = one(
+const specialist = await one(
   "SELECT u.id, u.phone, u.fullName FROM User u WHERE u.role='SPECIALIST' LIMIT 1",
 );
-const parent = one("SELECT id, phone, fullName FROM User WHERE role='PARENT' LIMIT 1");
+const parent = await one("SELECT id, phone, fullName FROM User WHERE role='PARENT' LIMIT 1");
 
 const SPEC_TG_ID = 900100100;
 const PARENT_TG_ID = 900200200;
@@ -85,7 +82,7 @@ const STRANGER_TG_ID = 900300300;
 
 /* 3. Begona odamning kontaktini yuborish bog'lamaydi */
 {
-  const before = one("SELECT telegramId FROM User WHERE id=?", specialist.id).telegramId;
+  const before = (await one("SELECT telegramId FROM User WHERE id=?", specialist.id)).telegramId;
   await webhook({
     message: {
       chat: { id: STRANGER_TG_ID },
@@ -93,11 +90,11 @@ const STRANGER_TG_ID = 900300300;
       contact: { phone_number: specialist.phone, user_id: SPEC_TG_ID }, // user_id ≠ from.id
     },
   });
-  const after = one("SELECT telegramId FROM User WHERE id=?", specialist.id).telegramId;
-  const strangerLinked = one(
+  const after = (await one("SELECT telegramId FROM User WHERE id=?", specialist.id)).telegramId;
+  const strangerLinked = await count(
     "SELECT COUNT(*) AS n FROM User WHERE telegramId=?",
     String(STRANGER_TG_ID),
-  ).n;
+  );
   check(
     "Begona kontakt bilan bog'lanmaydi",
     after === before && strangerLinked === 0,
@@ -114,7 +111,7 @@ const STRANGER_TG_ID = 900300300;
       contact: { phone_number: specialist.phone, user_id: SPEC_TG_ID },
     },
   });
-  const row = one("SELECT telegramId, telegramUsername FROM User WHERE id=?", specialist.id);
+  const row = await one("SELECT telegramId, telegramUsername FROM User WHERE id=?", specialist.id);
   check(
     "Mutaxassis akkaunti bog'landi",
     row.telegramId === String(SPEC_TG_ID),
@@ -131,8 +128,8 @@ const STRANGER_TG_ID = 900300300;
       contact: { phone_number: "+998900000000", user_id: 999777 },
     },
   });
-  const row = one("SELECT COUNT(*) AS n FROM User WHERE telegramId='999777'");
-  check("Begona raqam bog'lanmaydi", res.status === 200 && row.n === 0);
+  const linked = await count("SELECT COUNT(*) AS n FROM User WHERE telegramId='999777'");
+  check("Begona raqam bog'lanmaydi", res.status === 200 && linked === 0);
 }
 
 /* 6. Ota-ona ham bog'lanadi */
@@ -144,7 +141,7 @@ const STRANGER_TG_ID = 900300300;
       contact: { phone_number: parent.phone, user_id: PARENT_TG_ID },
     },
   });
-  const row = one("SELECT telegramId FROM User WHERE id=?", parent.id);
+  const row = await one("SELECT telegramId FROM User WHERE id=?", parent.id);
   check("Ota-ona akkaunti bog'landi", row.telegramId === String(PARENT_TG_ID));
 }
 
@@ -249,7 +246,7 @@ if (!sessionCookie) {
   check("Tab'lar bor", body.includes("Mijozlarim") && body.includes("Pulim"));
 
   /* 12. Mini App'dan davomat belgilash */
-  const doneBefore = one("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'").n;
+  const doneBefore = await count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'");
   await page.goto(`${BASE}/tg/app?tab=week`);
   await page.waitForLoadState("networkidle");
   const btn = page.locator('form button:has-text("O\'tdi")').first();
@@ -258,7 +255,7 @@ if (!sessionCookie) {
     const deadline = Date.now() + 8000;
     let grew = false;
     while (Date.now() < deadline) {
-      if (one("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'").n === doneBefore + 1) {
+      if ((await count("SELECT COUNT(*) AS n FROM Session WHERE status='DONE'")) === doneBefore + 1) {
         grew = true;
         break;
       }
@@ -299,7 +296,7 @@ if (!sessionCookie) {
     await ppage.goto(`${BASE}/tg/app`);
     await ppage.waitForLoadState("networkidle");
     const pbody = await ppage.content();
-    const child = one("SELECT fullName FROM Client WHERE parentUserId = ? LIMIT 1", parent.id);
+    const child = await one("SELECT fullName FROM Client WHERE parentUserId = ? LIMIT 1", parent.id);
     check(
       "Ota-ona Mini App'da o'z ko'rinishini oladi",
       (child ? pbody.includes(child.fullName) : true) &&
@@ -329,6 +326,8 @@ if (!sessionCookie) {
 
   await browser.close();
 }
+
+await closeDb();
 
 console.log("\n=== O'TDI ===");
 for (const line of ok) console.log(`  ✓ ${line}`);

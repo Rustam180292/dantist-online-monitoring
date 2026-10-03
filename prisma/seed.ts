@@ -5,12 +5,13 @@
  * Ishga tushirish:  npm run db:seed   (yoki npm run db:reset)
  */
 import "dotenv/config";
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma";
 import { hashPassword } from "./seed-hash";
 
-const url = process.env.DATABASE_URL ?? "file:./prisma/dev.db";
-const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url }) });
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL sozlanmagan (.env faylini tekshiring).");
+const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
 /** Takrorlanadigan natija uchun oddiy generator */
 let seedState = 20260401;
