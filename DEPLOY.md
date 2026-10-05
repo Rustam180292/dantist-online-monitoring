@@ -24,14 +24,29 @@ yetarli.
 ## 1-qadam. Bepul baza (Neon)
 
 1. [neon.tech](https://neon.tech) ga kiring, GitHub orqali ro'yxatdan o'ting
-2. **Create project** → nom: `logoped`, region: Europe (eng yaqini)
-3. Ochilgan sahifada **Connection string** ni nusxalang. U shunga o'xshaydi:
+2. **Create project** → nom: `logoped`, region: Europe (eng yaqini — Frankfurt)
+3. Chap yuqoridagi yashil **Connect** tugmasini bosing
+
+Ochilgan oynada ulanish manzili chiqadi. **Ikkita variantini ham oling** —
+oynadagi **Connection pooling** belgisini yoqib va o'chirib:
+
+| Variant | Manzilda | Qayerda ishlatiladi |
+|---|---|---|
+| **Pooled** | `-pooler` so'zi **bor** | Vercel (ilovaning o'zi) |
+| **Direct** | `-pooler` so'zi **yo'q** | `prisma db push` (jadval yaratish) |
+
+Manzil shunga o'xshaydi:
 
 ```
-postgresql://foydalanuvchi:parol@ep-xxx.eu-central-1.aws.neon.tech/logoped?sslmode=require
+postgresql://foydalanuvchi:parol@ep-xxx-pooler.eu-central-1.aws.neon.tech/neondb?sslmode=require
 ```
 
-Bu matnni saqlab qo'ying — keyin ikki joyda kerak bo'ladi.
+> **Nega ikkitasi?** Pooled manzil ko'p ulanishni bitta kanalga yig'adi — bu
+> Vercel kabi muhitlar uchun zarur, aks holda ulanishlar tugab qoladi. Lekin
+> jadval yaratish buyruqlari (`db push`) o'sha kanal orqali ishlamasligi
+> mumkin, shuning uchun ular to'g'ridan-to'g'ri manzilni ishlatadi.
+
+**Bu manzilda parol bor — uni hech kimga yubormang va kodga yozmang.**
 
 > Neon bepul tarifi bu loyihaga bemalol yetadi: 10 ta markaz, minglab seans.
 
@@ -63,7 +78,7 @@ Uchalasini alohida saqlab qo'ying.
 
 | Nomi | Qiymati |
 |---|---|
-| `DATABASE_URL` | Neon bergan connection string |
+| `DATABASE_URL` | Neon'ning **pooled** manzili (`-pooler` bor) |
 | `SESSION_SECRET` | 1-buyruq natijasi (64 belgi) |
 | `TELEGRAM_BOT_TOKEN` | BotFather bergan token |
 | `TELEGRAM_WEBHOOK_SECRET` | 2-buyruq natijasi |
@@ -83,12 +98,15 @@ qilasiz:
 ```bash
 cd ~/Documents/logoped-crm
 
-# Neon manzilini vaqtincha ishlatamiz
-export DATABASE_URL="<Neon connection string>"
+# Bu yerda DIRECT (pooler'siz) manzil ishlatiladi
+export DATABASE_URL="<direct connection string>"
 
 npx prisma db push      # jadvallarni yaratadi
 npm run db:seed         # demo ma'lumot to'ldiradi
 ```
+
+Lokalda ham shu baza bilan ishlash uchun `.env` faylidagi `DATABASE_URL` ni
+o'sha direct manzilga almashtiring, so'ng `npm run dev`.
 
 > **Diqqat:** `npm run db:seed` bazadagi hamma narsani o'chirib, demo
 > ma'lumotni qayta yozadi. Haqiqiy mijozlar kiritilgandan keyin uni
