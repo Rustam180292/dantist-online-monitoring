@@ -23,6 +23,29 @@ const owner = await one("SELECT phone FROM User WHERE role='OWNER' LIMIT 1");
 const reception = await one("SELECT phone, fullName FROM User WHERE role='RECEPTION' AND isActive = true LIMIT 1");
 
 
+/**
+ * Ruxsatsiz sahifa boshqa manzilga qaytarishini kutadi.
+ *
+ * Sahifalarda "skelet" (loading.tsx) borligi uchun Next avval shu skeletni
+ * yuboradi, qaytarish esa undan keyin keladi. Shuning uchun manzilni darhol
+ * emas, o'rnashguncha kutib tekshiramiz. Sahifaning o'zi hech qachon
+ * chizilmaydi — faqat skelet ko'rinib qoladi.
+ */
+async function denied(label, path, mustNotContain) {
+  await page.goto(`${BASE}${path}`);
+  const left = await page
+    .waitForURL((url) => !url.pathname.startsWith(path), { timeout: 8000 })
+    .then(() => true)
+    .catch(() => false);
+  await page.waitForLoadState("networkidle");
+  const body = await page.content();
+  check(
+    label,
+    left && !body.includes(mustNotContain),
+    `${page.url()}${left ? "" : " — qaytarilmadi"}`,
+  );
+}
+
 /** Shart bajarilishini kutadi (server action fon rejimida tugashi uchun) */
 async function waitUntil(fn, timeoutMs = 8000) {
   const deadline = Date.now() + timeoutMs;
@@ -396,8 +419,7 @@ check(
   !navText.includes("Hisobotlar") && !navText.includes("To'lovlar"),
   navText.replace(/\n/g, " | "),
 );
-await page.goto(`${BASE}/payments`);
-check("Mutaxassis /payments ga kira olmaydi", !page.url().includes("/payments"), page.url());
+await denied("Mutaxassis /payments ga kira olmaydi", "/payments", "Qarzdorlar");
 
 await page.goto(`${BASE}/earnings`);
 await page.waitForLoadState("networkidle");
@@ -432,10 +454,10 @@ if (!reception) {
   );
 
   await page.goto(`${BASE}/reports`);
-  check("Qabulxona hisobotlarni ko'ra olmaydi", !page.url().includes("/reports"), page.url());
+  await denied("Qabulxona hisobotlarni ko'ra olmaydi", "/reports", "Filiallar kesimi");
 
   await page.goto(`${BASE}/specialists`);
-  check("Qabulxona xodimlar bo'limiga kira olmaydi", !page.url().includes("/specialists"), page.url());
+  await denied("Qabulxona xodimlar bo'limiga kira olmaydi", "/specialists", "Yangi mutaxassis");
 
   // To'lov qabul qila oladimi
   const recPayBefore = await count("SELECT COUNT(*) AS n FROM Payment");

@@ -157,6 +157,24 @@ uchun kuniga bir marta chaqirilishi kerak.
 - **Schedule:** har kuni soat 19:00
 - **Method:** POST
 
+## Tezlik: server va baza bir joyda turishi shart
+
+Bu eng ko'p uchraydigan "ilova sekin" sababi. Vercel yangi loyihalarni
+**Vashingtonda** (`iad1`) ishga tushiradi, baza esa Neon'da qaysi shaharni
+tanlagan bo'lsangiz — masalan **Frankfurtda**. Har bir sahifa bazaga 10-20
+marta murojaat qiladi, har bir murojaat esa okean ortiga borib qaytadi:
+sahifa bir necha soniyaga cho'ziladi.
+
+Loyihada `vercel.json` bor va unda `"regions": ["fra1"]` yozilgan — ya'ni
+server ham Frankfurtda ishlaydi. Baza boshqa shaharda bo'lsa, shu faylni
+o'zgartiring. Dashboard'dan tekshirish: **Settings → Functions → Function
+Regions**. (Bepul tarifda bitta mintaqa tanlanadi — bu yetarli.)
+
+Neon'ning bepul tarifida baza 5 daqiqa tegilmasa uxlab qoladi, keyingi
+birinchi so'rov 1-2 soniya kutadi. Bu normal; keyingi sahifalar tez ochiladi.
+
+---
+
 ## Tekshirish ro'yxati
 
 - [ ] Vercel manzili ochiladi, kirish ishlaydi
@@ -165,6 +183,7 @@ uchun kuniga bir marta chaqirilishi kerak.
 - [ ] Botga `/start` → raqam → kabinet ochildi
 - [ ] Telefonda "Bosh ekranga qo'shish" ishladi (`/install` sahifasi)
 - [ ] Cron chaqirilganda `{"ok":true}` qaytdi
+- [ ] Settings → Functions'da mintaqa baza turgan shaharga mos
 
 ---
 

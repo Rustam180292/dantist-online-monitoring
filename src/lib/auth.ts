@@ -1,5 +1,6 @@
 import "server-only";
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -94,30 +95,46 @@ export type CurrentUser = {
   specialization: string | null;
 };
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+type UserRow = {
+  id: string;
+  fullName: string;
+  phone: string;
+  role: Role;
+  branchId: string | null;
+  branchName: string | null;
+  specialistId: string | null;
+  specialization: string | null;
+};
+
+/**
+ * Kim kirgan — har bir so'rovda shu aniqlanadi, ya'ni bu eng tez-tez
+ * bajariladigan so'rov. Shuning uchun ikki narsa qilingan:
+ *
+ * 1. `cache()` — bitta sahifa chizilganda layout ham, sahifaning o'zi ham
+ *    `requireUser()` chaqiradi. Usiz bazaga ikki marta borilardi.
+ * 2. Bitta SQL — `include: { branch, specialist }` da Prisma uchta alohida
+ *    so'rov yuboradi. Baza chet elda turgani uchun har bir borib-kelish
+ *    yuzlab millisekund, shuning uchun JOIN bilan bittaga tushirilgan.
+ */
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<CurrentUser | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;
   const payload = decode(token);
   if (!payload) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.uid },
-    include: { branch: true, specialist: true },
-  });
-  if (!user || !user.isActive) return null;
+  const rows = await prisma.$queryRaw<UserRow[]>`
+    SELECT u."id", u."fullName", u."phone", u."role", u."branchId",
+           b."name" AS "branchName",
+           s."id" AS "specialistId", s."specialization"
+      FROM "User" u
+      LEFT JOIN "Branch" b ON b."id" = u."branchId"
+      LEFT JOIN "Specialist" s ON s."userId" = u."id"
+     WHERE u."id" = ${payload.uid} AND u."isActive" = true
+     LIMIT 1`;
 
-  return {
-    id: user.id,
-    fullName: user.fullName,
-    phone: user.phone,
-    role: user.role as Role,
-    branchId: user.branchId,
-    branchName: user.branch?.name ?? null,
-    specialistId: user.specialist?.id ?? null,
-    specialization: user.specialist?.specialization ?? null,
-  };
-}
+  return rows[0] ?? null;
+});
 
 export async function requireUser(): Promise<CurrentUser> {
   const user = await getCurrentUser();
