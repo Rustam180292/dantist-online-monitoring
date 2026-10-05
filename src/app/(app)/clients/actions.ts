@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { withFlash } from "@/lib/action";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireUser, type CurrentUser } from "@/lib/auth";
@@ -54,7 +55,7 @@ function parseAmount(raw: FormDataEntryValue | null, field: string): number {
 }
 
 /** Yangi mijoz (bola) qo'shish */
-export async function createClient(formData: FormData) {
+async function createClientImpl(formData: FormData) {
   const user = await requireFrontDesk();
 
   const fullName = String(formData.get("fullName") ?? "").trim();
@@ -112,7 +113,7 @@ export async function createClient(formData: FormData) {
 }
 
 /** Mijoz holatini o'zgartirish: Faol / To'xtatilgan / Arxiv */
-export async function setClientStatus(formData: FormData) {
+async function setClientStatusImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const status = String(formData.get("status") ?? "") as ClientStatus;
@@ -126,7 +127,7 @@ export async function setClientStatus(formData: FormData) {
 }
 
 /** Mijozni mutaxassisga biriktirish */
-export async function assignSpecialist(formData: FormData) {
+async function assignSpecialistImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const specialistId = String(formData.get("specialistId") ?? "");
@@ -152,7 +153,7 @@ export async function assignSpecialist(formData: FormData) {
 }
 
 /** Biriktirishni olib tashlash */
-export async function unassignSpecialist(formData: FormData) {
+async function unassignSpecialistImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const specialistId = String(formData.get("specialistId") ?? "");
@@ -166,7 +167,7 @@ export async function unassignSpecialist(formData: FormData) {
 }
 
 /** Abonement (seans paketi) sotish */
-export async function addPackage(formData: FormData) {
+async function addPackageImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const specialization = String(formData.get("specialization") ?? "") as Specialization;
@@ -220,7 +221,7 @@ export async function addPackage(formData: FormData) {
 }
 
 /** To'lov qabul qilish */
-export async function addPayment(formData: FormData) {
+async function addPaymentImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
   const amount = parseAmount(formData.get("amount"), "Summa");
@@ -281,7 +282,7 @@ export async function addPayment(formData: FormData) {
 }
 
 /** To'lovni o'chirish (xato kiritilgan bo'lsa) */
-export async function deletePayment(formData: FormData) {
+async function deletePaymentImpl(formData: FormData) {
   const user = await requireAdmin();
   const paymentId = String(formData.get("paymentId") ?? "");
   const payment = await prisma.payment.findUnique({
@@ -299,3 +300,12 @@ export async function deletePayment(formData: FormData) {
   revalidatePath("/payments");
   revalidatePath("/reports");
 }
+
+/* Tekshiruv xatolari foydalanuvchiga xabar bo'lib ko'rinishi uchun */
+export const createClient = withFlash(createClientImpl);
+export const setClientStatus = withFlash(setClientStatusImpl);
+export const assignSpecialist = withFlash(assignSpecialistImpl);
+export const unassignSpecialist = withFlash(unassignSpecialistImpl);
+export const addPackage = withFlash(addPackageImpl);
+export const addPayment = withFlash(addPaymentImpl);
+export const deletePayment = withFlash(deletePaymentImpl);

@@ -319,6 +319,45 @@ if (await payRow.count()) {
   check("Xizmat ishchisi ro'yxatdan o'tadi", swReady);
 }
 
+/* 9e. Tekshiruv xatosi foydalanuvchiga tushunarli xabar bo'lib ko'rinadi */
+{
+  // Band telefon raqam bilan mutaxassis qo'shishga urinamiz
+  const taken = await one("SELECT phone FROM User WHERE role='SPECIALIST' LIMIT 1");
+  const specBefore = await count("SELECT COUNT(*) AS n FROM Specialist");
+
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+  await page.click('summary:has-text("Yangi mutaxassis")');
+  await page.fill("#fullName", "Sinov Xodimov");
+  await page.fill("#phone", taken.phone);
+  await page.fill("#password", "parol123");
+  await page.locator('form button:has-text("Qo\'shish")').first().click();
+
+  // Next.js sahifa o'zgarishini e'lon qiladigan yashirin element ham role="alert"
+  // bo'ladi, shuning uchun aynan matni bor xabarni kutamiz.
+  const banner = page.getByRole("alert").filter({ hasText: "allaqachon" });
+  const shown = await banner
+    .waitFor({ state: "visible", timeout: 8000 })
+    .then(() => true)
+    .catch(() => false);
+
+  const text = shown ? await banner.innerText() : "";
+  check(
+    "Tekshiruv xatosi tushunarli xabar bilan ko'rsatiladi",
+    shown && !text.includes("%"),
+    text.replace(/\n/g, " ") || "xabar chiqmadi",
+  );
+  check(
+    "Xato bo'lganda yozuv qo'shilmaydi",
+    (await count("SELECT COUNT(*) AS n FROM Specialist")) === specBefore,
+  );
+  check(
+    "Xato butun sahifani almashtirmaydi",
+    (await page.content()).includes("Ish haqi"),
+    page.url(),
+  );
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check(

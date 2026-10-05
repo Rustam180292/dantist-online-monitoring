@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { withFlash } from "@/lib/action";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
@@ -33,7 +34,7 @@ async function assertCanEdit(sessionId: string) {
 }
 
 /** Davomat belgilash: O'tdi / Kelmadi / Bekor qilindi */
-export async function setSessionStatus(formData: FormData) {
+async function setSessionStatusImpl(formData: FormData) {
   const sessionId = String(formData.get("sessionId") ?? "");
   const status = String(formData.get("status") ?? "") as SessionStatus;
   if (!SESSION_STATUS_KEYS.includes(status)) throw new Error("Holat noto'g'ri.");
@@ -86,7 +87,7 @@ export async function setSessionStatus(formData: FormData) {
 }
 
 /** Yangi seans qo'shish */
-export async function createSession(formData: FormData) {
+async function createSessionImpl(formData: FormData) {
   const user = await requireUser();
   if (user.role === "PARENT") throw new Error("Sizda bu amal uchun ruxsat yo'q.");
 
@@ -170,7 +171,7 @@ export async function createSession(formData: FormData) {
 }
 
 /** Seansni o'chirish (faqat rejadagisini) */
-export async function deleteSession(formData: FormData) {
+async function deleteSessionImpl(formData: FormData) {
   const sessionId = String(formData.get("sessionId") ?? "");
   const { session } = await assertCanEdit(sessionId);
 
@@ -186,3 +187,8 @@ export async function deleteSession(formData: FormData) {
   revalidatePath("/schedule");
   revalidatePath(`/clients/${current.clientId}`);
 }
+
+/* Tekshiruv xatolari foydalanuvchiga xabar bo'lib ko'rinishi uchun */
+export const setSessionStatus = withFlash(setSessionStatusImpl);
+export const createSession = withFlash(createSessionImpl);
+export const deleteSession = withFlash(deleteSessionImpl);

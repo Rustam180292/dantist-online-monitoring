@@ -242,6 +242,8 @@ src/
     prisma.ts          baza ulanishi
     stats.ts           davomat, daromad, ish haqi, abonement hisob-kitobi
     constants.ts       rollar, mutaxassisliklar, holatlar (o'zbekcha nomlar)
+    action.ts          amal xatolarini foydalanuvchiga xabar qilib yetkazish
+    flash.ts           qisqa xabar cookie'si
     telegram.ts        initData imzosini tekshirish, bot xabarlari
     notify.ts          eslatmalarni navbatga qo'yish va yuborish
     format.ts          sana, vaqt, pul va yosh formatlash
@@ -249,7 +251,7 @@ src/
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
   db.mjs               testlar uchun bazaga kichik ulanish
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (43 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (46 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
@@ -279,13 +281,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 79 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 82 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (43)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (46)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```

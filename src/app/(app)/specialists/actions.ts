@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { withFlash } from "@/lib/action";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireUser, type CurrentUser } from "@/lib/auth";
 import { SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
@@ -14,7 +15,7 @@ async function requireAdmin(): Promise<CurrentUser> {
 }
 
 /** Yangi mutaxassis (login bilan) qo'shish */
-export async function createSpecialist(formData: FormData) {
+async function createSpecialistImpl(formData: FormData) {
   const user = await requireAdmin();
 
   const fullName = String(formData.get("fullName") ?? "").trim();
@@ -54,7 +55,7 @@ export async function createSpecialist(formData: FormData) {
 }
 
 /** Ish haqi foizini o'zgartirish */
-export async function updateSalaryPercent(formData: FormData) {
+async function updateSalaryPercentImpl(formData: FormData) {
   const user = await requireAdmin();
   const specialistId = String(formData.get("specialistId") ?? "");
   const salaryPercent = Number(formData.get("salaryPercent") ?? 0);
@@ -77,7 +78,7 @@ export async function updateSalaryPercent(formData: FormData) {
 }
 
 /** Ishdan bo'shatish / qaytarish */
-export async function toggleSpecialistActive(formData: FormData) {
+async function toggleSpecialistActiveImpl(formData: FormData) {
   const user = await requireAdmin();
   const specialistId = String(formData.get("specialistId") ?? "");
 
@@ -100,7 +101,7 @@ export async function toggleSpecialistActive(formData: FormData) {
 }
 
 /** Mutaxassisga ish haqi to'lab berish */
-export async function paySalary(formData: FormData) {
+async function paySalaryImpl(formData: FormData) {
   const user = await requireAdmin();
   const specialistId = String(formData.get("specialistId") ?? "");
 
@@ -140,7 +141,7 @@ export async function paySalary(formData: FormData) {
 }
 
 /** Xato kiritilgan ish haqi to'lovini o'chirish */
-export async function deletePayout(formData: FormData) {
+async function deletePayoutImpl(formData: FormData) {
   const user = await requireAdmin();
   const payoutId = String(formData.get("payoutId") ?? "");
 
@@ -159,7 +160,7 @@ export async function deletePayout(formData: FormData) {
 }
 
 /** Qabulxona xodimi uchun akkaunt ochish */
-export async function createReception(formData: FormData) {
+async function createReceptionImpl(formData: FormData) {
   const user = await requireAdmin();
 
   const fullName = String(formData.get("fullName") ?? "").trim();
@@ -188,7 +189,7 @@ export async function createReception(formData: FormData) {
 }
 
 /** Qabulxona xodimini o'chirish / qaytarish */
-export async function toggleReceptionActive(formData: FormData) {
+async function toggleReceptionActiveImpl(formData: FormData) {
   const admin = await requireAdmin();
   const userId = String(formData.get("userId") ?? "");
 
@@ -204,3 +205,12 @@ export async function toggleReceptionActive(formData: FormData) {
   await prisma.user.update({ where: { id: userId }, data: { isActive: !target.isActive } });
   revalidatePath("/specialists");
 }
+
+/* Tekshiruv xatolari foydalanuvchiga xabar bo'lib ko'rinishi uchun */
+export const createSpecialist = withFlash(createSpecialistImpl);
+export const updateSalaryPercent = withFlash(updateSalaryPercentImpl);
+export const toggleSpecialistActive = withFlash(toggleSpecialistActiveImpl);
+export const paySalary = withFlash(paySalaryImpl);
+export const deletePayout = withFlash(deletePayoutImpl);
+export const createReception = withFlash(createReceptionImpl);
+export const toggleReceptionActive = withFlash(toggleReceptionActiveImpl);

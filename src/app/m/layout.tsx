@@ -2,6 +2,7 @@ import Link from "next/link";
 import Script from "next/script";
 import { requireUser } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
+import { Flash } from "@/components/flash";
 
 export const metadata = {
   title: "Logoped CRM — kabinet",
@@ -32,6 +33,8 @@ export default async function MobileLayout({ children }: { children: React.React
           </button>
         </form>
       </footer>
+
+      <Flash />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth";
 import { ROLES, SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { MobileNav, SideNav, type NavItem } from "@/components/nav";
 import { Icon } from "@/components/icons";
+import { Flash } from "@/components/flash";
 import { logout } from "@/app/login/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -108,6 +109,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
       </div>
+
+      <Flash />
     </div>
   );
 }

@@ -284,13 +284,17 @@ if (!cookieMatch) {
 
   /* 10. Xabar matni bolaning ismi bilan */
   {
-    const row = await one(
-      "SELECT text FROM Notification WHERE clientId=? ORDER BY createdAt DESC LIMIT 1",
-      target.clientId,
-    );
+    // Qaysi bolaga xabar ketgani ma'lumotga bog'liq, shuning uchun eng oxirgi
+    // xabarni olib, uning matnida o'sha bolaning ismi borligini tekshiramiz.
+    const row = await one(`
+      SELECT n.text AS text, c.fullName AS clientName
+        FROM Notification n
+        JOIN Client c ON c.id = n.clientId
+       ORDER BY n.createdAt DESC
+       LIMIT 1`);
     check(
       "Xabar matni mazmunli",
-      !!row && row.text.includes(target.childName),
+      !!row && row.text.includes(row.clientName),
       row ? row.text.split("\n")[0] : "xabar yo'q",
     );
   }
