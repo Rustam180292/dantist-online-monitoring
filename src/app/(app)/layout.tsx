@@ -3,6 +3,7 @@ import { ROLES, SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { MobileNav, SideNav, type NavItem } from "@/components/nav";
 import { Icon } from "@/components/icons";
 import { Flash } from "@/components/flash";
+import { Install } from "@/components/install";
 import { logout } from "@/app/login/actions";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -62,13 +63,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             {user.fullName}
           </p>
           <p className="mb-2 px-2 text-xs text-slate-500 dark:text-slate-400">{roleLine}</p>
-          <a
-            href="/install"
-            className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-          >
-            <Icon name="phone" className="h-4 w-4" />
-            Telefonga o&apos;rnatish
-          </a>
+          <Install className="mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
           <form action={logout}>
             <button
               type="submit"
@@ -107,7 +102,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
         <MobileNav items={items} />
 
-        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">{children}</main>
+        <main className="min-w-0 flex-1 px-4 py-6 lg:px-8 lg:py-8">
+          {/* Telefonda yon menyu yashiringani uchun o'rnatish taklifi shu yerda ko'rinadi */}
+          <Install variant="banner" className="mb-5 lg:hidden" />
+          {children}
+        </main>
       </div>
 
       <Flash />

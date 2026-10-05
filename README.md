@@ -155,7 +155,11 @@ havolasi bor — katta jadval kerak bo'lsa o'sha yerga o'tadi.
 
 Xodimlarga shunchaki `<domen>/install` havolasini yuborsangiz yetadi — sahifa
 telefon turini o'zi aniqlab, mos yo'riqnomani ko'rsatadi. Tizim ichida ham
-menyuning pastida «Telefonga o'rnatish» havolasi bor.
+taklif chiqadi: telefon kabinetining (`/m`) pastida va telefon o'lchamidagi
+ekranda panel sahifalarining ustida — Android'da bitta bosishda o'rnatadi,
+boshqa yerda `/install` yo'riqnomasiga olib boradi. Kompyuterda u yon
+menyuning pastida turadi. Ilova o'rnatilgan bo'lsa yoki sahifa Telegram
+ichida ochilgan bo'lsa, taklif umuman ko'rsatilmaydi.
 
 > **Nega APK emas?** APK Google Play'siz tarqatilganda har bir telefonda
 > «noma'lum manbalardan o'rnatish» ni yoqish kerak, Play Protect ogohlantiradi
@@ -251,7 +255,7 @@ src/
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
   db.mjs               testlar uchun bazaga kichik ulanish
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (46 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (48 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
@@ -281,13 +285,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 82 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 84 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (46)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (48)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```

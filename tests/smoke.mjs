@@ -317,6 +317,20 @@ if (await payRow.count()) {
     .then(() => true)
     .catch(() => false);
   check("Xizmat ishchisi ro'yxatdan o'tadi", swReady);
+
+  // Telefon o'lchamidagi ekranda yon menyu yashiringani uchun taklif sahifa ustida chiqadi
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${BASE}/schedule`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Telefonda panelda o'rnatish taklifi ko'rinadi",
+    await page
+      .locator('main a[href="/install"], main button:has-text("rnatish")')
+      .first()
+      .isVisible(),
+    page.url(),
+  );
+  await page.setViewportSize({ width: 1280, height: 900 });
 }
 
 /* 9e. Tekshiruv xatosi foydalanuvchiga tushunarli xabar bo'lib ko'rinadi */
@@ -363,6 +377,13 @@ await login(specialist.phone);
 check(
   "Mutaxassis telefon kabinetiga tushadi",
   page.url().endsWith("/m") && (await page.content()).includes("Qolgan pulim"),
+  page.url(),
+);
+
+// Mutaxassis ilovani o'rnatish yo'lini kabinetning o'zidan topishi kerak
+check(
+  "Kabinetda o'rnatish taklifi bor",
+  (await page.locator('a[href="/install"], button:has-text("rnatish")').count()) > 0,
   page.url(),
 );
 
