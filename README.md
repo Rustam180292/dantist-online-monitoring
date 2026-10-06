@@ -28,7 +28,7 @@ mutaxassisning **o'z mijozlari** bor.
 
 | Rol | Nimani ko'radi |
 |---|---|
-| `OWNER` — markaz egasi | Barcha filiallar, barcha bo'limlar |
+| `OWNER` — markaz egasi | Barcha filiallar, barcha bo'limlar. Markazni ikki kishi birga yuritsa, **Xodimlar** bo'limidan ikkinchi egalik akkaunti ochiladi |
 | `BRANCH_ADMIN` — filial admini | Faqat o'z filiali, barcha bo'limlar |
 | `RECEPTION` — qabulxona xodimi | O'z filialida faqat **Jadval, Mijozlar, To'lovlar**. Mijoz qabul qiladi, abonement sotadi, to'lov oladi, davomat belgilaydi. Maosh, xodimlar va hisobotlar ko'rinmaydi; yozilgan to'lovni o'chira olmaydi |
 | `SPECIALIST` — mutaxassis | Faqat o'ziga biriktirilgan mijozlar va o'z seanslari; davomat belgilaydi. To'lov/hisobot bo'limlari yopiq |

@@ -17,10 +17,12 @@ import {
   th,
 } from "@/components/ui";
 import {
+  createOwner,
   createReception,
   createSpecialist,
   deletePayout,
   paySalary,
+  toggleOwnerActive,
   toggleReceptionActive,
   toggleSpecialistActive,
   updateSalaryPercent,
@@ -31,7 +33,7 @@ export default async function SpecialistsPage() {
   const branchId = user.role === "OWNER" ? null : user.branchId;
   const month = monthRange();
 
-  const [rows, inactive, branches, balances, payouts, reception] = await Promise.all([
+  const [rows, inactive, branches, balances, payouts, reception, owners] = await Promise.all([
     getSpecialistRows({ branchId, ...month }),
     prisma.specialist.findMany({
       where: { isActive: false, ...(branchId ? { branchId } : {}) },
@@ -50,6 +52,10 @@ export default async function SpecialistsPage() {
       include: { branch: { select: { name: true } } },
       orderBy: { fullName: "asc" },
     }),
+    // Egalik akkauntlari faqat eganing o'ziga ko'rinadi
+    user.role === "OWNER"
+      ? prisma.user.findMany({ where: { role: "OWNER" }, orderBy: { fullName: "asc" } })
+      : Promise.resolve([]),
   ]);
 
   const totalSalary = rows.reduce((s, r) => s + r.salary, 0);
@@ -318,6 +324,92 @@ export default async function SpecialistsPage() {
           </div>
         ) : null}
       </Card>
+
+      {user.role === "OWNER" ? (
+        <Card
+          title="Markaz egalari"
+          subtitle="hamma filialni va hamma bo'limni ko'radi"
+          className="mt-5"
+        >
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+            {owners.map((o) => (
+              <li key={o.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                    {o.fullName}
+                    {o.id === user.id ? (
+                      <span className="ml-2 text-xs font-normal text-indigo-600 dark:text-indigo-400">
+                        (siz)
+                      </span>
+                    ) : null}
+                    {!o.isActive ? (
+                      <span className="ml-2 text-xs font-normal text-slate-400">(faol emas)</span>
+                    ) : null}
+                  </p>
+                  <p className="truncate text-xs text-slate-400">{o.phone}</p>
+                </div>
+                {o.id === user.id ? null : (
+                  <form action={toggleOwnerActive}>
+                    <input type="hidden" name="userId" value={o.id} />
+                    <button
+                      type="submit"
+                      className={
+                        o.isActive
+                          ? "text-xs text-slate-400 hover:text-rose-600"
+                          : "text-xs font-semibold text-indigo-600 hover:underline"
+                      }
+                    >
+                      {o.isActive ? "o'chirish" : "qaytarish"}
+                    </button>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          <details className="border-t border-slate-200 p-4 dark:border-slate-800">
+            <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
+              + Egalik akkaunti qo&apos;shish
+            </summary>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              Yangi ega sizdek to&apos;liq huquqqa ega bo&apos;ladi: hamma filial, to&apos;lovlar,
+              ish haqi va hisobotlar. Faqat ishonchli odamga bering.
+            </p>
+            <form action={createOwner} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label className={label} htmlFor="oFullName">
+                  F.I.Sh. *
+                </label>
+                <input id="oFullName" name="fullName" className={input} required />
+              </div>
+              <div>
+                <label className={label} htmlFor="oPhone">
+                  Telefon (login) *
+                </label>
+                <input
+                  id="oPhone"
+                  name="phone"
+                  type="tel"
+                  placeholder="+998901234567"
+                  className={input}
+                  required
+                />
+              </div>
+              <div>
+                <label className={label} htmlFor="oPassword">
+                  Parol *
+                </label>
+                <input id="oPassword" name="password" type="text" className={input} required />
+              </div>
+              <div className="flex items-end">
+                <button type="submit" className={`${btnPrimary} w-full`}>
+                  Qo&apos;shish
+                </button>
+              </div>
+            </form>
+          </details>
+        </Card>
+      ) : null}
 
       <Card
         title="Qabulxona xodimlari"

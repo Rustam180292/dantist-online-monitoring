@@ -395,6 +395,47 @@ if (await payRow.count()) {
   );
 }
 
+/* 9f. Ikkinchi "markaz egasi" akkaunti */
+{
+  // Har safar yangi raqam: test qayta ishga tushganda "raqam band" bo'lib qolmasin
+  const phone = `+99890${String(Date.now()).slice(-7)}`;
+
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+
+  check(
+    "O'z egalik akkauntini o'chirish tugmasi yo'q",
+    (await page.locator('li:has-text("(siz)") form button').count()) === 0,
+  );
+
+  await page.click('summary:has-text("Egalik akkaunti")');
+  await page.fill("#oFullName", "Sherik Hamkorov");
+  await page.fill("#oPhone", phone);
+  await page.fill("#oPassword", PASSWORD);
+  await page.locator("form:has(#oPhone) button[type=submit]").click();
+
+  const added = await waitUntil(
+    async () =>
+      (await count(`SELECT COUNT(*) AS n FROM User WHERE phone='${phone}' AND role='OWNER'`)) === 1,
+  );
+  check("Ikkinchi markaz egasi qo'shiladi", added, phone);
+
+  const row = added ? await one(`SELECT branchId FROM User WHERE phone='${phone}'`) : null;
+  check("Yangi ega biror filialga bog'lanmaydi", row !== null && row.branchId === null);
+
+  // Haqiqatan kirib, to'liq panelni ko'radimi
+  await login(phone);
+  await page.goto(`${BASE}/reports`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Yangi ega hisobotlarni ko'radi",
+    (await page.content()).includes("Filiallar kesimi"),
+    page.url(),
+  );
+
+  await login(owner.phone);
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check(

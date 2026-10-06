@@ -159,6 +159,67 @@ async function deletePayoutImpl(formData: FormData) {
   revalidatePath("/earnings");
 }
 
+/** Faqat markaz egasi — egalik akkauntlari ustida ish yuritadi */
+async function requireOwner(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (user.role !== "OWNER") throw new Error("Bu amalni faqat markaz egasi bajara oladi.");
+  return user;
+}
+
+/**
+ * Ikkinchi "markaz egasi" akkauntini ochish.
+ *
+ * Nega kerak: markazni ikki kishi birga yuritishi mumkin (hamkorlar, er-xotin,
+ * direktor va moliyachi). Bitta akkauntni bo'lishib ishlatish esa kim nima
+ * qilganini ajratib bo'lmaydigan qiladi.
+ *
+ * Egada filial bo'lmaydi (`branchId: null`) — u hamma filialni ko'radi.
+ */
+async function createOwnerImpl(formData: FormData) {
+  await requireOwner();
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (!fullName || !phone) throw new Error("Ism va telefon majburiy.");
+  if (password.length < 5) throw new Error("Parol kamida 5 belgidan bo'lsin.");
+
+  const exists = await prisma.user.findUnique({ where: { phone } });
+  if (exists) throw new Error("Bu telefon raqam allaqachon ro'yxatda.");
+
+  await prisma.user.create({
+    data: {
+      phone,
+      fullName,
+      passwordHash: hashPassword(password),
+      role: "OWNER",
+      branchId: null,
+    },
+  });
+
+  revalidatePath("/specialists");
+}
+
+/** Egalik akkauntini o'chirish / qaytarish */
+async function toggleOwnerActiveImpl(formData: FormData) {
+  const owner = await requireOwner();
+  const userId = String(formData.get("userId") ?? "");
+
+  // O'zini o'chirishga yo'l qo'yilmaydi: shu tekshiruv tufayli markaz
+  // egasiz qolib ketmaydi — amalni bajarayotgan odamning o'zi faol ega.
+  if (userId === owner.id) throw new Error("O'z akkauntingizni o'chira olmaysiz.");
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, isActive: true },
+  });
+  if (!target || target.role !== "OWNER") throw new Error("Egalik akkaunti topilmadi.");
+
+  await prisma.user.update({ where: { id: userId }, data: { isActive: !target.isActive } });
+  revalidatePath("/specialists");
+}
+
 /** Qabulxona xodimi uchun akkaunt ochish */
 async function createReceptionImpl(formData: FormData) {
   const user = await requireAdmin();
@@ -212,5 +273,7 @@ export const updateSalaryPercent = withFlash(updateSalaryPercentImpl);
 export const toggleSpecialistActive = withFlash(toggleSpecialistActiveImpl);
 export const paySalary = withFlash(paySalaryImpl);
 export const deletePayout = withFlash(deletePayoutImpl);
+export const createOwner = withFlash(createOwnerImpl);
+export const toggleOwnerActive = withFlash(toggleOwnerActiveImpl);
 export const createReception = withFlash(createReceptionImpl);
 export const toggleReceptionActive = withFlash(toggleReceptionActiveImpl);

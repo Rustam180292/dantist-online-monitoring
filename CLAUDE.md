@@ -75,7 +75,7 @@ Kod o'zgartirgandan keyin shu uchtasini ishga tushiring. Yangi imkoniyat qo'shsa
 
 | Rol | Ko'radi |
 |---|---|
-| `OWNER` | hamma filial, hamma narsa |
+| `OWNER` | hamma filial, hamma narsa; `branchId` bo'sh bo'ladi. Ega yana ega qo'sha oladi (o'zini o'chira olmaydi) |
 | `BRANCH_ADMIN` | faqat o'z filiali (hozircha interfeysdan yaratilmaydi) |
 | `RECEPTION` | o'z filiali: jadval, mijozlar, to'lovlar |
 | `SPECIALIST` | faqat o'z mijozlari va o'z puli |
