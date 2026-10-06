@@ -38,6 +38,7 @@ import {
   deletePayment,
   setClientStatus,
   unassignSpecialist,
+  updateClient,
 } from "../actions";
 
 const NOTIFICATION_KINDS: Record<string, string> = {
@@ -78,7 +79,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
   if (!client) notFound();
 
-  const [packages, freeSpecialists, notifications] = await Promise.all([
+  const [packages, freeSpecialists, notifications, branches] = await Promise.all([
     getClientPackages(client.id),
     canManage
       ? prisma.specialist.findMany({
@@ -97,6 +98,10 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           orderBy: { createdAt: "desc" },
           take: 8,
         })
+      : Promise.resolve([]),
+    // Filialni faqat markaz egasi o'zgartira oladi
+    user.role === "OWNER"
+      ? prisma.branch.findMany({ orderBy: { name: "asc" } })
       : Promise.resolve([]),
   ]);
 
@@ -403,6 +408,86 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   </form>
                 </details>
               ) : null}
+            </Card>
+          ) : null}
+          {canManage ? (
+            <Card title="Mijoz ma'lumoti" subtitle="xato yozilgan bo'lsa shu yerdan tuzating">
+              <form
+                action={updateClient}
+                className="grid gap-3 p-4 sm:grid-cols-2"
+              >
+                <input type="hidden" name="clientId" value={client.id} />
+                <div>
+                  <label className={label}>Bolaning F.I.Sh. *</label>
+                  <input name="fullName" defaultValue={client.fullName} className={input} required />
+                </div>
+                <div>
+                  <label className={label}>Tug&apos;ilgan sana *</label>
+                  <input
+                    name="birthDate"
+                    type="date"
+                    defaultValue={toDateInput(client.birthDate)}
+                    className={input}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={label}>Jinsi</label>
+                  <select name="gender" defaultValue={client.gender ?? ""} className={input}>
+                    <option value="">Ko&apos;rsatilmagan</option>
+                    <option value="M">O&apos;g&apos;il bola</option>
+                    <option value="F">Qiz bola</option>
+                  </select>
+                </div>
+                {branches.length > 0 ? (
+                  <div>
+                    <label className={label}>Filial</label>
+                    <select name="branchId" defaultValue={client.branchId} className={input}>
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null}
+                <div>
+                  <label className={label}>Ota-ona F.I.Sh. *</label>
+                  <input
+                    name="parentName"
+                    defaultValue={client.parentName}
+                    className={input}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={label}>Ota-ona telefoni *</label>
+                  <input
+                    name="parentPhone"
+                    type="tel"
+                    defaultValue={client.parentPhone}
+                    className={input}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={label}>Tashxis / shikoyat</label>
+                  <input name="diagnosis" defaultValue={client.diagnosis ?? ""} className={input} />
+                </div>
+                <div>
+                  <label className={label}>Izoh</label>
+                  <input name="note" defaultValue={client.note ?? ""} className={input} />
+                </div>
+                <div className="sm:col-span-2">
+                  <button type="submit" className={btnPrimary}>
+                    Saqlash
+                  </button>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Telefon raqamni o&apos;zgartirsangiz, eslatmalar yangi raqamga boradi.
+                    Ota-ona Telegram&apos;ga qaytadan ulanishi kerak bo&apos;ladi.
+                  </p>
+                </div>
+              </form>
             </Card>
           ) : null}
         </div>

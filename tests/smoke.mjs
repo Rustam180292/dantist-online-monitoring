@@ -17,7 +17,12 @@ const { chromium } = playwright;
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const PASSWORD = process.env.SMOKE_PASSWORD ?? "parol123";
 
-const parent = await one("SELECT phone FROM User WHERE role='PARENT' LIMIT 1");
+// Farzandi bor ota-onani olamiz: farzandsiz ota-ona akkaunti ham bo'lishi
+// mumkin (mijozning telefoni keyin o'zgartirilgan bo'lsa).
+const parent = await one(
+  `SELECT u.phone FROM User u JOIN Client c ON c.parentUserId = u.id
+    WHERE u.role = 'PARENT' GROUP BY u.phone LIMIT 1`,
+);
 const specialist = await one("SELECT phone FROM User WHERE role='SPECIALIST' LIMIT 1");
 const owner = await one("SELECT phone FROM User WHERE role='OWNER' LIMIT 1");
 const reception = await one("SELECT phone, fullName FROM User WHERE role='RECEPTION' AND isActive = true LIMIT 1");
@@ -797,6 +802,55 @@ if (await payRow.count()) {
     return r.phone === target.phone;
   });
   check("Xodim ma'lumoti eski holiga qaytariladi", restored, target.phone);
+}
+
+/* 9m. Mijoz kartasini tahrirlash */
+{
+  const target = await one(
+    "SELECT id, fullName, parentName, parentPhone FROM Client ORDER BY fullName LIMIT 1",
+  );
+  const newPhone = `+99895${String(Date.now()).slice(-7)}`;
+
+  await page.goto(`${BASE}/clients/${target.id}`);
+  await page.waitForLoadState("networkidle");
+
+  const form = page.locator('form:has(input[name="parentPhone"])').first();
+  await form.locator('input[name="fullName"]').fill(`${target.fullName} (tahrir)`);
+  await form.locator('input[name="diagnosis"]').fill("Sinov tashxisi");
+  await form.locator('input[name="parentPhone"]').fill(newPhone);
+  await form.locator('button:has-text("Saqlash")').click();
+
+  const saved = await waitUntil(async () => {
+    const r = await one(
+      `SELECT fullName, diagnosis, parentPhone FROM Client WHERE id = '${target.id}'`,
+    );
+    return (
+      r.fullName === `${target.fullName} (tahrir)` &&
+      r.diagnosis === "Sinov tashxisi" &&
+      r.parentPhone === newPhone
+    );
+  });
+  check("Mijoz ma'lumoti tahrirlanadi", saved, newPhone);
+
+  // Yangi raqamga ota-ona akkaunti ochilib, mijoz o'shanga bog'lanadi
+  const linked = await one(
+    `SELECT u.phone FROM Client c JOIN User u ON u.id = c.parentUserId WHERE c.id = '${target.id}'`,
+  );
+  check("Ota-ona akkaunti yangi raqamga ulanadi", linked?.phone === newPhone, linked?.phone);
+
+  // Eski holiga qaytaramiz — keyingi tekshiruvlar shu mijoz bilan ishlaydi
+  await page.goto(`${BASE}/clients/${target.id}`);
+  await page.waitForLoadState("networkidle");
+  const back = page.locator('form:has(input[name="parentPhone"])').first();
+  await back.locator('input[name="fullName"]').fill(target.fullName);
+  await back.locator('input[name="diagnosis"]').fill("");
+  await back.locator('input[name="parentPhone"]').fill(target.parentPhone);
+  await back.locator('button:has-text("Saqlash")').click();
+  const restored = await waitUntil(async () => {
+    const r = await one(`SELECT parentPhone FROM Client WHERE id = '${target.id}'`);
+    return r.parentPhone === target.parentPhone;
+  });
+  check("Mijoz eski holiga qaytariladi", restored);
 }
 
 /* 10. Mutaxassis roli chegaralangan */

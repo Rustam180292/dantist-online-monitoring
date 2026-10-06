@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { withFlash } from "@/lib/action";
+import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireUser, type CurrentUser } from "@/lib/auth";
@@ -38,7 +39,13 @@ async function requireAdmin(): Promise<CurrentUser> {
 async function assertClientAccess(user: CurrentUser, clientId: string) {
   const client = await prisma.client.findUnique({
     where: { id: clientId },
-    select: { id: true, branchId: true },
+    select: {
+      id: true,
+      branchId: true,
+      parentUserId: true,
+      parentName: true,
+      parentPhone: true,
+    },
   });
   if (!client) throw new Error("Mijoz topilmadi.");
   if (user.role !== "OWNER" && client.branchId !== user.branchId) {
@@ -110,6 +117,80 @@ async function createClientImpl(formData: FormData) {
   revalidatePath("/clients");
   revalidatePath("/");
   redirect(`/clients/${client.id}`);
+}
+
+/**
+ * Mijoz kartasini tahrirlash.
+ *
+ * Ota-ona telefoni o'zgarsa, eski ota-ona akkauntining raqamini almashtirmaymiz:
+ * bitta akkauntga bir necha farzand bog'langan bo'lishi mumkin (aka-uka), va
+ * uning raqamini o'zgartirish boshqasining Telegram ulanishini uzib qo'yardi.
+ * Shuning uchun yangi raqam bo'yicha akkaunt topiladi yoki ochiladi, mijoz esa
+ * o'shanga ulanadi.
+ */
+async function updateClientImpl(formData: FormData) {
+  const user = await requireFrontDesk();
+  const clientId = String(formData.get("clientId") ?? "");
+  const client = await assertClientAccess(user, clientId);
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const birthDateRaw = String(formData.get("birthDate") ?? "");
+  const parentName = String(formData.get("parentName") ?? "").trim();
+  const parentPhone = String(formData.get("parentPhone") ?? "").trim();
+  const branchId =
+    user.role === "OWNER" ? String(formData.get("branchId") ?? "") || client.branchId : client.branchId;
+
+  if (!fullName || !birthDateRaw || !parentName || !parentPhone) {
+    throw new Error("Majburiy maydonlarni to'liq to'ldiring.");
+  }
+  const birthDate = new Date(birthDateRaw);
+  if (Number.isNaN(birthDate.getTime())) throw new Error("Tug'ilgan sana noto'g'ri.");
+
+  let parentUserId = client.parentUserId;
+  if (parentPhone !== client.parentPhone) {
+    const existing = await prisma.user.findUnique({ where: { phone: parentPhone } });
+    if (existing) {
+      if (existing.role !== "PARENT") {
+        throw new Error("Bu telefon raqam markaz xodimiga tegishli.");
+      }
+      parentUserId = existing.id;
+    } else {
+      const created = await prisma.user.create({
+        data: {
+          phone: parentPhone,
+          fullName: parentName,
+          passwordHash: "",
+          role: "PARENT",
+          branchId,
+        },
+      });
+      parentUserId = created.id;
+    }
+  } else if (parentUserId && parentName !== client.parentName) {
+    // Raqam o'sha — demak o'sha odam, ismidagi xato tuzatilgan
+    await prisma.user.update({ where: { id: parentUserId }, data: { fullName: parentName } });
+  }
+
+  await prisma.client.update({
+    where: { id: clientId },
+    data: {
+      fullName,
+      birthDate,
+      gender: String(formData.get("gender") ?? "") || null,
+      branchId,
+      parentUserId,
+      parentName,
+      parentPhone,
+      diagnosis: String(formData.get("diagnosis") ?? "").trim() || null,
+      note: String(formData.get("note") ?? "").trim() || null,
+    },
+  });
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/clients");
+  revalidatePath("/schedule");
+  revalidatePath("/");
+  await setFlash(`${fullName} saqlandi.`, "ok");
 }
 
 /** Mijoz holatini o'zgartirish: Faol / To'xtatilgan / Arxiv */
@@ -303,6 +384,7 @@ async function deletePaymentImpl(formData: FormData) {
 
 /* Tekshiruv xatolari foydalanuvchiga xabar bo'lib ko'rinishi uchun */
 export const createClient = withFlash(createClientImpl);
+export const updateClient = withFlash(updateClientImpl);
 export const setClientStatus = withFlash(setClientStatusImpl);
 export const assignSpecialist = withFlash(assignSpecialistImpl);
 export const unassignSpecialist = withFlash(unassignSpecialistImpl);

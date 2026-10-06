@@ -60,7 +60,13 @@ const webhook = (payload, secret = WEBHOOK_SECRET) =>
 const specialist = await one(
   "SELECT u.id, u.phone, u.fullName FROM User u WHERE u.role='SPECIALIST' LIMIT 1",
 );
-const parent = await one("SELECT id, phone, fullName FROM User WHERE role='PARENT' LIMIT 1");
+// Farzandi bor ota-onani olamiz: bazada farzandsiz ota-ona akkaunti ham
+// qolishi mumkin (masalan mijozning telefoni keyin o'zgartirilgan bo'lsa).
+const parent = await one(
+  `SELECT u.id, u.phone, u.fullName FROM User u
+     JOIN Client c ON c.parentUserId = u.id
+    WHERE u.role = 'PARENT' GROUP BY u.id, u.phone, u.fullName LIMIT 1`,
+);
 
 const SPEC_TG_ID = 900100100;
 const PARENT_TG_ID = 900200200;
