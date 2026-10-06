@@ -33,8 +33,14 @@ npm run dev           # lokal ishlab chiqish
 npm run build         # yig'ish (deploy'dan oldin tekshirish uchun)
 npx tsc --noEmit      # turlarni tekshirish
 npm run db:push       # schema o'zgarishini bazaga yozish
+npm run db:backup     # bazaning to'liq zaxirasi -> zaxira/*.json
+npm run db:restore -- zaxira/<fayl>.json    # zaxiradan tiklash
 npm run db:seed       # demo ma'lumot — DIQQAT, pastga qarang
 ```
+
+`db:backup` hech narsa o'rnatishni talab qilmaydi (pg_dump kerak emas). Zaxira
+fayllarida shaxsiy ma'lumot bo'lgani uchun `zaxira/` papkasi git'ga tushmaydi —
+uni git'ga qo'shmang.
 
 ### Xavfli buyruqlar
 
@@ -43,9 +49,12 @@ Haqiqiy mijoz ma'lumoti turgan bazada hech qachon ishlatmang. Lokal `.env` ko'pi
 o'sha bulutdagi bazaga ulangan bo'ladi — ishga tushirishdan oldin `DATABASE_URL`
 qayerni ko'rsatayotganini tekshiring.
 
-Skriptda to'siq bor: baza lokal bo'lmasa va ichida ma'lumot bo'lsa, u o'zi to'xtaydi
-va nima yo'qolishini ko'rsatadi. To'siqni `SEED_CONFIRM` bilan ataylab ochish mumkin —
-buni faqat zaxira olgandan keyin qiling. To'siqni kodidan olib tashlamang.
+`db:restore` ham bazani almashtiradi — u ham shunday xavfli.
+
+Ikkala skriptda to'siq bor: baza lokal bo'lmasa va ichida ma'lumot bo'lsa, ular o'zi
+to'xtaydi va nima yo'qolishini ko'rsatadi. To'siqni `SEED_CONFIRM` / `RESTORE_CONFIRM`
+bilan ataylab ochish mumkin — buni faqat zaxira olgandan keyin qiling. To'siqni
+kodidan olib tashlamang.
 
 ## Testlar
 

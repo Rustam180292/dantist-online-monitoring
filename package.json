@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "db:push": "prisma db push",
+    "db:backup": "tsx prisma/backup.ts",
+    "db:restore": "tsx prisma/restore.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push && tsx prisma/seed.ts",
     "postinstall": "prisma generate"
