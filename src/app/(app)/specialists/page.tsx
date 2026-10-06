@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { requireRole } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { SPECIALIZATIONS, SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
 import { getSpecialistBalances, getSpecialistRows, monthRange } from "@/lib/stats";
@@ -34,6 +35,7 @@ import {
 export default async function SpecialistsPage() {
   const user = await requireRole("OWNER", "BRANCH_ADMIN");
   const branchId = user.role === "OWNER" ? null : user.branchId;
+  const settings = await getSettings();
   const month = monthRange();
 
   const [rows, inactive, branches, balances, payouts, reception, owners, specialistPhones] =
@@ -147,7 +149,7 @@ export default async function SpecialistsPage() {
               type="number"
               min={0}
               max={100}
-              defaultValue={40}
+              defaultValue={settings.defaultSalaryPercent}
               className={input}
             />
           </div>

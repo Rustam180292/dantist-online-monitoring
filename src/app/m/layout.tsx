@@ -30,6 +30,9 @@ export default async function MobileLayout({ children }: { children: React.React
           <Link href={fullViewHref} className="app-link font-medium">
             To&apos;liq ko&apos;rinish →
           </Link>
+          <Link href="/settings" className="app-muted font-medium">
+            Parol
+          </Link>
           <form action={logout}>
             <button type="submit" className="app-muted font-medium">
               Chiqish

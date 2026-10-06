@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 import {
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
@@ -55,6 +56,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const canManage =
     user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
   const canDelete = user.role === "OWNER" || user.role === "BRANCH_ADMIN";
+
+  const settings = await getSettings();
 
   const client = await prisma.client.findFirst({
     where: { id, ...clientScope(user) },
@@ -222,7 +225,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                       id="pricePerSession"
                       name="pricePerSession"
                       inputMode="numeric"
-                      placeholder="120000"
+                      defaultValue={settings.defaultPrice}
                       className={input}
                       required
                     />

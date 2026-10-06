@@ -173,6 +173,26 @@ model Session {
 }
 
 /// To'lov. method: CASH | CARD | TRANSFER
+/// Markaz sozlamalari. Bazada doim bitta qator bo'ladi (id = "main"):
+/// nomi, ish vaqti, standart narx va ulush foizi.
+model Settings {
+  id                  String   @id @default("main")
+  centerName          String   @default("Logopedik markaz")
+  centerPhone         String?
+  /// To'lov summasi kiritilmaganda ishlatiladigan standart seans narxi, so'mda
+  defaultPrice        Int      @default(150000)
+  /// Yangi qo'shiladigan mutaxassis uchun standart ulush foizi
+  defaultSalaryPercent Int     @default(40)
+  /// Ish kuni necha soatda boshlanadi va tugaydi (0-23)
+  workStartHour       Int      @default(9)
+  workEndHour         Int      @default(18)
+  /// Bo'sh vaqtlar qanday oraliqda hisoblanadi, daqiqada
+  slotMinutes         Int      @default(60)
+  /// Ish kunlari: 1=dushanba ... 7=yakshanba, vergul bilan ("1,2,3,4,5,6")
+  workDays            String   @default("1,2,3,4,5,6")
+  updatedAt           DateTime @updatedAt
+}
+
 /// Qabul: markazga birinchi marta kelgan odam (hali mijoz emas).
 /// Konsultatsiyadan keyin yo mijozga aylanadi, yo ketadi.
 model Intake {

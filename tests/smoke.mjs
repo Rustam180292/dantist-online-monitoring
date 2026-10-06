@@ -853,6 +853,134 @@ if (await payRow.count()) {
   check("Mijoz eski holiga qaytariladi", restored);
 }
 
+/* 9n. Markaz sozlamalari va o'z parolini o'zgartirish */
+{
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  check("Sozlamalar sahifasi ochiladi", (await page.locator("main").innerText()).includes("Ish vaqti"));
+
+  // Ish vaqti
+  const hours = page.locator('form:has(input[name="workStartHour"])');
+  await hours.locator('input[name="workStartHour"]').fill("8");
+  await hours.locator('input[name="workEndHour"]').fill("20");
+  await hours.locator('input[name="slotMinutes"]').fill("45");
+  await hours.locator('button:has-text("Saqlash")').click();
+  const hoursSaved = await waitUntil(async () => {
+    const r = await one("SELECT workStartHour, workEndHour, slotMinutes FROM Settings WHERE id='main'");
+    return r && r.workStartHour === 8 && r.workEndHour === 20 && r.slotMinutes === 45;
+  });
+  check("Ish vaqti saqlanadi", hoursSaved);
+
+  // Noto'g'ri qiymat rad etiladi.
+  // Sahifani qaytadan ochamiz: saqlashdan keyin forma qayta chiziladi va
+  // eski nusxasiga yozsak, tugma bosilmay qolishi mumkin.
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  const again = page.locator('form:has(input[name="workStartHour"])');
+  await again.locator('input[name="workEndHour"]').fill("7");
+  await again.locator('button:has-text("Saqlash")').click();
+  const badHours = page.getByRole("alert").filter({ hasText: "keyin bo'lishi" });
+  check(
+    "Tugash vaqti boshlanishdan oldin bo'lsa rad etiladi",
+    await badHours.waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false),
+  );
+
+  // Narx va ulush
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  const pricing = page.locator('form:has(input[name="defaultPrice"])');
+  await pricing.locator('input[name="defaultPrice"]').fill("175000");
+  await pricing.locator('input[name="defaultSalaryPercent"]').fill("45");
+  await pricing.locator('button:has-text("Saqlash")').click();
+  const priced = await waitUntil(async () => {
+    const r = await one("SELECT defaultPrice, defaultSalaryPercent FROM Settings WHERE id='main'");
+    return r && r.defaultPrice === 175000 && r.defaultSalaryPercent === 45;
+  });
+  check("Standart narx va ulush saqlanadi", priced);
+
+  // Standart qiymat formalarda ishlatiladi
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+  await page.click('summary:has-text("Yangi mutaxassis")');
+  check(
+    "Yangi mutaxassis formasida standart foiz turadi",
+    (await page.locator("#salaryPercent").inputValue()) === "45",
+  );
+
+  // Parolni o'zgartirish: joriy parol noto'g'ri bo'lsa rad etiladi
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  const pw = page.locator('form:has(input[name="currentPassword"])');
+  await pw.locator('input[name="currentPassword"]').fill("notogri");
+  await pw.locator('input[name="newPassword"]').fill("yangiparol1");
+  await pw.locator('input[name="repeatPassword"]').fill("yangiparol1");
+  await pw.locator('button:has-text("Parolni o\'zgartirish")').click();
+  const wrongPw = page.getByRole("alert").filter({ hasText: "Joriy parol" });
+  check(
+    "Joriy parol noto'g'ri bo'lsa parol o'zgarmaydi",
+    await wrongPw.waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false),
+  );
+
+  // To'g'ri parol bilan o'zgaradi, keyin qaytaramiz
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  const pw2 = page.locator('form:has(input[name="currentPassword"])');
+  await pw2.locator('input[name="currentPassword"]').fill(PASSWORD);
+  await pw2.locator('input[name="newPassword"]').fill("YangiParol9");
+  await pw2.locator('input[name="repeatPassword"]').fill("YangiParol9");
+  await pw2.locator('button:has-text("Parolni o\'zgartirish")').click();
+  await waitUntil(async () => {
+    const note = await page.getByRole("alert").filter({ hasText: "Parol o'zgartirildi" }).count();
+    return note > 0;
+  });
+
+  await login(owner.phone, "YangiParol9");
+  check("Yangi parol bilan kiriladi", !page.url().includes("/login"), page.url());
+
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  const pw3 = page.locator('form:has(input[name="currentPassword"])');
+  await pw3.locator('input[name="currentPassword"]').fill("YangiParol9");
+  await pw3.locator('input[name="newPassword"]').fill(PASSWORD);
+  await pw3.locator('input[name="repeatPassword"]').fill(PASSWORD);
+  await pw3.locator('button:has-text("Parolni o\'zgartirish")').click();
+  await page.waitForLoadState("networkidle");
+  await login(owner.phone);
+  check("Parol eski holiga qaytariladi", !page.url().includes("/login"), page.url());
+}
+
+/* 9o. Bo'sh vaqtlar */
+{
+  await page.goto(`${BASE}/slots`);
+  await page.waitForLoadState("networkidle");
+  const text = await page.locator("main").innerText();
+  check("Bo'sh vaqtlar sahifasi ochiladi", text.includes("Bo'sh vaqtlar"), page.url());
+
+  const cells = await page.locator('tbody a[href*="sp="]').count();
+  check("Haftalik jadvalda bo'sh vaqtlar soni ko'rinadi", cells > 0, `${cells} ta katak`);
+
+  // Katakni bosib vaqtlarni ochamiz va seans yozamiz
+  const before = await count("SELECT COUNT(*) AS n FROM Session");
+  await page.locator('tbody a[href*="sp="]').first().click();
+  // Katak bosilganda sahifa qayta chiziladi — forma paydo bo'lishini kutamiz
+  // (networkidle bu yerda yetarli emas, RSC javobi keyinroq chiziladi).
+  const slotForm = page.locator('form:has(select[name="clientId"])').first();
+  const hasSlots = await slotForm
+    .waitFor({ state: "visible", timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  check("Tanlangan kunning bo'sh vaqtlari chiqadi", hasSlots, page.url());
+
+  if (hasSlots) {
+    await slotForm.locator('select[name="clientId"]').selectOption({ index: 1 });
+    await slotForm.locator('button:has-text("Yozish")').click();
+    const booked = await waitUntil(
+      async () => (await count("SELECT COUNT(*) AS n FROM Session")) === before + 1,
+    );
+    check("Bo'sh vaqtdan seans yoziladi", booked);
+  }
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check(

@@ -61,12 +61,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 123 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 135 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, PWA (87)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, PWA (99)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 ```
@@ -125,6 +125,10 @@ beradi.
   Bir sahifa bazaga 10-20 marta murojaat qiladi, ular uzoqlashsa ilova sekinlashadi.
 - **Telegram imzosi** `src/lib/telegram.ts` da tekshiriladi. `initData` ni tekshirmasdan
   ishonmang.
+- **Markaz sozlamalari** `src/lib/settings.ts` dagi `getSettings()` orqali olinadi.
+  Bazada bitta qator (`id = "main"`); hali yozilmagan bo'lsa standart qiymatlar
+  qaytadi — sahifa sozlama yo'qligi sababli ishlamay qolmasin. Ish vaqti
+  shu yerdan olinadi va "Bo'sh vaqtlar" (`/slots`) o'shanga tayanadi.
 
 ## Ishlash tartibi
 

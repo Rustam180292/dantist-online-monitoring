@@ -21,6 +21,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items.push({ href: "/", label: "Panel", icon: "home" });
     }
     items.push({ href: "/schedule", label: "Jadval", icon: "calendar" });
+    // Bo'sh vaqtlar: qabulxona xodimi telefonda turib vaqt tanlashi uchun
+    if (user.role !== "SPECIALIST") {
+      items.push({ href: "/slots", label: "Bo'sh vaqtlar", icon: "clock" });
+    }
     // Qabul — markazga birinchi marta kelgan odam; mutaxassisga u ko'rinmaydi
     if (user.role !== "SPECIALIST") {
       items.push({ href: "/intakes", label: "Qabullar", icon: "door" });
@@ -40,6 +44,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items.push({ href: "/reports", label: "Hisobotlar", icon: "chart" });
     }
   }
+
+  items.push({ href: "/settings", label: "Sozlamalar", icon: "gear" });
 
   const roleLine =
     user.role === "SPECIALIST" && user.specialization

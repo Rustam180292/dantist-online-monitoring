@@ -154,6 +154,7 @@ async function main() {
   await assertSafeToWipe();
 
   console.log("Eski demo ma'lumotlar tozalanmoqda...");
+  await prisma.settings.deleteMany();
   await prisma.intake.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.salaryPayout.deleteMany();

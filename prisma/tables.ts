@@ -5,6 +5,7 @@
  * filiali bazada turishi kerak, aks holda baza bog'lanishni rad etadi.
  */
 export const TABLES = [
+  { name: "Settings", delegate: "settings" },
   { name: "Branch", delegate: "branch" },
   { name: "User", delegate: "user" },
   { name: "Specialist", delegate: "specialist" },
