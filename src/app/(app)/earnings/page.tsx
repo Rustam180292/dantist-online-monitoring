@@ -96,7 +96,17 @@ export default async function EarningsPage() {
                             {SESSION_STATUSES[s.status as SessionStatus]}
                           </Badge>
                         </td>
-                        <td className={`${td} tabular-nums`}>{money(s.price)}</td>
+                        <td className={`${td} tabular-nums`}>
+                          {s.price > 0 ? (
+                            money(s.price)
+                          ) : (
+                            // Narx abonementdan olinadi — faol abonement bo'lmasa
+                            // 0 bo'lib qoladi va ulush ham 0 chiqadi
+                            <span className="text-amber-600 dark:text-amber-400">
+                              belgilanmagan
+                            </span>
+                          )}
+                        </td>
                         <td className={`${td} font-semibold tabular-nums`}>
                           {money(Math.round((s.price * percent) / 100))}
                           <span className="block text-xs font-normal text-slate-400">{percent}%</span>

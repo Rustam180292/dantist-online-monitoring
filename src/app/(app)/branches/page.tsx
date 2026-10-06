@@ -118,8 +118,8 @@ export default async function BranchesPage() {
                       ) : null}
 
                       <details className="mt-1">
-                        <summary className="cursor-pointer text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">
-                          tahrirlash
+                        <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+                          ✎ Tahrirlash
                         </summary>
                         <form
                           action={updateBranch}

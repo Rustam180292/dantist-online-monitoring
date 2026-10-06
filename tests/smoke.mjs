@@ -602,6 +602,36 @@ if (await payRow.count()) {
   await all("UPDATE User SET telegramId = NULL WHERE id = ?", someParent.id);
 }
 
+/* 9s. To'lovlarni bola ismi bo'yicha qidirish */
+{
+  await page.goto(`${BASE}/payments`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  const all = await page.locator("tbody tr").count();
+
+  const paid = await one(
+    `SELECT c.fullName FROM Payment p JOIN Client c ON c.id = p.clientId
+      ORDER BY p.paidAt DESC LIMIT 1`,
+  );
+  await page.fill("#q", paid.fullName);
+  await page.click('button:has-text("Filtrlash")');
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  const found = await page.locator("tbody tr").count();
+  check(
+    "To'lovlar bola ismi bo'yicha qidiriladi",
+    found > 0 && found < all && page.url().includes("q="),
+    `${paid.fullName}: ${all} -> ${found}`,
+  );
+
+  await page.click('a:has-text("Tozalash")');
+  await page.waitForURL((u) => !u.search.includes("q="), { timeout: 15000 }).catch(() => {});
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  check(
+    "To'lovlar filtri tozalanadi",
+    !page.url().includes("q=") && (await page.locator("tbody tr").count()) === all,
+    page.url(),
+  );
+}
+
 /* 9h. Bosh panelda filiallar kesimi */
 {
   await page.goto(`${BASE}/`);

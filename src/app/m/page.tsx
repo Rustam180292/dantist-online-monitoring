@@ -372,19 +372,36 @@ async function MyMoney({
           <p className="py-4 text-center text-sm app-muted">Bu oyda hisobga kirgan seans yo&apos;q.</p>
         ) : (
           <ul className="divide-y divide-black/5">
-            {sessions.map((s) => (
-              <li key={s.id} className="flex items-center justify-between gap-2 py-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm">{s.client.fullName}</p>
-                  <p className="text-xs app-muted">
-                    {dateShort(s.startsAt)} · {SESSION_STATUSES[s.status as SessionStatus]}
-                  </p>
-                </div>
-                <span className="shrink-0 text-sm font-semibold tabular-nums">
-                  {money(Math.round((s.price * (s.salaryPercent ?? percent)) / 100))}
-                </span>
-              </li>
-            ))}
+            {sessions.map((s) => {
+              // Foiz seans bilan birga saqlanadi: keyin ulush o'zgarsa ham
+              // o'tib bo'lgan seansning hisobi o'zgarmaydi. Mutaxassis
+              // raqam qayerdan chiqqanini ko'rib tursin.
+              const pct = s.salaryPercent ?? percent;
+              return (
+                <li key={s.id} className="flex items-center justify-between gap-2 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm">{s.client.fullName}</p>
+                    <p className="text-xs app-muted">
+                      {dateShort(s.startsAt)} · {SESSION_STATUSES[s.status as SessionStatus]}
+                    </p>
+                    {s.price > 0 ? (
+                      <p className="text-xs app-muted tabular-nums">
+                        {money(s.price)} × {pct}%
+                      </p>
+                    ) : (
+                      // Narx abonementdan olinadi: faol abonement bo'lmasa 0 bo'lib
+                      // qoladi va ulush ham 0 chiqadi. Jim turmasin.
+                      <p className="text-xs font-medium text-amber-600">
+                        narx belgilanmagan (abonement yo&apos;q)
+                      </p>
+                    )}
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    {money(Math.round((s.price * pct) / 100))}
+                  </span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

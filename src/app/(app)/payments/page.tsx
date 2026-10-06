@@ -26,7 +26,7 @@ import {
 } from "@/components/ui";
 import { addPayment } from "@/app/(app)/clients/actions";
 
-type Search = { m?: string; b?: string; pm?: string };
+type Search = { m?: string; b?: string; pm?: string; q?: string };
 
 export default async function PaymentsPage({
   searchParams,
@@ -46,6 +46,8 @@ export default async function PaymentsPage({
   const methodFilter = PAYMENT_METHOD_KEYS.includes(sp.pm as PaymentMethod)
     ? (sp.pm as PaymentMethod)
     : null;
+  // Bitta bolaning to'lovlarini topish eng ko'p so'raladigan narsa
+  const nameFilter = (sp.q ?? "").trim();
 
   const [payments, branches, alerts, clients, intakes] = await Promise.all([
     prisma.payment.findMany({
@@ -53,6 +55,9 @@ export default async function PaymentsPage({
         paidAt: { gte: from, lt: to },
         ...(branchId ? { branchId } : {}),
         ...(methodFilter ? { method: methodFilter } : {}),
+        ...(nameFilter
+          ? { client: { fullName: { contains: nameFilter, mode: "insensitive" as const } } }
+          : {}),
       },
       orderBy: { paidAt: "desc" },
       include: {
@@ -74,6 +79,9 @@ export default async function PaymentsPage({
         paidAt: { gte: from, lt: to },
         ...(branchId ? { branchId } : {}),
         ...(methodFilter ? { method: methodFilter } : {}),
+        ...(nameFilter
+          ? { childName: { contains: nameFilter, mode: "insensitive" as const } }
+          : {}),
       },
       orderBy: { paidAt: "desc" },
       include: {
@@ -192,9 +200,26 @@ export default async function PaymentsPage({
             ))}
           </select>
         </div>
+        <div className="min-w-[200px]">
+          <label className={label} htmlFor="q">
+            Bola ismi
+          </label>
+          <input
+            id="q"
+            name="q"
+            defaultValue={sp.q ?? ""}
+            placeholder="ism bo'yicha qidirish"
+            className={input}
+          />
+        </div>
         <button type="submit" className={btnPrimary}>
           Filtrlash
         </button>
+        {sp.q || sp.pm || sp.b ? (
+          <Link href={`/payments?m=${offset}`} className={btn}>
+            Tozalash
+          </Link>
+        ) : null}
       </form>
 
       <details className={`${card} mb-5 p-4`} open={payments.length === 0}>
