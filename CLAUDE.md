@@ -32,13 +32,17 @@ olib tashlangan, loyihada eslint yo'q.
 npm run dev           # lokal ishlab chiqish
 npm run build         # yig'ish (deploy'dan oldin tekshirish uchun)
 npx tsc --noEmit      # turlarni tekshirish
-npm run db:push       # schema o'zgarishini bazaga yozish
+npm run db:push       # schema o'zgarishini bazaga yozish va Prisma mijozini yangilash
 npm run db:backup     # bazaning to'liq zaxirasi -> zaxira/*.json
 npm run db:restore -- zaxira/<fayl>.json    # zaxiradan tiklash
 npm run db:clean      # demo'ni tozalab, haqiqiy markazni ochish (savol berib boradi)
 npm run db:billing-type  # bir martalik: abonementi bor mijozlarni "Abonement" deb belgilaydi
 npm run db:seed       # demo ma'lumot — DIQQAT, pastga qarang
 ```
+
+Prisma 7 da `prisma db push` Prisma mijozini **o'zi qayta yasamaydi** — shuning
+uchun `db:push` skriptiga `prisma generate` ham qo'shilgan. Uni olib tashlamang:
+usiz yangi ustun kodga ko'rinmaydi va "Unknown argument" xatosi chiqadi.
 
 `db:backup` hech narsa o'rnatishni talab qilmaydi (pg_dump kerak emas). Zaxira
 fayllarida shaxsiy ma'lumot bo'lgani uchun `zaxira/` papkasi git'ga tushmaydi —
