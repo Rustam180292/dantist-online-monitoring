@@ -214,6 +214,12 @@ npm run build && npm start
 > `DEMO_PASSWORD` ni ishlatmang va `.env` dagi `SESSION_SECRET` ni
 > `openssl rand -hex 32` bilan almashtiring.
 
+Bu ro'yxat kirish sahifasida ham ko'rinadi — lekin **faqat lokalda**. Ishlab
+turgan saytda u yashiringan: sayt internetda ochiq, ro'yxat ko'rinsa istalgan
+odam markaz egasi sifatida kirib ketardi. Sinov uchun ataylab ko'rsatmoqchi
+bo'lsangiz, serverda `DEMO_LOGINS=1` qo'ying — haqiqiy markaz ishga tushganda
+uni olib tashlang.
+
 ## Texnologiyalar
 
 - **Next.js 16** (App Router, Server Actions) + **React 19** + **TypeScript**

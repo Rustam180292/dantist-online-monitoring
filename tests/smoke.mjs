@@ -95,6 +95,14 @@ async function login(phone, password = PASSWORD) {
 await page.goto(`${BASE}/`);
 check("Auth: / -> /login", page.url().includes("/login"), page.url());
 
+// Sayt internetda ochiq turadi: demo hisoblar ro'yxati ko'rinib tursa,
+// istalgan odam markaz egasi sifatida kira oladi.
+check(
+  "Demo hisoblar ro'yxati ishlab turgan saytda ko'rinmaydi",
+  !(await page.content()).includes("Demo kirish"),
+  page.url(),
+);
+
 /* 2. Noto'g'ri parol rad etiladi */
 await login(owner.phone, "notogri-parol");
 check("Noto'g'ri parol rad etiladi", (await page.content()).includes("noto'g'ri"));

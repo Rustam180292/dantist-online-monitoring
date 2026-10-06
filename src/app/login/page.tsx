@@ -27,6 +27,17 @@ export default async function LoginPage({
   const { error } = await searchParams;
   const message = error ? ERRORS[error] ?? "Kirishda xatolik." : null;
 
+  /**
+   * Demo hisoblar ro'yxati — faqat sinov muhitida.
+   *
+   * Sayt internetda ochiq turadi: bu ro'yxat ko'rinib tursa, istalgan odam
+   * markaz egasi sifatida kirib, mijozlar, to'lovlar va maoshlarni ko'ra oladi.
+   * Shuning uchun u lokalda o'zi ko'rinadi, serverda esa faqat `DEMO_LOGINS=1`
+   * qo'yilgan bo'lsa. Haqiqiy markaz ishga tushganda bu o'zgaruvchini olib
+   * tashlang (va demo hisoblarning o'zini ham bazadan o'chiring).
+   */
+  const showDemo = process.env.NODE_ENV !== "production" || process.env.DEMO_LOGINS === "1";
+
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
@@ -84,6 +95,7 @@ export default async function LoginPage({
           </button>
         </form>
 
+        {showDemo ? (
         <div className={`${card} mt-4 p-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400`}>
           <p className="mb-2 font-semibold text-slate-700 dark:text-slate-300">
             Demo kirish (parol: <code className="font-mono">parol123</code>)
@@ -110,6 +122,7 @@ export default async function LoginPage({
             pastida qaysi rol ekani yozib turadi.
           </p>
         </div>
+        ) : null}
       </div>
     </main>
   );
