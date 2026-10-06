@@ -644,6 +644,65 @@ if (await payRow.count()) {
   }
 }
 
+/* 9k. Filiallar: qo'shish, tahrirlash, bo'sh bo'lmaganini o'chirmaslik */
+{
+  const before = await count("SELECT COUNT(*) AS n FROM Branch");
+  const name = `Sinov filiali ${String(Date.now()).slice(-5)}`;
+
+  await page.goto(`${BASE}/branches`);
+  await page.waitForLoadState("networkidle");
+  check("Filiallar sahifasi ochiladi", (await page.locator("main").innerText()).includes("Filiallar"));
+
+  await page.click('summary:has-text("Yangi filial")');
+  await page.fill("#name", name);
+  await page.fill("#address", "Toshkent, Sinov ko'chasi 1");
+  await page.locator('form button:has-text("Qo\'shish")').first().click();
+
+  const added = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM Branch")) === before + 1,
+  );
+  check("Yangi filial qo'shiladi", added, name);
+
+  // Nomini o'zgartirish
+  await page.waitForLoadState("networkidle");
+  const row = page.locator(`tr:has-text("${name}")`).first();
+  await row.locator("summary").click();
+  await row.locator('input[name="name"]').fill(`${name} (yangi)`);
+  await row.locator('button:has-text("Saqlash")').click();
+  const renamed = await waitUntil(
+    async () =>
+      (await count(`SELECT COUNT(*) AS n FROM Branch WHERE name = '${name} (yangi)'`)) === 1,
+  );
+  check("Filial nomi tahrirlanadi", renamed);
+
+  // Bo'sh filialni o'chirish mumkin
+  await page.waitForLoadState("networkidle");
+  const freshRow = page.locator(`tr:has-text("${name} (yangi)")`).first();
+  await freshRow.locator('button:has-text("o\'chirish")').click();
+  const removed = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM Branch")) === before,
+  );
+  check("Bo'sh filial o'chiriladi", removed);
+
+  // Mijozi bor filialni o'chirib bo'lmaydi
+  await page.goto(`${BASE}/branches`);
+  await page.waitForLoadState("networkidle");
+  const busy = await one(
+    "SELECT b.name FROM Branch b JOIN Client c ON c.branchId = b.id GROUP BY b.name LIMIT 1",
+  );
+  const busyRow = page.locator(`tr:has-text("${busy.name}")`).first();
+  await busyRow.locator('button:has-text("o\'chirish")').click();
+  const warned = page.getByRole("alert").filter({ hasText: "bo'sh emas" });
+  check(
+    "Mijozi bor filial o'chirilmaydi",
+    (await warned
+      .waitFor({ state: "visible", timeout: 8000 })
+      .then(() => true)
+      .catch(() => false)) && (await count("SELECT COUNT(*) AS n FROM Branch")) === before,
+    busy.name,
+  );
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check(
@@ -693,12 +752,14 @@ if (!reception) {
 
   const recNav = await page.locator("aside").innerText();
   check(
-    "Qabulxonada faqat 3 bo'lim bor",
+    "Qabulxonaga faqat o'z ishi ko'rinadi",
     recNav.includes("Jadval") &&
+      recNav.includes("Qabullar") &&
       recNav.includes("Mijozlar") &&
       recNav.includes("To'lovlar") &&
       !recNav.includes("Hisobotlar") &&
       !recNav.includes("Xodimlar") &&
+      !recNav.includes("Filiallar") &&
       !recNav.includes("Panel"),
     recNav.replace(/\n/g, " | "),
   );
@@ -708,6 +769,7 @@ if (!reception) {
 
   await page.goto(`${BASE}/specialists`);
   await denied("Qabulxona xodimlar bo'limiga kira olmaydi", "/specialists", "Yangi mutaxassis");
+  await denied("Qabulxona filiallarni boshqara olmaydi", "/branches", "Yangi filial");
 
   // To'lov qabul qila oladimi
   const recPayBefore = await count("SELECT COUNT(*) AS n FROM Payment");

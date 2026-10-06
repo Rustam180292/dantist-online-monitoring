@@ -33,6 +33,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items.push({ href: "/payments", label: "To'lovlar", icon: "wallet" });
     } else {
       items.push({ href: "/specialists", label: "Xodimlar", icon: "badge" });
+      if (user.role === "OWNER") {
+        items.push({ href: "/branches", label: "Filiallar", icon: "building" });
+      }
       items.push({ href: "/payments", label: "To'lovlar", icon: "wallet" });
       items.push({ href: "/reports", label: "Hisobotlar", icon: "chart" });
     }

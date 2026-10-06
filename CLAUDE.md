@@ -61,12 +61,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 109 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 115 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, PWA (73)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, PWA (79)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 ```
@@ -78,7 +78,7 @@ Kod o'zgartirgandan keyin shu uchtasini ishga tushiring. Yangi imkoniyat qo'shsa
 
 | Rol | Ko'radi |
 |---|---|
-| `OWNER` | hamma filial, hamma narsa; `branchId` bo'sh bo'ladi. Ega yana ega qo'sha oladi (o'zini o'chira olmaydi) |
+| `OWNER` | hamma filial, hamma narsa; `branchId` bo'sh bo'ladi. Faqat u filial va ikkinchi ega qo'sha oladi (o'zini o'chira olmaydi) |
 | `BRANCH_ADMIN` | faqat o'z filiali (hozircha interfeysdan yaratilmaydi) |
 | `RECEPTION` | o'z filiali: jadval, qabullar, mijozlar, to'lovlar |
 | `SPECIALIST` | faqat o'z mijozlari va o'z puli |
