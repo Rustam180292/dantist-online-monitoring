@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import {
+  BILLING_TYPES,
+  BILLING_TYPE_KEYS,
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   PAYMENT_METHODS,
@@ -12,6 +14,7 @@ import {
   SESSION_STATUS_STYLE,
   SPECIALIZATIONS,
   SPECIALIZATION_KEYS,
+  type BillingType,
   type ClientStatus,
   type PaymentMethod,
   type SessionStatus,
@@ -91,6 +94,10 @@ export default async function ClientPage({
 
   if (!client) notFound();
 
+  // Kunlik to'laydigan mijozda abonement tushunchasi yo'q — ekranlar shunga qarab
+  // o'zgaradi
+  const daily = client.billingType !== "PACKAGE";
+
   const [packages, freeSpecialists, notifications, branches] = await Promise.all([
     getClientPackages(client.id),
     canManage
@@ -128,7 +135,7 @@ export default async function ClientPage({
         title={client.fullName}
         subtitle={`${ageUz(client.birthDate)} · ${client.branch.name} · ${
           CLIENT_STATUSES[client.status as ClientStatus]
-        }`}
+        } · ${BILLING_TYPES[(client.billingType as BillingType) ?? "DAILY"]}`}
         action={
           <Link href="/clients" className={btn}>
             ← Mijozlar
@@ -138,8 +145,30 @@ export default async function ClientPage({
 
       <div className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
-          <Card title="Abonementlar" subtitle="qolgan seanslar va to'lov holati">
-            {packages.length === 0 ? (
+          <Card
+            title={daily ? "To'lov turi" : "Abonementlar"}
+            subtitle={
+              daily
+                ? "bu mijoz har kelganida to'laydi"
+                : "qolgan seanslar va to'lov holati"
+            }
+          >
+            {/* Kunlik to'laydigan mijozga abonement ro'yxatini ko'rsatishning
+                ma'nosi yo'q — ekranni bekorga to'ldiradi. Lekin baribir
+                abonementga o'tkazish mumkin: turi mijoz kartasidan almashtiriladi. */}
+            {daily ? (
+              <div className="space-y-2 p-4 text-sm text-slate-600 dark:text-slate-400">
+                <p>
+                  Seans narxi Sozlamalardagi standart narxdan olinadi. Qolgan seans
+                  va qarzdorlik hisoblanmaydi.
+                </p>
+                <p>
+                  Abonementga o&apos;tkazmoqchi bo&apos;lsangiz, pastdagi
+                  <b> Mijoz ma&apos;lumoti</b> bo&apos;limida to&apos;lov turini
+                  &laquo;Abonement&raquo; qilib saqlang.
+                </p>
+              </div>
+            ) : packages.length === 0 ? (
               <Empty>Abonement sotilmagan.</Empty>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -192,7 +221,7 @@ export default async function ClientPage({
               </ul>
             )}
 
-            {canManage ? (
+            {canManage && !daily ? (
               <details
                 id="abonement"
                 open={ochiq === "abonement"}
@@ -457,6 +486,20 @@ export default async function ClientPage({
                     <option value="">Ko&apos;rsatilmagan</option>
                     <option value="M">O&apos;g&apos;il bola</option>
                     <option value="F">Qiz bola</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>To&apos;lov turi</label>
+                  <select
+                    name="billingType"
+                    defaultValue={client.billingType ?? "DAILY"}
+                    className={input}
+                  >
+                    {BILLING_TYPE_KEYS.map((k) => (
+                      <option key={k} value={k}>
+                        {BILLING_TYPES[k]}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 {branches.length > 0 ? (

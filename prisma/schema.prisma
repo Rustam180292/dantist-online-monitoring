@@ -96,6 +96,9 @@ model Client {
   diagnosis    String?
   note         String?
   status       String   @default("ACTIVE")
+  /// DAILY | PACKAGE — mijoz har kelganida to'laydimi yoki abonement oladimi.
+  /// Ko'pchilik kunlik to'laydi, shuning uchun standarti DAILY.
+  billingType  String   @default("DAILY")
   createdAt    DateTime @default(now())
 
   branch        Branch         @relation(fields: [branchId], references: [id])

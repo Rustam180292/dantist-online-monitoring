@@ -7,9 +7,11 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireUser, type CurrentUser } from "@/lib/auth";
 import {
+  BILLING_TYPE_KEYS,
   CLIENT_STATUS_KEYS,
   PAYMENT_METHOD_KEYS,
   SPECIALIZATION_KEYS,
+  type BillingType,
   type ClientStatus,
   type PaymentMethod,
   type Specialization,
@@ -62,6 +64,12 @@ function parseAmount(raw: FormDataEntryValue | null, field: string): number {
 }
 
 /** Yangi mijoz (bola) qo'shish */
+/** Formadan to'lov turi: noma'lum qiymat kelsa kunlikka tushadi */
+function readBillingType(formData: FormData): BillingType {
+  const raw = String(formData.get("billingType") ?? "");
+  return BILLING_TYPE_KEYS.includes(raw as BillingType) ? (raw as BillingType) : "DAILY";
+}
+
 async function createClientImpl(formData: FormData) {
   const user = await requireFrontDesk();
 
@@ -111,6 +119,7 @@ async function createClientImpl(formData: FormData) {
       diagnosis: String(formData.get("diagnosis") ?? "").trim() || null,
       note: String(formData.get("note") ?? "").trim() || null,
       status: "ACTIVE",
+      billingType: readBillingType(formData),
     },
   });
 
@@ -183,6 +192,7 @@ async function updateClientImpl(formData: FormData) {
       parentPhone,
       diagnosis: String(formData.get("diagnosis") ?? "").trim() || null,
       note: String(formData.get("note") ?? "").trim() || null,
+      billingType: readBillingType(formData),
     },
   });
 

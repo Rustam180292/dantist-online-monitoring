@@ -265,6 +265,9 @@ async function main() {
       birth.setMonth(Math.floor(rnd() * 12), 1 + Math.floor(rnd() * 27));
       birth.setHours(0, 0, 0, 0);
 
+      // Markazga kelganlarning ko'pi abonement olmaydi — har kelganida to'laydi
+      const isPackage = chance(0.3);
+
       const client = await prisma.client.create({
         data: {
           fullName: `${first} ${surname}`,
@@ -276,6 +279,7 @@ async function main() {
           parentPhone,
           diagnosis: pick(DIAGNOSES),
           status: chance(0.9) ? "ACTIVE" : "PAUSED",
+          billingType: isPackage ? "PACKAGE" : "DAILY",
           note: chance(0.3) ? "Mashg'ulotga ota-ona bilan kiradi." : null,
         },
       });
@@ -298,7 +302,7 @@ async function main() {
         const expiresAt = new Date(purchasedAt);
         expiresAt.setDate(expiresAt.getDate() + 60);
 
-        const pkg = await prisma.package.create({
+        const pkg = isPackage ? await prisma.package.create({
           data: {
             clientId: client.id,
             specialization: sp.specialization,
@@ -307,11 +311,11 @@ async function main() {
             purchasedAt,
             expiresAt,
           },
-        });
+        }) : null;
 
         // Abonement to'lovi (ba'zida bo'lib-bo'lib)
         const full = totalSessions * pricePerSession;
-        if (chance(0.7)) {
+        if (pkg && chance(0.55)) {
           await prisma.payment.create({
             data: {
               clientId: client.id,
@@ -323,7 +327,7 @@ async function main() {
               note: `${totalSessions} seanslik abonement`,
             },
           });
-        } else {
+        } else if (pkg) {
           const firstPart = Math.round(full / 2 / 1000) * 1000;
           await prisma.payment.create({
             data: {
@@ -339,7 +343,7 @@ async function main() {
           const second = new Date(purchasedAt);
           second.setDate(second.getDate() + 14);
           // Qolgan qismi hammasida ham to'lanmagan — qarzdorlar ro'yxati bo'sh qolmasin
-          if (second <= new Date() && chance(0.55)) {
+          if (second <= new Date() && chance(0.4)) {
             await prisma.payment.create({
               data: {
                 clientId: client.id,
@@ -383,7 +387,7 @@ async function main() {
               clientId: client.id,
               specialistId: sp.id,
               branchId: branch.id,
-              packageId: pkg.id,
+              packageId: pkg?.id ?? null,
               startsAt: starts,
               durationMin: sp.specialization === "MASSAGE" ? 30 : 45,
               status,
@@ -392,6 +396,21 @@ async function main() {
               note: status === "CANCELLED_CLIENT" ? "Bola kasal bo'lib qoldi" : null,
             },
           });
+
+          // Kunlik to'laydigan mijoz o'sha kuni kassaga to'laydi — to'lov
+          // abonementga emas, to'g'ridan-to'g'ri mijozga bog'lanadi
+          if (!pkg && status === "DONE") {
+            await prisma.payment.create({
+              data: {
+                clientId: client.id,
+                branchId: branch.id,
+                amount: pricePerSession,
+                method: pick(["CASH", "CASH", "CARD"]),
+                paidAt: starts,
+                note: "Kunlik to'lov",
+              },
+            });
+          }
         }
       }
     }

@@ -23,7 +23,7 @@ const IDENTIFIERS = [
   "specialistId", "salaryPercent", "telegramId", "purchasedAt", "parentPhone",
   "clientName", "dedupeKey", "sessionId", "childName", "packageId", "birthDate",
   "createdAt", "startsAt", "clientId", "branchId", "fullName", "isActive",
-  "scheduledAt", "createdById", "childName", "parentName",
+  "scheduledAt", "createdById", "childName", "parentName", "billingType",
   "defaultSalaryPercent", "workStartHour", "workEndHour", "slotMinutes",
   "defaultPrice", "workDays", "centerName",
   "userId", "paidAt", "sentAt",

@@ -125,13 +125,19 @@ export async function ParentApp({
       <div className="mb-3 grid grid-cols-2 gap-2">
         <div className="app-card p-3">
           <p className="text-xs app-muted">Qolgan seans</p>
-          <p
-            className={`mt-1 text-lg font-bold tabular-nums ${
-              remaining === 0 ? "text-rose-600" : remaining <= 2 ? "text-amber-600" : ""
-            }`}
-          >
-            {remaining}
-          </p>
+          {/* Kunlik to'laydigan bolada abonement yo'q — "0 seans qoldi" deb
+              qizartirib qo'yish ota-onani bekorga xavotirga soladi */}
+          {child.billingType === "PACKAGE" ? (
+            <p
+              className={`mt-1 text-lg font-bold tabular-nums ${
+                remaining === 0 ? "text-rose-600" : remaining <= 2 ? "text-amber-600" : ""
+              }`}
+            >
+              {remaining}
+            </p>
+          ) : (
+            <p className="mt-1 text-lg font-bold app-muted">kunlik</p>
+          )}
         </div>
         <div className="app-card p-3">
           <p className="text-xs app-muted">Qarzdorlik</p>

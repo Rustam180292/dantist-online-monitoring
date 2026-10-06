@@ -54,6 +54,21 @@ export const CLIENT_STATUSES = {
 export type ClientStatus = keyof typeof CLIENT_STATUSES;
 export const CLIENT_STATUS_KEYS = Object.keys(CLIENT_STATUSES) as ClientStatus[];
 
+/**
+ * Mijoz pulni qanday to'laydi.
+ *
+ * Markazga kelganlarning ko'pi abonement olmaydi — har kelganida to'laydi.
+ * Shuning uchun standarti DAILY: unday mijozda "qolgan seans" ham, "qarz" ham
+ * bo'lmaydi, seans narxi Sozlamalardagi standart narxdan olinadi.
+ */
+export const BILLING_TYPES = {
+  DAILY: "Kunlik to'lov",
+  PACKAGE: "Abonement",
+} as const;
+
+export type BillingType = keyof typeof BILLING_TYPES;
+export const BILLING_TYPE_KEYS = Object.keys(BILLING_TYPES) as BillingType[];
+
 /** To'lov usullari */
 export const PAYMENT_METHODS = {
   CASH: "Naqd",

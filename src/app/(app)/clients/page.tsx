@@ -3,9 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser } from "@/lib/auth";
 import {
   BILLABLE_STATUSES,
+  BILLING_TYPES,
+  BILLING_TYPE_KEYS,
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   SPECIALIZATIONS,
+  type BillingType,
   type ClientStatus,
   type Specialization,
 } from "@/lib/constants";
@@ -34,6 +37,7 @@ type Search = {
   b?: string;
   st?: string;
   tg?: string;
+  bt?: string;
 };
 
 /**
@@ -92,9 +96,12 @@ export default async function ClientsPage({
     : null;
   // Telegram'ga ulanmagan ota-onaga eslatma bormaydi — ularni ajratib ko'rsatish kerak
   const telegramFilter = sp.tg === "bor" || sp.tg === "yoq" ? sp.tg : null;
+  const billingFilter = BILLING_TYPE_KEYS.includes(sp.bt as BillingType)
+    ? (sp.bt as BillingType)
+    : null;
   const hasFilter = Boolean(
     nameFilter || phoneFilter || ageFilter !== null || specialistFilter || remainingFilter ||
-      statusFilter || telegramFilter || sp.b,
+      statusFilter || telegramFilter || billingFilter || sp.b,
   );
 
   const [clients, branches, specialists] = await Promise.all([
@@ -103,6 +110,7 @@ export default async function ClientsPage({
         ...clientScope(user),
         ...(user.role === "OWNER" && sp.b ? { branchId: sp.b } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
+        ...(billingFilter ? { billingType: billingFilter } : {}),
         ...(ageFilter !== null ? { birthDate: birthRangeForAge(ageFilter) } : {}),
         ...(specialistFilter ? { specialists: { some: { specialistId: specialistFilter } } } : {}),
         ...(nameFilter
@@ -188,7 +196,7 @@ export default async function ClientsPage({
   // yo'q — shuning uchun bu filtr faqat abonementi borlarga tegishli.
   const visible = remainingFilter
     ? rows.filter((c) =>
-        c.packages.length === 0
+        c.billingType !== "PACKAGE"
           ? false
           : remainingFilter === "0"
             ? c.remaining === 0
@@ -234,6 +242,21 @@ export default async function ClientsPage({
                 <option value="M">O&apos;g&apos;il bola</option>
                 <option value="F">Qiz bola</option>
               </select>
+            </div>
+            <div>
+              <label className={label} htmlFor="billingType">
+                To&apos;lov turi
+              </label>
+              <select id="billingType" name="billingType" className={input}>
+                {BILLING_TYPE_KEYS.map((k) => (
+                  <option key={k} value={k}>
+                    {BILLING_TYPES[k]}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Kunlikda har kelganida to&apos;laydi, abonementda oldindan.
+              </p>
             </div>
             {user.role === "OWNER" ? (
               <div>
@@ -382,11 +405,10 @@ export default async function ClientsPage({
                       )}
                     </td>
                     <td className={`${td} tabular-nums`}>
-                      {/* Abonementi yo'q mijoz har kelganida to'laydi — uning
-                          "qolgan seansi" 0 emas, umuman yo'q. Qizil 0 yozib
-                          qo'yilsa har kuni bekorga qo'rqitadi. */}
-                      {c.packages.length === 0 ? (
-                        <span className="text-slate-400" title="Abonement olmagan — kunlik to'laydi">
+                      {/* Kunlik to'laydigan mijozning "qolgan seansi" 0 emas,
+                          umuman yo'q. Qizil 0 yozib qo'yilsa bekorga qo'rqitadi. */}
+                      {c.billingType !== "PACKAGE" ? (
+                        <span className="text-slate-400" title="Har kelganida to'laydi">
                           kunlik
                         </span>
                       ) : (
@@ -428,12 +450,16 @@ export default async function ClientsPage({
                           <Link href={`/clients/${c.id}?ochiq=tolov#tolov`} className={btnTiny}>
                             To&apos;lov
                           </Link>
-                          <Link
-                            href={`/clients/${c.id}?ochiq=abonement#abonement`}
-                            className={btnTiny}
-                          >
-                            Abonement
-                          </Link>
+                          {/* Kunlik to'laydigan mijozga abonement taklif
+                              qilinmaydi — unda bunaqa tushuncha yo'q */}
+                          {c.billingType === "PACKAGE" ? (
+                            <Link
+                              href={`/clients/${c.id}?ochiq=abonement#abonement`}
+                              className={btnTiny}
+                            >
+                              Abonement
+                            </Link>
+                          ) : null}
                         </div>
                       </td>
                     ) : null}

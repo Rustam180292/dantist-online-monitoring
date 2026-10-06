@@ -58,7 +58,7 @@ export function ClientFilters({
 
   const active =
     name || phone || params.get("age") || params.get("sp") || params.get("rem") ||
-    params.get("b") || params.get("st") || params.get("tg");
+    params.get("b") || params.get("st") || params.get("tg") || params.get("bt");
 
   return (
     <tr className="border-b border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/40">
@@ -156,6 +156,18 @@ export function ClientFilters({
           <option value="0">Tugagan (0)</option>
           <option value="low">Kam (1-2)</option>
           <option value="ok">Yetarli (3+)</option>
+        </select>
+        {/* Kunlik to'laydigan mijozda "qolgan seans" yo'q — ularni shu yerdan
+            ajratib olish eng tabiiy joy */}
+        <select
+          value={params.get("bt") ?? ""}
+          onChange={(e) => apply({ bt: e.target.value })}
+          aria-label="To'lov turi bo'yicha filtr"
+          className={`${cell} mt-1`}
+        >
+          <option value="">Turi: hammasi</option>
+          <option value="DAILY">Kunlik</option>
+          <option value="PACKAGE">Abonement</option>
         </select>
       </td>
       <td className="px-4 py-2" />

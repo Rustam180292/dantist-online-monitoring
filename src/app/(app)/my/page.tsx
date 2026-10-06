@@ -85,7 +85,16 @@ export default async function MyChildrenPage() {
                 </h2>
 
                 <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  <StatCard label="Qolgan seans" value={String(remaining)} tone={remaining <= 2 ? "warn" : "good"} />
+                  {/* Kunlik to'laydigan bolada abonement tushunchasi yo'q */}
+                  {child.billingType === "PACKAGE" ? (
+                    <StatCard
+                      label="Qolgan seans"
+                      value={String(remaining)}
+                      tone={remaining <= 2 ? "warn" : "good"}
+                    />
+                  ) : (
+                    <StatCard label="To'lov turi" value="Kunlik" hint="har kelganida" />
+                  )}
                   <StatCard label="Jami o'tgan mashg'ulot" value={String(doneAll)} />
                   <StatCard
                     label="Qarzdorlik"

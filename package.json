@@ -10,6 +10,7 @@
     "db:backup": "tsx prisma/backup.ts",
     "db:restore": "tsx prisma/restore.ts",
     "db:clean": "tsx prisma/clean.ts",
+    "db:billing-type": "tsx prisma/billing-type.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push && tsx prisma/seed.ts",
     "postinstall": "prisma generate"

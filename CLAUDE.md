@@ -36,6 +36,7 @@ npm run db:push       # schema o'zgarishini bazaga yozish
 npm run db:backup     # bazaning to'liq zaxirasi -> zaxira/*.json
 npm run db:restore -- zaxira/<fayl>.json    # zaxiradan tiklash
 npm run db:clean      # demo'ni tozalab, haqiqiy markazni ochish (savol berib boradi)
+npm run db:billing-type  # bir martalik: abonementi bor mijozlarni "Abonement" deb belgilaydi
 npm run db:seed       # demo ma'lumot — DIQQAT, pastga qarang
 ```
 
@@ -61,12 +62,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 155 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 159 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, PWA (119)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, PWA (123)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 ```
@@ -96,9 +97,15 @@ Buni o'zgartirishdan oldin tushunib oling:
   **mutaxassisga emas**.
 - **Mutaxassisning ish haqi** to'lovdan emas, **bajarilgan seansdan** hisoblanadi:
   seans narxi × foizi, seans "O'tdi/Kelmadi" deb belgilangan payt.
-- **Seans narxi** abonementdan olinadi; mijozda faol abonement bo'lmasa (ko'pchilik
-  shunday — har kelganida to'laydi) Sozlamalardagi standart narx qo'llanadi. Narx
-  ham seans bilan birga saqlanadi.
+- **Mijozning to'lov turi** `Client.billingType`: `DAILY` (standart — har kelganida
+  to'laydi) yoki `PACKAGE` (abonement oladi). Kunlik mijozda abonement, qolgan seans
+  va qarzdorlik tushunchasi yo'q — interfeys ham, eslatmalar ham unga bu narsalarni
+  ko'rsatmaydi.
+- **Seans narxi** abonementdan olinadi; abonement bo'lmasa Sozlamalardagi standart
+  narx qo'llanadi. Narx ham seans bilan birga saqlanadi.
+- `billingType` ustuni keyin qo'shilgani uchun eski bazada hamma `DAILY` bo'lib
+  qoladi. `npm run db:billing-type` abonementi borlarni bir marta `PACKAGE` ga
+  o'tkazadi.
 - **Foiz seans bilan birga saqlanadi** (`Session.salaryPercent`). Keyin mutaxassisning
   foizi o'zgarsa, o'tib bo'lgan seanslarning hisobi o'zgarmaydi. Buni buzmang.
 - Abonement tugashi va qarzdorlik `src/lib/stats.ts` da hisoblanadi.

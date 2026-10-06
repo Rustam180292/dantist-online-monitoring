@@ -179,7 +179,10 @@ check("Yangi seans qo'shildi", sessGrew, `${sessBefore} -> ${await count("SELECT
 /* 6. Mijozlar ro'yxati va kartasi */
 await page.goto(`${BASE}/clients`);
 check("Mijozlar ro'yxati to'ldi", (await page.locator("tbody tr").count()) > 0);
-await page.locator("tbody tr a").first().click();
+// Abonement bo'limi faqat abonementchi mijozda bo'ladi — ataylab o'shanaqasini
+// ochamiz, pastdagi to'lov va abonement tekshiruvlari shu kartada ishlaydi
+const pkgClient = await one("SELECT id FROM Client WHERE billingType = 'PACKAGE' LIMIT 1");
+await page.goto(`${BASE}/clients/${pkgClient.id}`);
 await page.waitForLoadState("networkidle");
 check("Mijoz kartasi ochildi", (await page.content()).includes("Abonementlar"), page.url());
 
@@ -459,8 +462,10 @@ if (await payRow.count()) {
   await page.waitForLoadState("networkidle");
   const all = await page.locator("tbody tr").count();
 
-  await page.selectOption("select[aria-label=\"Qolgan seans bo'yicha filtr\"]", "low");
-  const inUrl = await waitUntil(async () => page.url().includes("rem=low"));
+  // "Kam (1-2)" ba'zan bo'sh bo'ladi (abonementchilar kam), "Yetarli (3+)" esa
+  // doim bo'ladi — filtr ishlayotganini shu bilan tekshiramiz
+  await page.selectOption("select[aria-label=\"Qolgan seans bo'yicha filtr\"]", "ok");
+  const inUrl = await waitUntil(async () => page.url().includes("rem=ok"));
   await page.waitForLoadState("networkidle");
   const few = await page.locator("tbody tr").count();
 
@@ -503,8 +508,7 @@ if (await payRow.count()) {
   check(
     "Mijoz qatorida tez amal tugmalari bor",
     (await row.locator('a:has-text("Seans")').count()) === 1 &&
-      (await row.locator('a:has-text("To\'lov")').count()) === 1 &&
-      (await row.locator('a:has-text("Abonement")').count()) === 1,
+      (await row.locator('a:has-text("To\'lov")').count()) === 1,
     clientName,
   );
 
@@ -519,9 +523,9 @@ if (await payRow.count()) {
     page.url(),
   );
 
-  // "Abonement" ham shunday
-  await page.goto(`${BASE}/clients`);
-  await page.waitForLoadState("networkidle");
+  // "Abonement" tugmasi faqat abonementchi mijozda bo'ladi
+  await page.goto(`${BASE}/clients?bt=PACKAGE`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
   await page.locator("tbody tr").first().locator('a:has-text("Abonement")').click();
   await page.waitForURL(/ochiq=abonement/, { timeout: 15000 }).catch(() => {});
   await page.waitForLoadState("networkidle");
@@ -529,6 +533,12 @@ if (await payRow.count()) {
     "Abonement tugmasi formani ochiq holda ochadi",
     await page.locator("#abonement").evaluate((el) => el.open),
     page.url(),
+  );
+  await page.goto(`${BASE}/clients?bt=DAILY`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  check(
+    "Kunlik mijoz qatorida abonement tugmasi yo'q",
+    (await page.locator("tbody tr").first().locator('a:has-text("Abonement")').count()) === 0,
   );
 
   // "Seans" — jadvalga o'tib, mijozni oldindan tanlab beradi
@@ -643,6 +653,7 @@ if (await payRow.count()) {
   await page.fill("#birthDate", "2020-05-05");
   await page.fill("#parentName", "Kunlik Ota");
   await page.fill("#parentPhone", `+99890777${uniq.slice(-4)}`);
+  await page.selectOption("#billingType", "DAILY");
   await page.click('form button:has-text("Saqlash")');
   const made = await waitUntil(
     async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE fullName = ?", `Kunlik Bola ${uniq}`)) === 1,
@@ -662,18 +673,60 @@ if (await payRow.count()) {
   await page.goto(`${BASE}/clients?rem=0`);
   await page.waitForLoadState("networkidle");
   check(
-    "Abonementsiz mijoz 'tugagan' ro'yxatiga tushmaydi",
+    "Kunlik mijoz 'tugagan' ro'yxatiga tushmaydi",
     !(await page.locator("main").innerText()).includes(`Kunlik Bola ${uniq}`),
   );
+
+  // To'lov turi bo'yicha filtr
+  await page.goto(`${BASE}/clients?bt=PACKAGE`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "To'lov turi bo'yicha filtr ishlaydi",
+    !(await page.locator("main").innerText()).includes(`Kunlik Bola ${uniq}`) &&
+      (await page.locator("tbody tr").count()) > 0,
+    page.url(),
+  );
+
+  // Mijoz kartasida kunlikka abonement sotish formasi ko'rinmasligi kerak
+  await page.goto(`${BASE}/clients/${kid.id}`);
+  await page.waitForLoadState("networkidle");
+  const cardText = await page.locator("main").innerText();
+  check(
+    "Kunlik mijoz kartasida abonement sotish taklif qilinmaydi",
+    cardText.includes("har kelganida to'laydi") && !cardText.includes("+ Abonement sotish"),
+  );
+
+  // Turini "Abonement" ga o'zgartirsak, forma qaytib keladi
+  await page.selectOption('select[name="billingType"]', "PACKAGE");
+  await page.click('form button:has-text("Saqlash")');
+  const switched = await waitUntil(async () => {
+    const r = await one("SELECT billingType FROM Client WHERE id = ?", kid.id);
+    return r?.billingType === "PACKAGE";
+  });
+  await page.goto(`${BASE}/clients/${kid.id}`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Abonementga o'tkazilsa abonement bo'limi ochiladi",
+    switched && (await page.locator("main").innerText()).includes("Abonement sotish"),
+  );
+  // Qolgan tekshiruvlar uchun kunlikka qaytaramiz
+  await all("UPDATE Client SET billingType = 'DAILY' WHERE id = ?", kid.id);
 
   // Seans yozib, "O'tdi" deb belgilaymiz: narx standart narxdan olinishi kerak
   const sp = await one(
     "SELECT id FROM Specialist WHERE branchId = ? AND isActive = true LIMIT 1",
     kid.branchId,
   );
-  // Bugunning erta tongi: shu haftaga tushadi va boshqa seans bilan to'qnashmaydi
+  // Har yurishda boshqa kun olamiz: dastur band vaqtga seans qo'shishga yo'l
+  // qo'ymaydi, test esa bitta baza ustida bir necha marta ishlashi mumkin
+  const seansCount = await count("SELECT COUNT(*) AS n FROM Session");
   const day = new Date();
-  const when = `${day.toISOString().slice(0, 10)}T06:05`;
+  day.setDate(day.getDate() + 3 + (seansCount % 20));
+  // toISOString UTC beradi — mahalliy sanani o'zimiz yig'amiz
+  const ymd = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(
+    day.getDate(),
+  ).padStart(2, "0")}`;
+  const when = `${ymd}T06:05`;
 
   await page.goto(`${BASE}/schedule`);
   await page.waitForLoadState("networkidle");
@@ -685,10 +738,17 @@ if (await payRow.count()) {
   const added = await waitUntil(
     async () => (await count("SELECT COUNT(*) AS n FROM Session WHERE clientId = ?", kid.id)) === 1,
   );
-  check("Abonementsiz mijozga seans yoziladi", added);
+  check(
+    "Kunlik mijozga seans yoziladi",
+    added,
+    added ? "" : (await page.locator("main").innerText()).split("\n").slice(0, 3).join(" | "),
+  );
 
-  const sess = await one("SELECT id FROM Session WHERE clientId = ? LIMIT 1", kid.id);
-  await page.goto(`${BASE}/schedule?w=0`);
+  const sess = added ? await one("SELECT id FROM Session WHERE clientId = ? LIMIT 1", kid.id) : null;
+  if (!sess) {
+    check("Kunlik seansning narxi standart narxdan olinadi", false, "seans yozilmadi");
+  } else {
+  await page.goto(`${BASE}/schedule?w=${weekOffsetOf(day)}`);
   await page.waitForLoadState("networkidle");
   const card = page
     .locator("li, div")
@@ -708,10 +768,11 @@ if (await payRow.count()) {
   await page.waitForSelector("#defaultPrice", { timeout: 15000 });
   const standard = Number(await page.inputValue("#defaultPrice"));
   check(
-    "Abonementsiz seansning narxi standart narxdan olinadi",
+    "Kunlik seansning narxi standart narxdan olinadi",
     priced && Number(got.price) === standard,
     `${got?.price} / standart ${standard}`,
   );
+  }
 }
 
 /* 9h. Bosh panelda filiallar kesimi */
@@ -1311,8 +1372,10 @@ if (!reception) {
   );
   check("Qabulxona to'lov qabul qila oladi", recPaid);
 
-  // Mijoz kartasida to'lovni o'chirish tugmasi ko'rinmasligi kerak
-  await page.goto(`${BASE}/clients`);
+  // Mijoz kartasida to'lovni o'chirish tugmasi ko'rinmasligi kerak.
+  // Abonement bo'limi faqat abonementchi mijozda bo'ladi — o'shani ochamiz.
+  await page.goto(`${BASE}/clients?bt=PACKAGE`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
   await page.locator("tbody tr a").first().click();
   await page.waitForLoadState("networkidle");
   const cardHtml = await page.content();
