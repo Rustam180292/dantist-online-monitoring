@@ -58,7 +58,7 @@ export function ClientFilters({
 
   const active =
     name || phone || params.get("age") || params.get("sp") || params.get("rem") ||
-    params.get("b") || params.get("st");
+    params.get("b") || params.get("st") || params.get("tg");
 
   return (
     <tr className="border-b border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/40">
@@ -132,6 +132,18 @@ export function ClientFilters({
           aria-label="Telefon bo'yicha filtr"
           className={cell}
         />
+        {/* Telegram'ga ulanmagan ota-onaga eslatma bormaydi — ularni bir
+            bosishda ajratib olish kerak */}
+        <select
+          value={params.get("tg") ?? ""}
+          onChange={(e) => apply({ tg: e.target.value })}
+          aria-label="Telegram bo'yicha filtr"
+          className={`${cell} mt-1`}
+        >
+          <option value="">Telegram: hammasi</option>
+          <option value="bor">Ulangan</option>
+          <option value="yoq">Ulanmagan</option>
+        </select>
       </td>
       <td className="px-4 py-2">
         <select

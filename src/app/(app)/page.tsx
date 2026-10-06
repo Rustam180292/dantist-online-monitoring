@@ -32,8 +32,15 @@ export default async function DashboardPage() {
   const month = monthRange();
   const today = dayRange();
 
-  const [overview, todaySessions, activeClients, specialistRows, alerts, branchReport] =
-    await Promise.all([
+  const [
+    overview,
+    todaySessions,
+    activeClients,
+    specialistRows,
+    alerts,
+    branchReport,
+    noTelegram,
+  ] = await Promise.all([
     getOverview({ branchId, ...month }),
     prisma.session.findMany({
       where: {
@@ -57,6 +64,16 @@ export default async function DashboardPage() {
     getClientAlerts({ branchId }),
     // Filiallar kesimi faqat egaga kerak: filial admini bitta filialni ko'radi
     user.role === "OWNER" ? getBranchReport(month) : Promise.resolve([]),
+    // Botga ulanmagan ota-onaga eslatma bormaydi, lekin bu hech qayerda
+    // bilinmaydi — xodim "yubordik" deb o'ylab yuradi. Shuning uchun sonini
+    // bosh panelda ko'rsatamiz.
+    prisma.client.count({
+      where: {
+        status: "ACTIVE",
+        ...(branchId ? { branchId } : {}),
+        OR: [{ parentUserId: null }, { parent: { is: { telegramId: null } } }],
+      },
+    }),
   ]);
 
   return (
@@ -67,6 +84,16 @@ export default async function DashboardPage() {
           user.branchName ?? "barcha filiallar"
         } bo'yicha ko'rsatkichlar`}
       />
+
+      {noTelegram > 0 ? (
+        <Link
+          href="/clients?tg=yoq"
+          className="mb-4 block rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 transition hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200 dark:hover:bg-amber-900"
+        >
+          <b>{noTelegram} ta faol mijozning</b> ota-onasi Telegram botga ulanmagan —
+          ularga eslatma bormaydi. Ro&apos;yxatni ko&apos;rish →
+        </Link>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard

@@ -33,6 +33,7 @@ type Search = {
   rem?: string;
   b?: string;
   st?: string;
+  tg?: string;
 };
 
 /**
@@ -89,9 +90,11 @@ export default async function ClientsPage({
   const statusFilter = CLIENT_STATUS_KEYS.includes(sp.st as ClientStatus)
     ? (sp.st as ClientStatus)
     : null;
+  // Telegram'ga ulanmagan ota-onaga eslatma bormaydi — ularni ajratib ko'rsatish kerak
+  const telegramFilter = sp.tg === "bor" || sp.tg === "yoq" ? sp.tg : null;
   const hasFilter = Boolean(
     nameFilter || phoneFilter || ageFilter !== null || specialistFilter || remainingFilter ||
-      statusFilter || sp.b,
+      statusFilter || telegramFilter || sp.b,
   );
 
   const [clients, branches, specialists] = await Promise.all([
@@ -111,10 +114,27 @@ export default async function ClientsPage({
             }
           : {}),
         ...(phoneFilter ? { parentPhone: { contains: phoneFilter } } : {}),
+        // AND ichida, chunki ism filtri ham OR ishlatadi — ikkalasi bir obyektda
+        // to'qnashib qolmasligi kerak
+        ...(telegramFilter === "bor"
+          ? { AND: [{ parent: { is: { telegramId: { not: null } } } }] }
+          : telegramFilter === "yoq"
+            ? {
+                AND: [
+                  {
+                    OR: [
+                      { parentUserId: null },
+                      { parent: { is: { telegramId: null } } },
+                    ],
+                  },
+                ],
+              }
+            : {}),
       },
       orderBy: [{ status: "asc" }, { fullName: "asc" }],
       include: {
         branch: { select: { name: true } },
+        parent: { select: { telegramId: true } },
         specialists: {
           include: {
             specialist: {
@@ -344,6 +364,18 @@ export default async function ClientsPage({
                     <td className={td}>
                       {c.parentName}
                       <span className="block text-xs text-slate-400">{c.parentPhone}</span>
+                      {c.parent?.telegramId ? (
+                        <span className="mt-0.5 block text-xs text-emerald-600 dark:text-emerald-400">
+                          Telegram ulangan
+                        </span>
+                      ) : (
+                        <span
+                          className="mt-0.5 block text-xs text-amber-600 dark:text-amber-400"
+                          title="Eslatmalar bormaydi — mijoz kartasidan ulanish havolasini bering"
+                        >
+                          Telegram yo&apos;q
+                        </span>
+                      )}
                     </td>
                     <td className={`${td} tabular-nums`}>
                       <span

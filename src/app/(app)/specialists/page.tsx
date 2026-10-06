@@ -65,11 +65,13 @@ export default async function SpecialistsPage() {
     // Tahrirlash formasi uchun telefon raqamlar (hisobot qatorlarida yo'q)
     prisma.specialist.findMany({
       where: { ...(branchId ? { branchId } : {}) },
-      select: { id: true, user: { select: { phone: true } } },
+      select: { id: true, user: { select: { phone: true, telegramId: true } } },
     }),
   ]);
 
   const phoneOf = new Map(specialistPhones.map((x) => [x.id, x.user.phone]));
+  // Botga ulanmagan xodim eslatma ham, zaxira ham olmaydi — buni ko'rsatib turamiz
+  const tgOf = new Map(specialistPhones.map((x) => [x.id, Boolean(x.user.telegramId)]));
 
   const totalSalary = rows.reduce((s, r) => s + r.salary, 0);
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
@@ -186,7 +188,14 @@ export default async function SpecialistsPage() {
                 {rows.map((r) => (
                   <Fragment key={r.id}>
                   <tr>
-                    <td className={`${td} font-medium`}>{r.fullName}</td>
+                    <td className={`${td} font-medium`}>
+                      {r.fullName}
+                      {tgOf.get(r.id) ? null : (
+                        <span className="block text-xs font-normal text-amber-600 dark:text-amber-400">
+                          Telegram yo&apos;q
+                        </span>
+                      )}
+                    </td>
                     <td className={td}>
                       <Badge>{SPECIALIZATIONS[r.specialization as Specialization]}</Badge>
                     </td>
@@ -532,6 +541,9 @@ export default async function SpecialistsPage() {
                     {r.phone}
                     {!branchId ? ` · ${r.branch?.name ?? ""}` : ""}
                   </p>
+                  {r.telegramId ? null : (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">Telegram yo&apos;q</p>
+                  )}
 
                   <details className="mt-1">
                     <summary className="cursor-pointer text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">

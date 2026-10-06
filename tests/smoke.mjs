@@ -549,6 +549,59 @@ if (await payRow.count()) {
   );
 }
 
+/* 9r. Telegram holati ko'rinib turadi */
+{
+  // Ulanmagan ota-ona: bosh panelda ogohlantirish bo'lishi kerak
+  await page.goto(`${BASE}/`);
+  await page.waitForLoadState("networkidle");
+  const warn = page.locator('a[href="/clients?tg=yoq"]');
+  check("Bosh panelda ulanmagan ota-onalar haqida ogohlantirish", (await warn.count()) === 1);
+
+  await warn.click();
+  await page.waitForURL(/tg=yoq/, { timeout: 15000 }).catch(() => {});
+  // loading.tsx skeleti tufayli "networkidle" jadval kelgunga qadar ham
+  // tinchiydi — qator paydo bo'lishini alohida kutamiz
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  const unlinked = await page.locator("tbody tr").count();
+  const bodyText = await page.locator("tbody").first().innerText();
+  check(
+    "Ogohlantirish ulanmaganlar ro'yxatini ochadi",
+    unlinked > 0 && bodyText.includes("Telegram yo'q") && !bodyText.includes("Telegram ulangan"),
+    `${unlinked} ta`,
+  );
+
+  // Bazaga ulangan ota-ona qo'yib, filtr ikkala tomonga ham ishlashini tekshiramiz
+  const someParent = await one(
+    "SELECT u.id FROM User u JOIN Client c ON c.parentUserId = u.id WHERE u.role = 'PARENT' LIMIT 1",
+  );
+  await all("UPDATE User SET telegramId = '999000111' WHERE id = ?", someParent.id);
+
+  await page.goto(`${BASE}/clients?tg=bor`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  check(
+    "Ulanganlar filtri faqat ulanganlarni ko'rsatadi",
+    (await page.locator("tbody tr").count()) > 0 &&
+      (await page.locator("tbody").first().innerText()).includes("Telegram ulangan"),
+  );
+
+  await page.goto(`${BASE}/clients?tg=yoq`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  check(
+    "Ulangan mijoz 'ulanmagan' ro'yxatidan chiqib ketadi",
+    (await page.locator("tbody tr").count()) < unlinked,
+  );
+
+  // Xodimlar sahifasida ham ko'rinsin
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Xodimlar sahifasida Telegram holati ko'rinadi",
+    (await page.locator("main").innerText()).includes("Telegram yo'q"),
+  );
+
+  await all("UPDATE User SET telegramId = NULL WHERE id = ?", someParent.id);
+}
+
 /* 9h. Bosh panelda filiallar kesimi */
 {
   await page.goto(`${BASE}/`);
