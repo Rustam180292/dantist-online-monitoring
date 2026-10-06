@@ -50,6 +50,18 @@ function birthRangeForAge(age: number): { gt: Date; lte: Date } {
   return { gt, lte };
 }
 
+/**
+ * Jadval ichidagi kichik tugma — qator balandligini oshirib yubormasligi kerak,
+ * shuning uchun `btn` emas, o'z o'lchami.
+ */
+const stickyCell =
+  "sticky right-0 z-10 border-l border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900";
+
+const btnTiny =
+  "inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-1 " +
+  "text-xs font-medium text-slate-700 transition hover:bg-slate-50 " +
+  "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
+
 /** Filtrda tanlanadigan yoshlar — logopedik markazga keladigan yosh oralig'i */
 const AGE_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 2);
 
@@ -270,7 +282,7 @@ export default async function ClientsPage({
           <Empty>Hali mijoz qo&apos;shilmagan.</Empty>
         ) : (
           <div className="scroll-x">
-            <table className="w-full min-w-[1060px]">
+            <table className="w-full min-w-[1240px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className={th}>Bola</th>
@@ -281,17 +293,21 @@ export default async function ClientsPage({
                   <th className={th}>Qolgan seans</th>
                   <th className={th}>Qarz</th>
                   <th className={th}>Holat</th>
+                  {canManage ? (
+                    <th className={`${th} ${stickyCell} text-right`}>Amallar</th>
+                  ) : null}
                 </tr>
                 <ClientFilters
                   branches={user.role === "OWNER" ? branches.map((b) => ({ id: b.id, name: b.name })) : []}
                   specialists={specialists.map((x) => ({ id: x.id, name: x.user.fullName }))}
                   statuses={CLIENT_STATUS_KEYS.map((k) => ({ id: k, name: CLIENT_STATUSES[k] }))}
                   ages={AGE_OPTIONS}
+                  hasActions={canManage}
                 />
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {visible.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <tr key={c.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className={td}>
                       <Link
                         href={`/clients/${c.id}`}
@@ -356,6 +372,26 @@ export default async function ClientsPage({
                         {CLIENT_STATUSES[c.status as ClientStatus]}
                       </Badge>
                     </td>
+                    {canManage ? (
+                      <td
+                        className={`${td} ${stickyCell} group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50`}
+                      >
+                        <div className="flex justify-end gap-1.5 whitespace-nowrap">
+                          <Link href={`/schedule?yangi=${c.id}#yangi`} className={btnTiny}>
+                            Seans
+                          </Link>
+                          <Link href={`/clients/${c.id}?ochiq=tolov#tolov`} className={btnTiny}>
+                            To&apos;lov
+                          </Link>
+                          <Link
+                            href={`/clients/${c.id}?ochiq=abonement#abonement`}
+                            className={btnTiny}
+                          >
+                            Abonement
+                          </Link>
+                        </div>
+                      </td>
+                    ) : null}
                   </tr>
                 ))}
               </tbody>

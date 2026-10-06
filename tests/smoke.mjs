@@ -493,6 +493,62 @@ if (await payRow.count()) {
   );
 }
 
+/* 9q. Mijoz qatoridan tez amallar */
+{
+  await page.goto(`${BASE}/clients`);
+  await page.waitForLoadState("networkidle");
+  const row = page.locator("tbody tr").first();
+  const clientName = (await row.locator("td").first().innerText()).split("\n")[0].trim();
+
+  check(
+    "Mijoz qatorida tez amal tugmalari bor",
+    (await row.locator('a:has-text("Seans")').count()) === 1 &&
+      (await row.locator('a:has-text("To\'lov")').count()) === 1 &&
+      (await row.locator('a:has-text("Abonement")').count()) === 1,
+    clientName,
+  );
+
+  // "To'lov" — mijoz kartasini to'lov formasi ochiq holda ochishi kerak
+  await row.locator('a:has-text("To\'lov")').click();
+  await page.waitForURL(/ochiq=tolov/, { timeout: 15000 }).catch(() => {});
+  await page.waitForLoadState("networkidle");
+  check(
+    "To'lov tugmasi formani ochiq holda ochadi",
+    page.url().includes("ochiq=tolov") &&
+      (await page.locator("#tolov").evaluate((el) => el.open)),
+    page.url(),
+  );
+
+  // "Abonement" ham shunday
+  await page.goto(`${BASE}/clients`);
+  await page.waitForLoadState("networkidle");
+  await page.locator("tbody tr").first().locator('a:has-text("Abonement")').click();
+  await page.waitForURL(/ochiq=abonement/, { timeout: 15000 }).catch(() => {});
+  await page.waitForLoadState("networkidle");
+  check(
+    "Abonement tugmasi formani ochiq holda ochadi",
+    await page.locator("#abonement").evaluate((el) => el.open),
+    page.url(),
+  );
+
+  // "Seans" — jadvalga o'tib, mijozni oldindan tanlab beradi
+  await page.goto(`${BASE}/clients`);
+  await page.waitForLoadState("networkidle");
+  await page.locator("tbody tr").first().locator('a:has-text("Seans")').click();
+  await page.waitForURL(/schedule\?yangi=/, { timeout: 15000 }).catch(() => {});
+  await page.waitForLoadState("networkidle");
+  const picked = await page.locator('select[name="clientId"]').evaluate(
+    (el) => el.options[el.selectedIndex]?.textContent?.trim() ?? "",
+  );
+  check(
+    "Seans tugmasi jadvalda mijozni tanlab beradi",
+    page.url().includes("/schedule?yangi=") &&
+      (await page.locator("#yangi").evaluate((el) => el.open)) &&
+      picked.includes(clientName),
+    `${picked} | ${page.url()}`,
+  );
+}
+
 /* 9h. Bosh panelda filiallar kesimi */
 {
   await page.goto(`${BASE}/`);

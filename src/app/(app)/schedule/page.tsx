@@ -23,7 +23,7 @@ import {
 } from "@/components/ui";
 import { createSession, deleteSession, setSessionStatus } from "./actions";
 
-type Search = { w?: string; b?: string; s?: string };
+type Search = { w?: string; b?: string; s?: string; yangi?: string };
 
 export default async function SchedulePage({
   searchParams,
@@ -189,7 +189,7 @@ export default async function SchedulePage({
       ) : null}
 
       {canEdit && clients.length > 0 ? (
-        <details className={`${card} mb-5 p-4`}>
+        <details id="yangi" open={Boolean(sp.yangi)} className={`${card} mb-5 p-4`}>
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
             + Yangi seans qo&apos;shish
           </summary>
@@ -198,7 +198,13 @@ export default async function SchedulePage({
               <label className={label} htmlFor="clientId">
                 Mijoz
               </label>
-              <select id="clientId" name="clientId" className={input} required>
+              <select
+                id="clientId"
+                name="clientId"
+                defaultValue={sp.yangi || undefined}
+                className={input}
+                required
+              >
                 {showGroups
                   ? groupByBranch(clientOptions).map(([branchName, items]) => (
                       <optgroup key={branchName} label={branchName}>

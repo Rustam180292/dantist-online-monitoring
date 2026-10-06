@@ -20,11 +20,13 @@ export function ClientFilters({
   specialists,
   statuses,
   ages,
+  hasActions,
 }: {
   branches: Option[];
   specialists: Option[];
   statuses: Option[];
   ages: number[];
+  hasActions: boolean;
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -174,6 +176,11 @@ export function ClientFilters({
           </button>
         ) : null}
       </td>
+      {/* "Amallar" ustuni o'ngda yopishib turadi — filtr qatorida ham
+          shu joy band bo'lishi kerak, aks holda ustunlar siljib ketadi */}
+      {hasActions ? (
+        <td className="sticky right-0 z-10 border-l border-slate-200 bg-slate-50 px-4 py-2 dark:border-slate-800 dark:bg-slate-900" />
+      ) : null}
     </tr>
   );
 }

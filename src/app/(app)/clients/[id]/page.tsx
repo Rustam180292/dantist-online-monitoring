@@ -49,8 +49,17 @@ const NOTIFICATION_KINDS: Record<string, string> = {
   DEBT: "To'lov eslatmasi",
 };
 
-export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ ochiq?: string }>;
+}) {
   const { id } = await params;
+  // Mijozlar ro'yxatidagi tugma to'g'ri bo'limni ochib keladi — xodim sahifani
+  // ochgach yana qidirib o'tirmasin
+  const { ochiq } = await searchParams;
   const user = await requireUser();
   // Qabulxona xodimi mijoz bilan ishlaydi, lekin yozuvni o'chira olmaydi
   const canManage =
@@ -184,7 +193,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
             )}
 
             {canManage ? (
-              <details className="border-t border-slate-200 p-4 dark:border-slate-800">
+              <details
+                id="abonement"
+                open={ochiq === "abonement"}
+                className="border-t border-slate-200 p-4 dark:border-slate-800"
+              >
                 <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
                   + Abonement sotish
                 </summary>
@@ -339,7 +352,11 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
               )}
 
               {canManage ? (
-                <details className="border-t border-slate-200 p-4 dark:border-slate-800">
+                <details
+                  id="tolov"
+                  open={ochiq === "tolov"}
+                  className="border-t border-slate-200 p-4 dark:border-slate-800"
+                >
                   <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
                     + To&apos;lov qabul qilish
                   </summary>
