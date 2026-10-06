@@ -61,12 +61,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 105 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 108 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, PWA (69)
+node tests/smoke.mjs      # CRM, rollar, qabullar, PWA (72)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 ```
@@ -99,9 +99,11 @@ Buni o'zgartirishdan oldin tushunib oling:
 - **Foiz seans bilan birga saqlanadi** (`Session.salaryPercent`). Keyin mutaxassisning
   foizi o'zgarsa, o'tib bo'lgan seanslarning hisobi o'zgarmaydi. Buni buzmang.
 - Abonement tugashi va qarzdorlik `src/lib/stats.ts` da hisoblanadi.
-- **Qabul (konsultatsiya) puli alohida yuritiladi**: qabul hali mijoz emas, shuning
-  uchun `Payment` jadvaliga tushmaydi — summa `Intake.price` da turadi va
-  hisobotda "Konsultatsiyalardan" deb alohida ko'rsatiladi.
+- **Qabul (konsultatsiya) puli** `Payment` jadvaliga tushmaydi (qabul hali mijoz
+  emas) — summa `Intake.price` da turadi. Lekin u ham kassaga tushgan pul, shuning
+  uchun `getOverview().collected` ga qo'shiladi va To'lovlar sahifasida alohida
+  ro'yxat bo'lib ko'rinadi. Hisobotda "Konsultatsiyalardan" deb ajratib ham
+  ko'rsatiladi. Bu uch joydagi raqam bir xil bo'lishi kerak.
 
 Yangi jadval qo'shsangiz, uni `prisma/tables.ts` ga ham qo'shing — aks holda
 `db:backup` uni zaxiraga olmaydi va `db:seed` tozalashda chet el kaliti xatosi

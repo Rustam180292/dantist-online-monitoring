@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
@@ -15,7 +16,16 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { monthRange } from "@/lib/stats";
-import { ageUz, dateShort, money, monthYearUz, num, timeUz, toDateTimeInput } from "@/lib/format";
+import {
+  ageUz,
+  dateShort,
+  money,
+  monthYearUz,
+  num,
+  timeUz,
+  toDateInput,
+  toDateTimeInput,
+} from "@/lib/format";
 import {
   Badge,
   Card,
@@ -37,6 +47,7 @@ import {
   payIntake,
   setIntakeResult,
   setIntakeStatus,
+  updateIntake,
 } from "./actions";
 
 /** Jadvaldagi tugmalar uchun qisqa yozuv — to'liq nomi ustunga sig'maydi */
@@ -220,6 +231,15 @@ export default async function IntakesPage({
                 </option>
               ))}
             </select>
+            {specialists.length === 0 ? (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                Mutaxassis ro&apos;yxati bo&apos;sh.{" "}
+                <Link href="/specialists" className="font-semibold underline">
+                  Xodimlar
+                </Link>{" "}
+                bo&apos;limidan qo&apos;shing.
+              </p>
+            ) : null}
           </div>
           <div>
             <label className={label} htmlFor="price">
@@ -267,7 +287,8 @@ export default async function IntakesPage({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {intakes.map((i) => (
-                  <tr key={i.id} className="align-top">
+                  <Fragment key={i.id}>
+                  <tr className="align-top">
                     <td className={`${td} whitespace-nowrap`}>
                       {dateShort(i.scheduledAt)}
                       <span className="block text-xs text-slate-400">{timeUz(i.scheduledAt)}</span>
@@ -344,9 +365,9 @@ export default async function IntakesPage({
                           </select>
                           <button
                             type="submit"
-                            className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+                            className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-indigo-700"
                           >
-                            to&apos;landi
+                            To&apos;landi
                           </button>
                         </form>
                       )}
@@ -425,6 +446,97 @@ export default async function IntakesPage({
                       )}
                     </td>
                   </tr>
+                  <tr className="border-b border-slate-100 dark:border-slate-800">
+                    <td colSpan={branchId ? 7 : 8} className="px-4 pb-2">
+                      <details>
+                        <summary className="cursor-pointer text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                          tahrirlash
+                        </summary>
+                        <form
+                          action={updateIntake}
+                          className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4 dark:bg-slate-900/60"
+                        >
+                          <input type="hidden" name="intakeId" value={i.id} />
+                          <div>
+                            <label className={label}>Bolaning F.I.Sh.</label>
+                            <input name="childName" defaultValue={i.childName} className={input} required />
+                          </div>
+                          <div>
+                            <label className={label}>Tug&apos;ilgan sana</label>
+                            <input
+                              name="birthDate"
+                              type="date"
+                              defaultValue={toDateInput(i.birthDate)}
+                              className={input}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className={label}>Ota-ona F.I.Sh.</label>
+                            <input name="parentName" defaultValue={i.parentName} className={input} required />
+                          </div>
+                          <div>
+                            <label className={label}>Telefon</label>
+                            <input name="parentPhone" defaultValue={i.parentPhone} className={input} required />
+                          </div>
+                          <div>
+                            <label className={label}>Qabul vaqti</label>
+                            <input
+                              name="scheduledAt"
+                              type="datetime-local"
+                              defaultValue={toDateTimeInput(i.scheduledAt)}
+                              className={input}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className={label}>Kim ko&apos;radi</label>
+                            <select
+                              name="specialistId"
+                              defaultValue={i.specialistId ?? ""}
+                              className={input}
+                            >
+                              <option value="">Hali aniq emas</option>
+                              {specialists
+                                .filter((x) => x.branchId === i.branchId)
+                                .map((x) => (
+                                  <option key={x.id} value={x.id}>
+                                    {x.user.fullName} ·{" "}
+                                    {SPECIALIZATIONS[x.specialization as Specialization]}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className={label}>Konsultatsiya narxi</label>
+                            <input
+                              name="price"
+                              inputMode="numeric"
+                              defaultValue={i.price || ""}
+                              className={input}
+                              disabled={Boolean(i.paidAt)}
+                            />
+                            {i.paidAt ? (
+                              <p className="mt-1 text-xs text-slate-400">
+                                To&apos;langan — summani o&apos;zgartirish uchun avval
+                                to&apos;lovni qaytaring.
+                              </p>
+                            ) : null}
+                          </div>
+                          <div>
+                            <label className={label}>Izoh</label>
+                            <input name="note" defaultValue={i.note ?? ""} className={input} />
+                          </div>
+                          <div className="flex items-end">
+                            <button type="submit" className={`${btnPrimary} w-full`}>
+                              Saqlash
+                            </button>
+                          </div>
+                        </form>
+                      </details>
+                    </td>
+                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>

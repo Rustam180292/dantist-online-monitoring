@@ -92,6 +92,70 @@ async function createIntakeImpl(formData: FormData) {
   refresh();
 }
 
+/**
+ * Yozib bo'lingan qabulni tahrirlash.
+ *
+ * Nega kerak: qabul telefon orqali yoziladi va ko'p narsa keyin aniq bo'ladi —
+ * qaysi mutaxassis ko'rishi, vaqti ko'chishi, ismdagi xato. Yangisini yozib,
+ * eskisini o'chirish noqulay va hisobotni buzadi.
+ */
+async function updateIntakeImpl(formData: FormData) {
+  const { user, intake } = await assertOwnBranch(String(formData.get("intakeId") ?? ""));
+
+  const childName = String(formData.get("childName") ?? "").trim();
+  const parentName = String(formData.get("parentName") ?? "").trim();
+  const parentPhone = String(formData.get("parentPhone") ?? "").trim();
+  const birthDateRaw = String(formData.get("birthDate") ?? "");
+  const scheduledRaw = String(formData.get("scheduledAt") ?? "");
+  const specialistId = String(formData.get("specialistId") ?? "") || null;
+  const price = Math.round(Number(String(formData.get("price") ?? "0").replace(/[^\d]/g, "")));
+
+  if (!childName || !parentName || !parentPhone) {
+    throw new Error("Bola ismi, ota-ona ismi va telefon majburiy.");
+  }
+  const birthDate = new Date(birthDateRaw);
+  if (Number.isNaN(birthDate.getTime())) throw new Error("Tug'ilgan sana noto'g'ri.");
+  const scheduledAt = new Date(scheduledRaw);
+  if (Number.isNaN(scheduledAt.getTime())) throw new Error("Qabul vaqti noto'g'ri.");
+  if (!Number.isFinite(price) || price < 0) throw new Error("Narx noto'g'ri kiritilgan.");
+
+  if (specialistId) {
+    const sp = await prisma.specialist.findUnique({
+      where: { id: specialistId },
+      select: { branchId: true },
+    });
+    if (!sp) throw new Error("Mutaxassis topilmadi.");
+    if (sp.branchId !== intake.branchId) throw new Error("Mutaxassis boshqa filialda ishlaydi.");
+  }
+
+  // To'lov qabul qilingan bo'lsa, summani bu yerdan o'zgartirib bo'lmaydi:
+  // kassadagi raqam bilan hisobot bir-biriga mos turishi kerak.
+  const data: Record<string, unknown> = {
+    childName,
+    parentName,
+    parentPhone,
+    birthDate,
+    scheduledAt,
+    specialistId,
+    note: String(formData.get("note") ?? "").trim() || null,
+  };
+  if (!intake.paidAt) data.price = price;
+
+  await prisma.intake.update({ where: { id: intake.id }, data });
+
+  // Mijozga o'tkazilgan bo'lsa, mijoz kartasidagi ma'lumot ham yangilansin
+  if (intake.clientId) {
+    await prisma.client.update({
+      where: { id: intake.clientId },
+      data: { fullName: childName, birthDate, parentName, parentPhone },
+    });
+    revalidatePath(`/clients/${intake.clientId}`);
+  }
+
+  void user;
+  refresh();
+}
+
 /** Qabul holati: bo'lib o'tdi / kelmadi / bekor qilindi */
 async function setIntakeStatusImpl(formData: FormData) {
   const { intake } = await assertOwnBranch(String(formData.get("intakeId") ?? ""));
@@ -206,6 +270,7 @@ async function deleteIntakeImpl(formData: FormData) {
 }
 
 export const createIntake = withFlash(createIntakeImpl);
+export const updateIntake = withFlash(updateIntakeImpl);
 export const setIntakeStatus = withFlash(setIntakeStatusImpl);
 export const setIntakeResult = withFlash(setIntakeResultImpl);
 export const payIntake = withFlash(payIntakeImpl);

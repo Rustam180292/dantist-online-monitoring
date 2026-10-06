@@ -47,7 +47,7 @@ export default async function PaymentsPage({
     ? (sp.pm as PaymentMethod)
     : null;
 
-  const [payments, branches, alerts, clients] = await Promise.all([
+  const [payments, branches, alerts, clients, intakes] = await Promise.all([
     prisma.payment.findMany({
       where: {
         paidAt: { gte: from, lt: to },
@@ -68,12 +68,28 @@ export default async function PaymentsPage({
       select: { id: true, fullName: true, branch: { select: { name: true } } },
       orderBy: [{ branch: { name: "asc" } }, { fullName: "asc" }],
     }),
+    // Konsultatsiya puli ham kassaga tushadi — shu sahifada ko'rinishi kerak
+    prisma.intake.findMany({
+      where: {
+        paidAt: { gte: from, lt: to },
+        ...(branchId ? { branchId } : {}),
+        ...(methodFilter ? { method: methodFilter } : {}),
+      },
+      orderBy: { paidAt: "desc" },
+      include: {
+        branch: { select: { name: true } },
+        specialist: { select: { user: { select: { fullName: true } } } },
+      },
+    }),
   ]);
 
-  const total = payments.reduce((s, p) => s + p.amount, 0);
+  const intakeTotal = intakes.reduce((s, i) => s + i.price, 0);
+  const total = payments.reduce((s, p) => s + p.amount, 0) + intakeTotal;
   const byMethod = PAYMENT_METHOD_KEYS.map((m) => ({
     method: m,
-    sum: payments.filter((p) => p.method === m).reduce((s, p) => s + p.amount, 0),
+    sum:
+      payments.filter((p) => p.method === m).reduce((s, p) => s + p.amount, 0) +
+      intakes.filter((i) => i.method === m).reduce((s, i) => s + i.price, 0),
   }));
   const totalDebt = alerts.debtors.reduce((s, d) => s + d.debt, 0);
 
@@ -106,7 +122,9 @@ export default async function PaymentsPage({
     <>
       <PageHeader
         title="To'lovlar"
-        subtitle={`${monthYearUz(from)} · ${payments.length} ta to'lov`}
+        subtitle={`${monthYearUz(from)} · ${payments.length} ta to'lov${
+          intakes.length > 0 ? ` · ${intakes.length} ta konsultatsiya` : ""
+        }`}
         action={
           <div className="flex gap-2">
             <Link href={qs(offset - 1)} className={btn}>
@@ -127,7 +145,12 @@ export default async function PaymentsPage({
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Jami tushum" value={money(total)} tone="good" />
+        <StatCard
+          label="Jami tushum"
+          value={money(total)}
+          hint={intakeTotal > 0 ? `${money(intakeTotal)} konsultatsiyadan` : undefined}
+          tone="good"
+        />
         {byMethod.map((m) => (
           <StatCard key={m.method} label={PAYMENT_METHODS[m.method]} value={money(m.sum)} />
         ))}
@@ -311,6 +334,52 @@ export default async function PaymentsPage({
             </div>
           )}
         </Card>
+
+        {intakes.length > 0 ? (
+          <Card
+            className="xl:col-span-2"
+            title="Konsultatsiyalar"
+            subtitle="qabullardan tushgan pul"
+            action={
+              <Link href="/intakes" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                Qabullar →
+              </Link>
+            }
+          >
+            <div className="scroll-x">
+              <table className="w-full min-w-[620px]">
+                <thead className="border-b border-slate-200 dark:border-slate-800">
+                  <tr>
+                    <th className={th}>Sana</th>
+                    <th className={th}>Bola</th>
+                    <th className={th}>Kim ko&apos;rdi</th>
+                    {!branchId ? <th className={th}>Filial</th> : null}
+                    <th className={th}>Usul</th>
+                    <th className={th}>Summa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {intakes.map((i) => (
+                    <tr key={i.id}>
+                      <td className={`${td} whitespace-nowrap`}>{dateTimeUz(i.paidAt!)}</td>
+                      <td className={td}>{i.childName}</td>
+                      <td className={td}>
+                        {i.specialist?.user.fullName ?? (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
+                      {!branchId ? <td className={td}>{i.branch.name}</td> : null}
+                      <td className={td}>
+                        <Badge>{PAYMENT_METHODS[i.method as PaymentMethod]}</Badge>
+                      </td>
+                      <td className={`${td} font-semibold tabular-nums`}>{money(i.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        ) : null}
 
         <Card title="Qarzdorlar" subtitle="to'liq to'lanmagan abonementlar">
           {alerts.debtors.length === 0 ? (

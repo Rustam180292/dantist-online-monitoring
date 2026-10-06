@@ -571,7 +571,7 @@ if (await payRow.count()) {
     `${madeClient.fullName} · ${madeClient.parentPhone}`,
   );
 
-  // Konsultatsiya puli hisobotda ko'rinadi
+  // Konsultatsiya puli hisobotda va to'lovlarda ko'rinadi
   await page.goto(`${BASE}/reports`);
   await page.waitForLoadState("networkidle");
   check(
@@ -579,6 +579,59 @@ if (await payRow.count()) {
     (await page.locator("main").innerText()).includes("Konsultatsiyalardan"),
     page.url(),
   );
+
+  await page.goto(`${BASE}/payments`);
+  await page.waitForLoadState("networkidle");
+  const payText = (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
+  check(
+    "To'lovlar sahifasida konsultatsiyalar ko'rinadi",
+    payText.includes("Konsultatsiyalar") && payText.includes(child),
+    page.url(),
+  );
+  check(
+    "Konsultatsiya puli jami tushumga qo'shiladi",
+    payText.includes("konsultatsiyadan"),
+  );
+}
+
+/* 9j. Qabulni tahrirlash: vaqti va kim ko'rishi keyin aniq bo'ladi */
+{
+  const target = await one(
+    "SELECT id, childName, branchId FROM Intake WHERE status = 'PLANNED' ORDER BY scheduledAt DESC LIMIT 1",
+  );
+  const specialist = target
+    ? await one(`SELECT id FROM Specialist WHERE branchId = '${target.branchId}' LIMIT 1`)
+    : null;
+
+  if (!target) {
+    check("Tahrirlash uchun rejadagi qabul bor", false, "topilmadi");
+  } else {
+    await page.goto(`${BASE}/intakes`);
+    await page.waitForLoadState("networkidle");
+
+    // Tahrirlash qatori — ichida "tahrirlash" ochilmasi bor qator
+    const editRow = page
+      .locator(`tr:has(input[name="intakeId"][value="${target.id}"])`)
+      .filter({ has: page.locator("summary") });
+    await editRow.locator("summary").click();
+
+    const form = editRow.locator("form");
+    await form.locator('input[name="scheduledAt"]').fill("2026-11-20T09:30");
+    if (specialist) await form.locator('select[name="specialistId"]').selectOption(specialist.id);
+    await form.locator('button:has-text("Saqlash")').click();
+
+    const saved = await waitUntil(async () => {
+      const r = await one(`SELECT specialistId, scheduledAt FROM Intake WHERE id = '${target.id}'`);
+      const when = new Date(r.scheduledAt);
+      return (
+        when.getFullYear() === 2026 &&
+        when.getMonth() === 10 &&
+        when.getDate() === 20 &&
+        (!specialist || r.specialistId === specialist.id)
+      );
+    });
+    check("Qabulning vaqti va mutaxassisi tahrirlanadi", saved, target.childName);
+  }
 }
 
 /* 10. Mutaxassis roli chegaralangan */

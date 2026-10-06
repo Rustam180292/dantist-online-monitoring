@@ -65,7 +65,7 @@ export async function getOverview(opts: {
     ...(specialistId ? { specialistId } : {}),
   };
 
-  const [sessions, specialists, paymentAgg] = await Promise.all([
+  const [sessions, specialists, paymentAgg, intakeAgg] = await Promise.all([
     prisma.session.findMany({
       where,
       select: { status: true, price: true, specialistId: true, salaryPercent: true },
@@ -77,6 +77,16 @@ export async function getOverview(opts: {
         ...(branchId ? { branchId } : {}),
       },
       _sum: { amount: true },
+    }),
+    // Konsultatsiya puli ham kassaga tushadi. U Payment jadvalida emas (qabul
+    // hali mijoz emas), lekin "kassaga tushgan" raqami to'liq bo'lishi kerak:
+    // aks holda panel va to'lovlar sahifasidagi summalar bir-biriga mos kelmaydi.
+    prisma.intake.aggregate({
+      where: {
+        paidAt: { gte: from, lt: to },
+        ...(branchId ? { branchId } : {}),
+      },
+      _sum: { price: true },
     }),
   ]);
 
@@ -112,7 +122,9 @@ export async function getOverview(opts: {
     cancelled,
     total: sessions.length,
     earned,
-    collected: specialistId ? 0 : (paymentAgg._sum.amount ?? 0),
+    collected: specialistId
+      ? 0
+      : (paymentAgg._sum.amount ?? 0) + (intakeAgg._sum.price ?? 0),
     salary,
     attendanceRate: held > 0 ? Math.round((done / held) * 100) : null,
   };
