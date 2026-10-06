@@ -61,12 +61,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 150 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 155 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, PWA (114)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, PWA (119)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 ```
@@ -96,6 +96,9 @@ Buni o'zgartirishdan oldin tushunib oling:
   **mutaxassisga emas**.
 - **Mutaxassisning ish haqi** to'lovdan emas, **bajarilgan seansdan** hisoblanadi:
   seans narxi × foizi, seans "O'tdi/Kelmadi" deb belgilangan payt.
+- **Seans narxi** abonementdan olinadi; mijozda faol abonement bo'lmasa (ko'pchilik
+  shunday — har kelganida to'laydi) Sozlamalardagi standart narx qo'llanadi. Narx
+  ham seans bilan birga saqlanadi.
 - **Foiz seans bilan birga saqlanadi** (`Session.salaryPercent`). Keyin mutaxassisning
   foizi o'zgarsa, o'tib bo'lgan seanslarning hisobi o'zgarmaydi. Buni buzmang.
 - Abonement tugashi va qarzdorlik `src/lib/stats.ts` da hisoblanadi.

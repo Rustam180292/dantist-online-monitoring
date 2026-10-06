@@ -632,6 +632,88 @@ if (await payRow.count()) {
   );
 }
 
+/* 9t. Abonementsiz (kunlik to'laydigan) mijoz */
+{
+  // Markaz egasi abonementsiz mijoz qo'shadi va unga seans yozadi
+  await page.goto(`${BASE}/clients`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  await page.click('summary:has-text("Yangi mijoz")');
+  const uniq = Date.now().toString().slice(-6);
+  await page.fill("#fullName", `Kunlik Bola ${uniq}`);
+  await page.fill("#birthDate", "2020-05-05");
+  await page.fill("#parentName", "Kunlik Ota");
+  await page.fill("#parentPhone", `+99890777${uniq.slice(-4)}`);
+  await page.click('form button:has-text("Saqlash")');
+  const made = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE fullName = ?", `Kunlik Bola ${uniq}`)) === 1,
+  );
+  check("Abonementsiz mijoz qo'shiladi", made);
+
+  const kid = await one("SELECT id, branchId FROM Client WHERE fullName = ?", `Kunlik Bola ${uniq}`);
+
+  await page.goto(`${BASE}/clients?n=${encodeURIComponent("Kunlik Bola " + uniq)}`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  check(
+    "Abonementsiz mijoz 'kunlik' deb ko'rsatiladi",
+    (await page.locator("tbody").first().innerText()).includes("kunlik"),
+  );
+
+  // "Tugagan (0)" filtri unga tegmasligi kerak — uning abonementi yo'q
+  await page.goto(`${BASE}/clients?rem=0`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Abonementsiz mijoz 'tugagan' ro'yxatiga tushmaydi",
+    !(await page.locator("main").innerText()).includes(`Kunlik Bola ${uniq}`),
+  );
+
+  // Seans yozib, "O'tdi" deb belgilaymiz: narx standart narxdan olinishi kerak
+  const sp = await one(
+    "SELECT id FROM Specialist WHERE branchId = ? AND isActive = true LIMIT 1",
+    kid.branchId,
+  );
+  // Bugunning erta tongi: shu haftaga tushadi va boshqa seans bilan to'qnashmaydi
+  const day = new Date();
+  const when = `${day.toISOString().slice(0, 10)}T06:05`;
+
+  await page.goto(`${BASE}/schedule`);
+  await page.waitForLoadState("networkidle");
+  await page.click('summary:has-text("Yangi seans")');
+  await page.selectOption("#clientId", kid.id);
+  await page.selectOption("#specialistId", sp.id);
+  await page.fill("#startsAt", when);
+  await page.click('form button:has-text("Qo\'shish")');
+  const added = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM Session WHERE clientId = ?", kid.id)) === 1,
+  );
+  check("Abonementsiz mijozga seans yoziladi", added);
+
+  const sess = await one("SELECT id FROM Session WHERE clientId = ? LIMIT 1", kid.id);
+  await page.goto(`${BASE}/schedule?w=0`);
+  await page.waitForLoadState("networkidle");
+  const card = page
+    .locator("li, div")
+    .filter({ hasText: `Kunlik Bola ${uniq}` })
+    .filter({ has: page.locator('form button:has-text("O\'tdi")') })
+    .last();
+  await card.locator('form button:has-text("O\'tdi")').first().click();
+
+  const priced = await waitUntil(async () => {
+    const r = await one("SELECT price FROM Session WHERE id = ?", sess.id);
+    return Number(r?.price ?? 0) > 0;
+  });
+  const got = await one("SELECT price FROM Session WHERE id = ?", sess.id);
+  // Standart narxni Sozlamalar sahifasidan olamiz: bazada Settings qatori hali
+  // yozilmagan bo'lishi mumkin, u holda kod ichidagi standart qiymat ishlaydi
+  await page.goto(`${BASE}/settings`);
+  await page.waitForSelector("#defaultPrice", { timeout: 15000 });
+  const standard = Number(await page.inputValue("#defaultPrice"));
+  check(
+    "Abonementsiz seansning narxi standart narxdan olinadi",
+    priced && Number(got.price) === standard,
+    `${got?.price} / standart ${standard}`,
+  );
+}
+
 /* 9h. Bosh panelda filiallar kesimi */
 {
   await page.goto(`${BASE}/`);

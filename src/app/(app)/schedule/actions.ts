@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { SESSION_STATUS_KEYS, type SessionStatus } from "@/lib/constants";
 import { queueSessionDone, sendPending } from "@/lib/notify";
+import { getSettings } from "@/lib/settings";
 
 /** Seansni o'zgartirishga ruxsat bormi? */
 async function assertCanEdit(sessionId: string) {
@@ -52,8 +53,14 @@ async function setSessionStatusImpl(formData: FormData) {
   // "O'tdi" yoki "Kelmadi" — seans abonementdan yechiladi va narxi yoziladi.
   // Ish haqi foizi ham o'sha paytdagi holicha saqlanadi: keyin foiz o'zgarsa,
   // o'tib bo'lgan seanslarning hisobi o'zgarmaydi.
+  //
+  // Mijozlarning ko'pi abonement olmay, har kelganida to'laydi. Unday mijozning
+  // abonementi yo'q — narx markazning standart narxidan olinadi. Aks holda
+  // narx 0 bo'lib qolardi va mutaxassis o'sha seansdan hech narsa olmasdi.
   const billable = status === "DONE" || status === "NO_SHOW";
-  const price = billable ? (session.price || session.package?.pricePerSession || 0) : 0;
+  const price = billable
+    ? session.price || session.package?.pricePerSession || (await getSettings()).defaultPrice
+    : 0;
 
   await prisma.session.update({
     where: { id: sessionId },

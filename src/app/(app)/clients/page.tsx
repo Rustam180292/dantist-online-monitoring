@@ -184,13 +184,17 @@ export default async function ClientsPage({
 
   // Qolgan seans bazada saqlanmaydi (abonement va o'tgan seanslardan hisoblanadi),
   // shuning uchun bu filtr hisoblangandan keyin qo'llanadi.
+  // Abonementi yo'q mijozning "qolgan seansi" 0 emas, shunaqa tushuncha unda
+  // yo'q — shuning uchun bu filtr faqat abonementi borlarga tegishli.
   const visible = remainingFilter
     ? rows.filter((c) =>
-        remainingFilter === "0"
-          ? c.remaining === 0
-          : remainingFilter === "low"
-            ? c.remaining > 0 && c.remaining <= 2
-            : c.remaining > 2,
+        c.packages.length === 0
+          ? false
+          : remainingFilter === "0"
+            ? c.remaining === 0
+            : remainingFilter === "low"
+              ? c.remaining > 0 && c.remaining <= 2
+              : c.remaining > 2,
       )
     : rows;
 
@@ -378,17 +382,26 @@ export default async function ClientsPage({
                       )}
                     </td>
                     <td className={`${td} tabular-nums`}>
-                      <span
-                        className={
-                          c.remaining === 0
-                            ? "font-semibold text-rose-600 dark:text-rose-400"
-                            : c.remaining <= 2
-                              ? "font-semibold text-amber-600 dark:text-amber-400"
-                              : ""
-                        }
-                      >
-                        {c.remaining}
-                      </span>
+                      {/* Abonementi yo'q mijoz har kelganida to'laydi — uning
+                          "qolgan seansi" 0 emas, umuman yo'q. Qizil 0 yozib
+                          qo'yilsa har kuni bekorga qo'rqitadi. */}
+                      {c.packages.length === 0 ? (
+                        <span className="text-slate-400" title="Abonement olmagan — kunlik to'laydi">
+                          kunlik
+                        </span>
+                      ) : (
+                        <span
+                          className={
+                            c.remaining === 0
+                              ? "font-semibold text-rose-600 dark:text-rose-400"
+                              : c.remaining <= 2
+                                ? "font-semibold text-amber-600 dark:text-amber-400"
+                                : ""
+                          }
+                        >
+                          {c.remaining}
+                        </span>
+                      )}
                     </td>
                     <td className={`${td} tabular-nums`}>
                       {c.debt > 0 ? (
