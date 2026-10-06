@@ -622,7 +622,14 @@ if (await payRow.count()) {
     await editRow.locator("summary").click();
 
     const form = editRow.locator("form");
-    await form.locator('input[name="scheduledAt"]').fill("2026-11-20T09:30");
+    // Sana shu oy ichida qolsin: aks holda qator ro'yxatdan chiqib ketadi va
+    // testni qayta ishga tushirganda topilmay qoladi.
+    const pad = (n) => String(n).padStart(2, "0");
+    const now = new Date();
+    const day = now.getDate() > 15 ? 5 : 25;
+    const wanted = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(day)}T09:30`;
+
+    await form.locator('input[name="scheduledAt"]').fill(wanted);
     if (specialist) await form.locator('select[name="specialistId"]').selectOption(specialist.id);
     await form.locator('button:has-text("Saqlash")').click();
 
@@ -630,9 +637,9 @@ if (await payRow.count()) {
       const r = await one(`SELECT specialistId, scheduledAt FROM Intake WHERE id = '${target.id}'`);
       const when = new Date(r.scheduledAt);
       return (
-        when.getFullYear() === 2026 &&
-        when.getMonth() === 10 &&
-        when.getDate() === 20 &&
+        when.getFullYear() === now.getFullYear() &&
+        when.getMonth() === now.getMonth() &&
+        when.getDate() === day &&
         (!specialist || r.specialistId === specialist.id)
       );
     });
@@ -707,6 +714,89 @@ if (await payRow.count()) {
       .catch(() => false)) && (await count("SELECT COUNT(*) AS n FROM Branch")) === before,
     busy.name,
   );
+}
+
+/* 9l. Xodim ma'lumotini tahrirlash */
+{
+  const target = await one(
+    `SELECT s.id, s.specialization, s.salaryPercent, u.fullName, u.phone
+       FROM Specialist s JOIN User u ON u.id = s.userId
+      WHERE s.isActive = true LIMIT 1`,
+  );
+  const newPhone = `+99894${String(Date.now()).slice(-7)}`;
+
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+
+  const editRow = page
+    .locator(`tr:has(input[name="specialistId"][value="${target.id}"])`)
+    .filter({ has: page.locator("summary") });
+  await editRow.locator("summary").click();
+  const form = editRow.locator("form");
+
+  await form.locator('input[name="fullName"]').fill(`${target.fullName} (tahrir)`);
+  await form.locator('input[name="phone"]').fill(newPhone);
+  await form.locator('select[name="specialization"]').selectOption("LOGOPED");
+  await form.locator('input[name="salaryPercent"]').fill("55");
+  await form.locator('button:has-text("Saqlash")').click();
+
+  const saved = await waitUntil(async () => {
+    const r = await one(
+      `SELECT u.fullName, u.phone, s.specialization, s.salaryPercent
+         FROM Specialist s JOIN User u ON u.id = s.userId WHERE s.id = '${target.id}'`,
+    );
+    return (
+      r.fullName === `${target.fullName} (tahrir)` &&
+      r.phone === newPhone &&
+      r.specialization === "LOGOPED" &&
+      r.salaryPercent === 55
+    );
+  });
+  check("Mutaxassis ma'lumoti tahrirlanadi", saved, newPhone);
+
+  // Parolni bo'sh qoldirsa eskisi qolishi kerak — yangi raqam bilan kiramiz
+  await login(newPhone);
+  check("Parol bo'sh qoldirilsa o'zgarmaydi", page.url().endsWith("/m"), page.url());
+  await login(owner.phone);
+
+  // Band raqamni berib bo'lmaydi
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+  const again = page
+    .locator(`tr:has(input[name="specialistId"][value="${target.id}"])`)
+    .filter({ has: page.locator("summary") });
+  await again.locator("summary").click();
+  await again.locator('input[name="phone"]').fill(owner.phone);
+  await again.locator('button:has-text("Saqlash")').click();
+  const warned = page.getByRole("alert").filter({ hasText: "allaqachon" });
+  check(
+    "Band telefon raqam qabul qilinmaydi",
+    await warned
+      .waitFor({ state: "visible", timeout: 8000 })
+      .then(() => true)
+      .catch(() => false),
+  );
+
+  // Eski holatiga qaytaramiz: keyingi tekshiruvlar shu mutaxassis bilan
+  // kirishadi, raqami o'zgargancha qolsa ular yiqiladi.
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+  const back = page
+    .locator(`tr:has(input[name="specialistId"][value="${target.id}"])`)
+    .filter({ has: page.locator("summary") });
+  await back.locator("summary").click();
+  await back.locator('input[name="fullName"]').fill(target.fullName);
+  await back.locator('input[name="phone"]').fill(target.phone);
+  await back.locator('select[name="specialization"]').selectOption(target.specialization);
+  await back.locator('input[name="salaryPercent"]').fill(String(target.salaryPercent));
+  await back.locator('button:has-text("Saqlash")').click();
+  const restored = await waitUntil(async () => {
+    const r = await one(
+      `SELECT u.phone FROM Specialist s JOIN User u ON u.id = s.userId WHERE s.id = '${target.id}'`,
+    );
+    return r.phone === target.phone;
+  });
+  check("Xodim ma'lumoti eski holiga qaytariladi", restored, target.phone);
 }
 
 /* 10. Mutaxassis roli chegaralangan */

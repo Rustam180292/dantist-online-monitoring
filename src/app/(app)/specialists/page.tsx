@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { SPECIALIZATIONS, SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
@@ -25,7 +26,9 @@ import {
   toggleOwnerActive,
   toggleReceptionActive,
   toggleSpecialistActive,
+  updateReception,
   updateSalaryPercent,
+  updateSpecialist,
 } from "./actions";
 
 export default async function SpecialistsPage() {
@@ -33,7 +36,8 @@ export default async function SpecialistsPage() {
   const branchId = user.role === "OWNER" ? null : user.branchId;
   const month = monthRange();
 
-  const [rows, inactive, branches, balances, payouts, reception, owners] = await Promise.all([
+  const [rows, inactive, branches, balances, payouts, reception, owners, specialistPhones] =
+    await Promise.all([
     getSpecialistRows({ branchId, ...month }),
     prisma.specialist.findMany({
       where: { isActive: false, ...(branchId ? { branchId } : {}) },
@@ -56,7 +60,14 @@ export default async function SpecialistsPage() {
     user.role === "OWNER"
       ? prisma.user.findMany({ where: { role: "OWNER" }, orderBy: { fullName: "asc" } })
       : Promise.resolve([]),
+    // Tahrirlash formasi uchun telefon raqamlar (hisobot qatorlarida yo'q)
+    prisma.specialist.findMany({
+      where: { ...(branchId ? { branchId } : {}) },
+      select: { id: true, user: { select: { phone: true } } },
+    }),
   ]);
+
+  const phoneOf = new Map(specialistPhones.map((x) => [x.id, x.user.phone]));
 
   const totalSalary = rows.reduce((s, r) => s + r.salary, 0);
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
@@ -171,7 +182,8 @@ export default async function SpecialistsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {rows.map((r) => (
-                  <tr key={r.id}>
+                  <Fragment key={r.id}>
+                  <tr>
                     <td className={`${td} font-medium`}>{r.fullName}</td>
                     <td className={td}>
                       <Badge>{SPECIALIZATIONS[r.specialization as Specialization]}</Badge>
@@ -211,6 +223,91 @@ export default async function SpecialistsPage() {
                       </form>
                     </td>
                   </tr>
+                  <tr className="border-b border-slate-100 dark:border-slate-800">
+                    <td colSpan={branchId ? 10 : 11} className="px-4 pb-2">
+                      <details>
+                        <summary className="cursor-pointer text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                          tahrirlash
+                        </summary>
+                        <form
+                          action={updateSpecialist}
+                          className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4 dark:bg-slate-900/60"
+                        >
+                          <input type="hidden" name="specialistId" value={r.id} />
+                          <div>
+                            <label className={label}>F.I.Sh.</label>
+                            <input name="fullName" defaultValue={r.fullName} className={input} required />
+                          </div>
+                          <div>
+                            <label className={label}>Telefon (login)</label>
+                            <input
+                              name="phone"
+                              type="tel"
+                              defaultValue={phoneOf.get(r.id) ?? ""}
+                              className={input}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className={label}>Mutaxassislik</label>
+                            <select
+                              name="specialization"
+                              defaultValue={r.specialization}
+                              className={input}
+                            >
+                              {SPECIALIZATION_KEYS.map((k) => (
+                                <option key={k} value={k}>
+                                  {SPECIALIZATIONS[k]}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          {branches.length > 0 ? (
+                            <div>
+                              <label className={label}>Filial</label>
+                              <select
+                                name="branchId"
+                                defaultValue={branches.find((b) => b.name === r.branchName)?.id ?? ""}
+                                className={input}
+                              >
+                                {branches.map((b) => (
+                                  <option key={b.id} value={b.id}>
+                                    {b.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          ) : null}
+                          <div>
+                            <label className={label}>Ish haqi foizi</label>
+                            <input
+                              name="salaryPercent"
+                              type="number"
+                              min={0}
+                              max={100}
+                              defaultValue={r.salaryPercent}
+                              className={input}
+                            />
+                          </div>
+                          <div>
+                            <label className={label}>Yangi parol</label>
+                            <input
+                              name="password"
+                              type="text"
+                              placeholder="o'zgartirmasangiz bo'sh qoldiring"
+                              className={input}
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button type="submit" className={`${btnPrimary} w-full`}>
+                              Saqlash
+                            </button>
+                          </div>
+                        </form>
+                      </details>
+                    </td>
+                  </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -433,6 +530,52 @@ export default async function SpecialistsPage() {
                     {r.phone}
                     {!branchId ? ` · ${r.branch?.name ?? ""}` : ""}
                   </p>
+
+                  <details className="mt-1">
+                    <summary className="cursor-pointer text-xs text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400">
+                      tahrirlash
+                    </summary>
+                    <form
+                      action={updateReception}
+                      className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4 dark:bg-slate-900/60"
+                    >
+                      <input type="hidden" name="userId" value={r.id} />
+                      <div>
+                        <label className={label}>F.I.Sh.</label>
+                        <input name="fullName" defaultValue={r.fullName} className={input} required />
+                      </div>
+                      <div>
+                        <label className={label}>Telefon (login)</label>
+                        <input name="phone" type="tel" defaultValue={r.phone} className={input} required />
+                      </div>
+                      {branches.length > 0 ? (
+                        <div>
+                          <label className={label}>Filial</label>
+                          <select name="branchId" defaultValue={r.branchId ?? ""} className={input}>
+                            {branches.map((b) => (
+                              <option key={b.id} value={b.id}>
+                                {b.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : null}
+                      <div>
+                        <label className={label}>Yangi parol</label>
+                        <input
+                          name="password"
+                          type="text"
+                          placeholder="o'zgartirmasangiz bo'sh qoldiring"
+                          className={input}
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button type="submit" className={`${btnPrimary} w-full`}>
+                          Saqlash
+                        </button>
+                      </div>
+                    </form>
+                  </details>
                 </div>
                 <form action={toggleReceptionActive}>
                   <input type="hidden" name="userId" value={r.id} />

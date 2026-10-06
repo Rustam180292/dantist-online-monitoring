@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { withFlash } from "@/lib/action";
+import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireUser, type CurrentUser } from "@/lib/auth";
 import { SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
@@ -75,6 +76,110 @@ async function updateSalaryPercentImpl(formData: FormData) {
   await prisma.specialist.update({ where: { id: specialistId }, data: { salaryPercent } });
   revalidatePath("/specialists");
   revalidatePath("/reports");
+}
+
+/**
+ * Mutaxassis ma'lumotini o'zgartirish.
+ *
+ * Nega kerak: ism xato yozilgan bo'lishi, telefon almashishi, mutaxassislik
+ * yoki filial o'zgarishi mumkin. Yangisini ochib, eskisini o'chirish esa
+ * jadval, mijoz va ish haqi tarixini uzib qo'yadi.
+ *
+ * Parol ixtiyoriy: bo'sh qoldirilsa, eskisi qoladi.
+ */
+async function updateSpecialistImpl(formData: FormData) {
+  const user = await requireAdmin();
+  const specialistId = String(formData.get("specialistId") ?? "");
+
+  const sp = await prisma.specialist.findUnique({
+    where: { id: specialistId },
+    select: { branchId: true, userId: true },
+  });
+  if (!sp) throw new Error("Mutaxassis topilmadi.");
+  if (user.role === "BRANCH_ADMIN" && sp.branchId !== user.branchId) {
+    throw new Error("Bu mutaxassis sizning filialingizda ishlamaydi.");
+  }
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const specialization = String(formData.get("specialization") ?? "") as Specialization;
+  const salaryPercent = Number(formData.get("salaryPercent") ?? 0);
+  // Filial adminlari xodimni boshqa filialga o'tkaza olmaydi
+  const branchId =
+    user.role === "OWNER" ? String(formData.get("branchId") ?? "") || sp.branchId : sp.branchId;
+
+  if (!fullName || !phone) throw new Error("Ism va telefon majburiy.");
+  if (!SPECIALIZATION_KEYS.includes(specialization)) throw new Error("Mutaxassislikni tanlang.");
+  if (!Number.isInteger(salaryPercent) || salaryPercent < 0 || salaryPercent > 100) {
+    throw new Error("Ish haqi foizi 0 dan 100 gacha bo'lishi kerak.");
+  }
+  if (password && password.length < 5) throw new Error("Parol kamida 5 belgidan bo'lsin.");
+
+  const taken = await prisma.user.findUnique({ where: { phone } });
+  if (taken && taken.id !== sp.userId) throw new Error("Bu telefon raqam allaqachon ro'yxatda.");
+
+  await prisma.user.update({
+    where: { id: sp.userId },
+    data: {
+      fullName,
+      phone,
+      branchId,
+      ...(password ? { passwordHash: hashPassword(password) } : {}),
+    },
+  });
+  await prisma.specialist.update({
+    where: { id: specialistId },
+    data: { specialization, salaryPercent, branchId },
+  });
+
+  revalidatePath("/specialists");
+  revalidatePath("/schedule");
+  revalidatePath("/clients");
+  revalidatePath("/reports");
+  await setFlash(`${fullName} saqlandi.`, "ok");
+}
+
+/** Qabulxona xodimining ma'lumotini o'zgartirish */
+async function updateReceptionImpl(formData: FormData) {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+
+  const target = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, branchId: true },
+  });
+  if (!target || target.role !== "RECEPTION") throw new Error("Xodim topilmadi.");
+  if (admin.role === "BRANCH_ADMIN" && target.branchId !== admin.branchId) {
+    throw new Error("Bu xodim sizning filialingizda ishlamaydi.");
+  }
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  const branchId =
+    admin.role === "OWNER"
+      ? String(formData.get("branchId") ?? "") || target.branchId
+      : target.branchId;
+
+  if (!fullName || !phone) throw new Error("Ism va telefon majburiy.");
+  if (password && password.length < 5) throw new Error("Parol kamida 5 belgidan bo'lsin.");
+
+  const taken = await prisma.user.findUnique({ where: { phone } });
+  if (taken && taken.id !== userId) throw new Error("Bu telefon raqam allaqachon ro'yxatda.");
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      fullName,
+      phone,
+      branchId,
+      ...(password ? { passwordHash: hashPassword(password) } : {}),
+    },
+  });
+
+  revalidatePath("/specialists");
+  await setFlash(`${fullName} saqlandi.`, "ok");
 }
 
 /** Ishdan bo'shatish / qaytarish */
@@ -270,6 +375,8 @@ async function toggleReceptionActiveImpl(formData: FormData) {
 /* Tekshiruv xatolari foydalanuvchiga xabar bo'lib ko'rinishi uchun */
 export const createSpecialist = withFlash(createSpecialistImpl);
 export const updateSalaryPercent = withFlash(updateSalaryPercentImpl);
+export const updateSpecialist = withFlash(updateSpecialistImpl);
+export const updateReception = withFlash(updateReceptionImpl);
 export const toggleSpecialistActive = withFlash(toggleSpecialistActiveImpl);
 export const paySalary = withFlash(paySalaryImpl);
 export const deletePayout = withFlash(deletePayoutImpl);
