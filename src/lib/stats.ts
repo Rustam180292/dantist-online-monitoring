@@ -118,6 +118,46 @@ export async function getOverview(opts: {
   };
 }
 
+export type BranchReportRow = {
+  id: string;
+  name: string;
+  clients: number;
+  done: number;
+  earned: number;
+  collected: number;
+};
+
+/**
+ * Filiallar kesimidagi oylik hisobot.
+ *
+ * Bosh panelda ham, hisobotlar sahifasida ham kerak bo'lgani uchun shu yerda
+ * turadi: ikki joyda ikki xil hisoblanib, raqamlar bir-biriga mos kelmay
+ * qolmasin.
+ */
+export async function getBranchReport(opts: {
+  from: Date;
+  to: Date;
+}): Promise<BranchReportRow[]> {
+  const branches = await prisma.branch.findMany({ orderBy: { name: "asc" } });
+
+  return Promise.all(
+    branches.map(async (b) => {
+      const [ov, clients] = await Promise.all([
+        getOverview({ branchId: b.id, from: opts.from, to: opts.to }),
+        prisma.client.count({ where: { branchId: b.id, status: "ACTIVE" } }),
+      ]);
+      return {
+        id: b.id,
+        name: b.name,
+        clients,
+        done: ov.done,
+        earned: ov.earned,
+        collected: ov.collected,
+      };
+    }),
+  );
+}
+
 export type SpecialistRow = {
   id: string;
   fullName: string;

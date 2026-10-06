@@ -448,6 +448,60 @@ if (await payRow.count()) {
   await login(owner.phone);
 }
 
+/* 9g. Mijozlar jadvalidagi filtr qatori */
+{
+  await page.goto(`${BASE}/clients`);
+  await page.waitForLoadState("networkidle");
+  const all = await page.locator("tbody tr").count();
+
+  await page.selectOption("select[aria-label=\"Qolgan seans bo'yicha filtr\"]", "low");
+  const inUrl = await waitUntil(async () => page.url().includes("rem=low"));
+  await page.waitForLoadState("networkidle");
+  const few = await page.locator("tbody tr").count();
+
+  check("Filtr manzilga yoziladi (havolani ulashish mumkin)", inUrl, page.url());
+  check(
+    "Qolgan seans bo'yicha filtr ro'yxatni qisqartiradi",
+    few > 0 && few < all,
+    `${all} -> ${few}`,
+  );
+
+  // "Tozalash" hammasini qaytaradi
+  await page.click('button:has-text("Tozalash")');
+  const cleared = await waitUntil(async () => !page.url().includes("rem="));
+  await page.waitForLoadState("networkidle");
+  check(
+    "Tozalash filtrlarni olib tashlaydi",
+    cleared && (await page.locator("tbody tr").count()) === all,
+    page.url(),
+  );
+
+  // Ism bo'yicha
+  const some = await one("SELECT fullName FROM Client ORDER BY fullName LIMIT 1");
+  await page.goto(`${BASE}/clients?n=${encodeURIComponent(some.fullName)}`);
+  await page.waitForLoadState("networkidle");
+  const narrowed = await page.locator("tbody tr").count();
+  check(
+    "Ism bo'yicha filtr ishlaydi",
+    narrowed > 0 && narrowed < all && (await page.locator("main").innerText()).includes(some.fullName),
+    `${some.fullName}: ${narrowed} ta`,
+  );
+}
+
+/* 9h. Bosh panelda filiallar kesimi */
+{
+  await page.goto(`${BASE}/`);
+  await page.waitForLoadState("networkidle");
+  const panel = (await page.locator("main").innerText()).replace(/\u00a0/g, " ");
+  const branchNames = await all("SELECT name FROM Branch ORDER BY name");
+  check(
+    "Panelda filiallar bo'yicha hisobot bor",
+    panel.includes("Filiallar bo'yicha") && branchNames.every((b) => panel.includes(b.name)),
+    branchNames.map((b) => b.name).join(", "),
+  );
+  check("Hisobotda jami qatori bor", panel.includes("Jami"));
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check(

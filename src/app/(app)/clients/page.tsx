@@ -23,8 +23,35 @@ import {
   th,
 } from "@/components/ui";
 import { createClient } from "./actions";
+import { ClientFilters } from "./filters";
 
-type Search = { q?: string; b?: string; st?: string };
+type Search = {
+  n?: string;
+  p?: string;
+  age?: string;
+  sp?: string;
+  rem?: string;
+  b?: string;
+  st?: string;
+};
+
+/**
+ * Berilgan yoshdagi bolalarning tug'ilgan sana oralig'i.
+ *
+ * Yoshni bazada saqlamaymiz — u tug'ilgan sanadan hisoblanadi, aks holda har
+ * yili eskirib qolardi. Shuning uchun filtr sanaga aylantiriladi.
+ */
+function birthRangeForAge(age: number): { gt: Date; lte: Date } {
+  const now = new Date();
+  const lte = new Date(now);
+  lte.setFullYear(now.getFullYear() - age);
+  const gt = new Date(now);
+  gt.setFullYear(now.getFullYear() - age - 1);
+  return { gt, lte };
+}
+
+/** Filtrda tanlanadigan yoshlar — logopedik markazga keladigan yosh oralig'i */
+const AGE_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 2);
 
 const STATUS_STYLE: Record<ClientStatus, string> = {
   ACTIVE: "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900",
@@ -42,32 +69,46 @@ export default async function ClientsPage({
   const canManage =
     user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
 
-  const q = (sp.q ?? "").trim();
+  const nameFilter = (sp.n ?? "").trim();
+  const phoneFilter = (sp.p ?? "").trim();
+  const ageFilter = /^\d{1,2}$/.test(sp.age ?? "") ? Number(sp.age) : null;
+  const specialistFilter = (sp.sp ?? "").trim();
+  const remainingFilter = sp.rem === "0" || sp.rem === "low" || sp.rem === "ok" ? sp.rem : null;
   const statusFilter = CLIENT_STATUS_KEYS.includes(sp.st as ClientStatus)
     ? (sp.st as ClientStatus)
     : null;
+  const hasFilter = Boolean(
+    nameFilter || phoneFilter || ageFilter !== null || specialistFilter || remainingFilter ||
+      statusFilter || sp.b,
+  );
 
-  const [clients, branches] = await Promise.all([
+  const [clients, branches, specialists] = await Promise.all([
     prisma.client.findMany({
       where: {
         ...clientScope(user),
         ...(user.role === "OWNER" && sp.b ? { branchId: sp.b } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
-        ...(q
+        ...(ageFilter !== null ? { birthDate: birthRangeForAge(ageFilter) } : {}),
+        ...(specialistFilter ? { specialists: { some: { specialistId: specialistFilter } } } : {}),
+        ...(nameFilter
           ? {
               OR: [
-                { fullName: { contains: q } },
-                { parentName: { contains: q } },
-                { parentPhone: { contains: q } },
+                { fullName: { contains: nameFilter, mode: "insensitive" as const } },
+                { parentName: { contains: nameFilter, mode: "insensitive" as const } },
               ],
             }
           : {}),
+        ...(phoneFilter ? { parentPhone: { contains: phoneFilter } } : {}),
       },
       orderBy: [{ status: "asc" }, { fullName: "asc" }],
       include: {
         branch: { select: { name: true } },
         specialists: {
-          include: { specialist: { select: { specialization: true } } },
+          include: {
+            specialist: {
+              select: { specialization: true, user: { select: { fullName: true } } },
+            },
+          },
         },
         packages: {
           where: { isActive: true },
@@ -81,6 +122,18 @@ export default async function ClientsPage({
       },
     }),
     user.role === "OWNER" ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    // Filtr ro'yxati uchun: mutaxassis o'ziniki bilan cheklanadi
+    prisma.specialist.findMany({
+      where: {
+        isActive: true,
+        ...(user.role === "SPECIALIST" ? { id: user.specialistId ?? "" } : {}),
+        ...(user.role === "BRANCH_ADMIN" || user.role === "RECEPTION"
+          ? { branchId: user.branchId ?? "" }
+          : {}),
+      },
+      select: { id: true, user: { select: { fullName: true } } },
+      orderBy: { user: { fullName: "asc" } },
+    }),
   ]);
 
   const rows = clients.map((c) => {
@@ -97,60 +150,26 @@ export default async function ClientsPage({
     return { ...c, remaining, debt };
   });
 
+  // Qolgan seans bazada saqlanmaydi (abonement va o'tgan seanslardan hisoblanadi),
+  // shuning uchun bu filtr hisoblangandan keyin qo'llanadi.
+  const visible = remainingFilter
+    ? rows.filter((c) =>
+        remainingFilter === "0"
+          ? c.remaining === 0
+          : remainingFilter === "low"
+            ? c.remaining > 0 && c.remaining <= 2
+            : c.remaining > 2,
+      )
+    : rows;
+
   return (
     <>
       <PageHeader
         title="Mijozlar"
-        subtitle={`${rows.length} ta mijoz${
-          user.role === "SPECIALIST" ? " (menga biriktirilgan)" : ""
-        }`}
+        subtitle={`${visible.length} ta mijoz${
+          rows.length !== visible.length ? ` (jami ${rows.length})` : ""
+        }${user.role === "SPECIALIST" ? " · menga biriktirilgan" : ""}`}
       />
-
-      <form method="get" className={`${card} mb-5 flex flex-wrap items-end gap-3 p-4`}>
-        <div className="min-w-[200px] flex-1">
-          <label className={label} htmlFor="q">
-            Qidirish
-          </label>
-          <input
-            id="q"
-            name="q"
-            defaultValue={q}
-            placeholder="Bola ismi, ota-ona ismi yoki telefon"
-            className={input}
-          />
-        </div>
-        {branches.length > 0 ? (
-          <div className="min-w-[170px]">
-            <label className={label} htmlFor="b">
-              Filial
-            </label>
-            <select id="b" name="b" defaultValue={sp.b ?? ""} className={input}>
-              <option value="">Barchasi</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : null}
-        <div className="min-w-[150px]">
-          <label className={label} htmlFor="st">
-            Holat
-          </label>
-          <select id="st" name="st" defaultValue={sp.st ?? ""} className={input}>
-            <option value="">Barchasi</option>
-            {CLIENT_STATUS_KEYS.map((s) => (
-              <option key={s} value={s}>
-                {CLIENT_STATUSES[s]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button type="submit" className={btnPrimary}>
-          Qidirish
-        </button>
-      </form>
 
       {canManage ? (
         <details className={`${card} mb-5 p-4`}>
@@ -247,25 +266,31 @@ export default async function ClientsPage({
       ) : null}
 
       <Card>
-        {rows.length === 0 ? (
-          <Empty>Mijoz topilmadi.</Empty>
+        {rows.length === 0 && !hasFilter ? (
+          <Empty>Hali mijoz qo&apos;shilmagan.</Empty>
         ) : (
           <div className="scroll-x">
-            <table className="w-full min-w-[820px]">
+            <table className="w-full min-w-[1060px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className={th}>Bola</th>
                   <th className={th}>Yoshi</th>
                   {user.role === "OWNER" ? <th className={th}>Filial</th> : null}
-                  <th className={th}>Mutaxassislar</th>
+                  <th className={th}>Mutaxassis</th>
                   <th className={th}>Ota-ona</th>
                   <th className={th}>Qolgan seans</th>
                   <th className={th}>Qarz</th>
                   <th className={th}>Holat</th>
                 </tr>
+                <ClientFilters
+                  branches={user.role === "OWNER" ? branches.map((b) => ({ id: b.id, name: b.name })) : []}
+                  specialists={specialists.map((x) => ({ id: x.id, name: x.user.fullName }))}
+                  statuses={CLIENT_STATUS_KEYS.map((k) => ({ id: k, name: CLIENT_STATUSES[k] }))}
+                  ages={AGE_OPTIONS}
+                />
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {rows.map((c) => (
+                {visible.map((c) => (
                   <tr key={c.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className={td}>
                       <Link
@@ -288,9 +313,14 @@ export default async function ClientsPage({
                           <span className="text-xs text-slate-400">—</span>
                         ) : (
                           c.specialists.map((a) => (
-                            <Badge key={a.id}>
-                              {SPECIALIZATIONS[a.specialist.specialization as Specialization]}
-                            </Badge>
+                            <span key={a.id} className="block whitespace-nowrap">
+                              <span className="text-sm text-slate-700 dark:text-slate-300">
+                                {a.specialist.user.fullName}
+                              </span>
+                              <span className="ml-1.5 text-xs text-slate-400">
+                                {SPECIALIZATIONS[a.specialist.specialization as Specialization]}
+                              </span>
+                            </span>
                           ))
                         )}
                       </div>

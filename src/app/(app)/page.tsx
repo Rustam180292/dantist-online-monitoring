@@ -11,6 +11,7 @@ import {
 } from "@/lib/constants";
 import {
   dayRange,
+  getBranchReport,
   getClientAlerts,
   getOverview,
   getSpecialistRows,
@@ -31,7 +32,8 @@ export default async function DashboardPage() {
   const month = monthRange();
   const today = dayRange();
 
-  const [overview, todaySessions, activeClients, specialistRows, alerts] = await Promise.all([
+  const [overview, todaySessions, activeClients, specialistRows, alerts, branchReport] =
+    await Promise.all([
     getOverview({ branchId, ...month }),
     prisma.session.findMany({
       where: {
@@ -53,6 +55,8 @@ export default async function DashboardPage() {
     }),
     getSpecialistRows({ branchId, ...month }),
     getClientAlerts({ branchId }),
+    // Filiallar kesimi faqat egaga kerak: filial admini bitta filialni ko'radi
+    user.role === "OWNER" ? getBranchReport(month) : Promise.resolve([]),
   ]);
 
   return (
@@ -119,6 +123,63 @@ export default async function DashboardPage() {
           href="/payments"
         />
       </div>
+
+      {branchReport.length > 1 ? (
+        <Card
+          title="Filiallar bo'yicha (shu oy)"
+          subtitle="har bir filialning mijozi, bajarilgan ishi va puli"
+          className="mt-6"
+          action={
+            <Link href="/reports" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+              Batafsil hisobot →
+            </Link>
+          }
+        >
+          <div className="scroll-x">
+            <table className="w-full min-w-[620px]">
+              <thead className="border-b border-slate-200 dark:border-slate-800">
+                <tr>
+                  <th className={th}>Filial</th>
+                  <th className={th}>Faol mijoz</th>
+                  <th className={th}>O&apos;tgan seans</th>
+                  <th className={th}>Xizmat qiymati</th>
+                  <th className={th}>Kassaga tushgan</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {branchReport.map((b) => (
+                  <tr key={b.id}>
+                    <td className={`${td} font-medium text-slate-800 dark:text-slate-200`}>
+                      {b.name}
+                    </td>
+                    <td className={`${td} tabular-nums`}>{num(b.clients)}</td>
+                    <td className={`${td} tabular-nums`}>{num(b.done)}</td>
+                    <td className={`${td} tabular-nums`}>{money(b.earned)}</td>
+                    <td className={`${td} font-semibold tabular-nums`}>{money(b.collected)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t border-slate-200 dark:border-slate-800">
+                <tr className="font-semibold text-slate-800 dark:text-slate-200">
+                  <td className={td}>Jami</td>
+                  <td className={`${td} tabular-nums`}>
+                    {num(branchReport.reduce((n, b) => n + b.clients, 0))}
+                  </td>
+                  <td className={`${td} tabular-nums`}>
+                    {num(branchReport.reduce((n, b) => n + b.done, 0))}
+                  </td>
+                  <td className={`${td} tabular-nums`}>
+                    {money(branchReport.reduce((n, b) => n + b.earned, 0))}
+                  </td>
+                  <td className={`${td} tabular-nums`}>
+                    {money(branchReport.reduce((n, b) => n + b.collected, 0))}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="mt-6 grid gap-5 xl:grid-cols-3">
         <Card
