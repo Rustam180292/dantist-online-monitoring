@@ -11,11 +11,18 @@ import { cookies } from "next/headers";
  */
 export const FLASH_COOKIE = "logoped_flash";
 
-export async function setFlash(message: string): Promise<void> {
+/**
+ * Xabar turi xabarning oldiga qo'shiladi: "ok:" yoki "err:".
+ *
+ * Nega kerak: amal muvaffaqiyatli tugaganda ham foydalanuvchi buni bilishi
+ * kerak. Masalan tahrirlash formasi yopiladi va qator joyiga qaytadi — tashqi
+ * ko'rinishda hech narsa o'zgarmagandek tuyuladi, holbuki saqlangan.
+ */
+export async function setFlash(message: string, kind: "ok" | "err" = "err"): Promise<void> {
   const jar = await cookies();
   // Qiymatni Next'ning o'zi kodlaydi — bu yerda qayta kodlash kerak emas,
   // aks holda brauzerda %20 lar ko'rinib qoladi.
-  jar.set(FLASH_COOKIE, message, {
+  jar.set(FLASH_COOKIE, `${kind}:${message}`, {
     httpOnly: false, // brauzerdagi komponent o'qib, keyin o'chiradi
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

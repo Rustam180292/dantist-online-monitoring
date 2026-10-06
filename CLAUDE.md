@@ -61,12 +61,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 108 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 109 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, PWA (72)
+node tests/smoke.mjs      # CRM, rollar, qabullar, PWA (73)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 ```
@@ -114,6 +114,10 @@ beradi.
 - **Amal xatolari.** Server action'lar `withFlash` bilan o'raladi (`src/lib/action.ts`).
   Usiz Next.js production'da xato matnini yashiradi va foydalanuvchi sababni
   bilmaydi. Yangi action yozsangiz, uni ham o'rang.
+- **Bajarilgani ham ko'rinsin.** Natijasi ekranda darhol bilinmaydigan amal
+  (tahrirlash, to'lov) `setFlash(xabar, "ok")` bilan yashil xabar qoldirsin.
+  Aks holda foydalanuvchi "ishlamadi" deb o'ylaydi — ayniqsa yozuv ro'yxatdan
+  chiqib ketsa (masalan sana boshqa oyga ko'chsa).
 - **Xizmat ishchisi (sw.js) sahifalarni hech qachon keshlamaydi** — bitta telefondan
   ikki kishi kirsa, birining ma'lumoti ikkinchisiga ko'rinib qolmasligi uchun. Faqat
   o'zgarmas statik fayllar keshlanadi.

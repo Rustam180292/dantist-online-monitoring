@@ -19,7 +19,7 @@ function clearFlash() {
 }
 
 /**
- * Amal bajarilmaganda chiqadigan xabar.
+ * Amal natijasi haqida qisqa xabar: yashil — bajarildi, qizil — xato.
  *
  * Server action cookie qoldiradi, bu komponent uni ko'rib, ko'rsatadi va
  * darhol o'chiradi. Tekshirish qisqa oraliqda qilinadi, chunki server
@@ -27,13 +27,16 @@ function clearFlash() {
  */
 export function Flash() {
   const [message, setMessage] = useState<string | null>(null);
+  const [ok, setOk] = useState(false);
 
   useEffect(() => {
     const check = () => {
       const found = readFlash();
       if (found) {
         clearFlash();
-        setMessage(found);
+        const good = found.startsWith("ok:");
+        setOk(good);
+        setMessage(found.replace(/^(ok|err):/, ""));
       }
     };
     check();
@@ -54,7 +57,11 @@ export function Flash() {
       role="alert"
       className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-4"
     >
-      <div className="flex w-full max-w-md items-start gap-3 rounded-xl bg-rose-600 px-4 py-3 text-sm text-white shadow-lg">
+      <div
+        className={`flex w-full max-w-md items-start gap-3 rounded-xl px-4 py-3 text-sm text-white shadow-lg ${
+          ok ? "bg-emerald-600" : "bg-rose-600"
+        }`}
+      >
         <span className="flex-1">{message}</span>
         <button
           type="button"

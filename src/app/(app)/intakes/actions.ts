@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { withFlash } from "@/lib/action";
+import { setFlash } from "@/lib/flash";
+import { dateTimeUz, money } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { requireUser, type CurrentUser } from "@/lib/auth";
 import {
@@ -90,6 +92,7 @@ async function createIntakeImpl(formData: FormData) {
   });
 
   refresh();
+  await setFlash(`Qabul yozildi: ${childName} · ${dateTimeUz(scheduledAt)}`, "ok");
 }
 
 /**
@@ -154,6 +157,10 @@ async function updateIntakeImpl(formData: FormData) {
 
   void user;
   refresh();
+  // Tahrirlash formasi yopiladi va qator joyiga qaytadi — tashqaridan hech
+  // narsa o'zgarmagandek ko'rinadi. Sanani ham yozamiz: boshqa oyga
+  // ko'chirilgan bo'lsa, qator shu oydagi ro'yxatdan chiqib ketadi.
+  await setFlash(`Saqlandi: ${childName} · ${dateTimeUz(scheduledAt)}`, "ok");
 }
 
 /** Qabul holati: bo'lib o'tdi / kelmadi / bekor qilindi */
@@ -187,6 +194,7 @@ async function payIntakeImpl(formData: FormData) {
     // Xato bosilgan bo'lsa — to'lovni qaytarib olish
     await prisma.intake.update({ where: { id: intake.id }, data: { paidAt: null } });
     refresh();
+    await setFlash("To'lov qaytarildi.", "ok");
     return;
   }
 
@@ -201,6 +209,7 @@ async function payIntakeImpl(formData: FormData) {
     data: { price, method, paidAt: new Date() },
   });
   refresh();
+  await setFlash(`Konsultatsiya puli qabul qilindi: ${money(price)}`, "ok");
 }
 
 /**
@@ -257,6 +266,7 @@ async function convertIntakeImpl(formData: FormData) {
 
   refresh();
   revalidatePath("/clients");
+  await setFlash(`${intake.childName} mijozlar ro'yxatiga qo'shildi.`, "ok");
 }
 
 /** Xato yozilgan qabulni o'chirish */

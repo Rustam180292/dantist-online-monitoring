@@ -631,6 +631,16 @@ if (await payRow.count()) {
       );
     });
     check("Qabulning vaqti va mutaxassisi tahrirlanadi", saved, target.childName);
+
+    // Saqlangani ko'rinib turishi kerak: forma yopiladi, qator joyiga qaytadi
+    const note = page.getByRole("alert").filter({ hasText: "Saqlandi" });
+    check(
+      "Saqlangani haqida xabar chiqadi",
+      await note
+        .waitFor({ state: "visible", timeout: 8000 })
+        .then(() => true)
+        .catch(() => false),
+    );
   }
 }
 
