@@ -154,6 +154,7 @@ async function main() {
   await assertSafeToWipe();
 
   console.log("Eski demo ma'lumotlar tozalanmoqda...");
+  await prisma.intake.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.salaryPayout.deleteMany();
   await prisma.linkCode.deleteMany();
@@ -419,6 +420,55 @@ async function main() {
         method: pick(["CASH", "CARD"]),
         paidAt,
         note: "Oldingi davr uchun ish haqi",
+      },
+    });
+  }
+
+  /* ---------- Qabullar (konsultatsiyalar) ---------- */
+  // Markazga birinchi marta kelgan odamlar: bir qismi mijozga aylangan,
+  // bir qismi o'ylab ko'rmoqda, bittasi kelmagan — hisobot mazmunli bo'lsin.
+  const intakeSpecialists = await prisma.specialist.findMany({
+    select: { id: true, branchId: true },
+  });
+  const INTAKE_NAMES = [
+    ["Sardorbek Umarov", "Nilufar Umarova"],
+    ["Zilola Rashidova", "Kamola Rashidova"],
+    ["Bekzod Olimov", "Shoira Olimova"],
+    ["Madina Yoqubova", "Dilshod Yoqubov"],
+    ["Jasurbek Komilov", "Gulbahor Komilova"],
+    ["Oysha Saidova", "Ravshan Saidov"],
+  ];
+
+  for (let i = 0; i < INTAKE_NAMES.length; i++) {
+    const [childName, parentName] = INTAKE_NAMES[i];
+    const sp = intakeSpecialists[i % intakeSpecialists.length];
+    const scheduledAt = new Date(thisMonday);
+    scheduledAt.setDate(scheduledAt.getDate() - 10 + i * 2);
+    scheduledAt.setHours(10 + (i % 6), i % 2 ? 30 : 0, 0, 0);
+
+    const birthDate = new Date();
+    birthDate.setFullYear(birthDate.getFullYear() - (3 + (i % 5)));
+    birthDate.setMonth((i * 2) % 12);
+
+    // Oxirgisi hali rejada, bittasi kelmagan, qolgani bo'lib o'tgan
+    const status = i === INTAKE_NAMES.length - 1 ? "PLANNED" : i === 1 ? "NO_SHOW" : "DONE";
+    const paid = status === "DONE";
+
+    await prisma.intake.create({
+      data: {
+        branchId: sp.branchId,
+        specialistId: sp.id,
+        childName,
+        birthDate,
+        parentName,
+        parentPhone: `+99893100${String(2000 + i).slice(-4)}`,
+        scheduledAt,
+        price: paid ? 150_000 : 0,
+        paidAt: paid ? scheduledAt : null,
+        method: i % 2 ? "CARD" : "CASH",
+        status,
+        result: status === "DONE" ? (i % 2 ? "THINKING" : "PENDING") : "PENDING",
+        note: i % 3 === 0 ? "Nutq kechikishi, tanish tavsiya qilgan" : null,
       },
     });
   }

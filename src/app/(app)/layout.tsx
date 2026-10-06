@@ -21,6 +21,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items.push({ href: "/", label: "Panel", icon: "home" });
     }
     items.push({ href: "/schedule", label: "Jadval", icon: "calendar" });
+    // Qabul — markazga birinchi marta kelgan odam; mutaxassisga u ko'rinmaydi
+    if (user.role !== "SPECIALIST") {
+      items.push({ href: "/intakes", label: "Qabullar", icon: "door" });
+    }
     items.push({ href: "/clients", label: "Mijozlar", icon: "users" });
     if (user.role === "SPECIALIST") {
       items.push({ href: "/earnings", label: "Pulim", icon: "wallet" });

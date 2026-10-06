@@ -47,6 +47,17 @@ export default async function ReportsPage({
     }),
   ]);
 
+  // Konsultatsiya puli abonement to'lovlaridan alohida yuritiladi (qabul hali
+  // mijoz emas), shuning uchun hisobotda ham alohida ko'rsatiladi.
+  const intakeAgg = await prisma.intake.aggregate({
+    where: {
+      paidAt: { gte: from, lt: to },
+      ...(branchId ? { branchId } : {}),
+    },
+    _sum: { price: true },
+    _count: true,
+  });
+
   // Filiallar kesimi
   const branchStats = await Promise.all(
     branches.map(async (b) => {
@@ -118,7 +129,12 @@ export default async function ReportsPage({
           tone="good"
         />
         <StatCard label="Rejadagi seanslar" value={num(overview.planned)} />
-        <StatCard label="Jami seanslar" value={num(overview.total)} />
+        <StatCard
+          label="Konsultatsiyalardan"
+          value={money(intakeAgg._sum.price ?? 0)}
+          hint={`${intakeAgg._count} ta to'langan qabul`}
+          href="/intakes"
+        />
       </div>
 
       {branchStats.length > 0 ? (

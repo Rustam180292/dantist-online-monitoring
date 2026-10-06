@@ -17,12 +17,13 @@ import pg from "pg";
 const IDENTIFIERS = [
   // jadvallar
   "SalaryPayout", "Notification", "Assignment", "Specialist", "Payment",
-  "Package", "Session", "Client", "Branch", "User", "LinkCode",
+  "Package", "Session", "Client", "Branch", "User", "LinkCode", "Intake",
   // ustunlar va taxalluslar
   "telegramUsername", "pricePerSession", "parentUserId", "totalSessions",
   "specialistId", "salaryPercent", "telegramId", "purchasedAt", "parentPhone",
   "clientName", "dedupeKey", "sessionId", "childName", "packageId", "birthDate",
   "createdAt", "startsAt", "clientId", "branchId", "fullName", "isActive",
+  "scheduledAt", "createdById", "childName", "parentName",
   "userId", "paidAt", "sentAt",
 ].sort((a, b) => b.length - a.length);
 

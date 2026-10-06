@@ -30,7 +30,7 @@ mutaxassisning **o'z mijozlari** bor.
 |---|---|
 | `OWNER` — markaz egasi | Barcha filiallar, barcha bo'limlar. Markazni ikki kishi birga yuritsa, **Xodimlar** bo'limidan ikkinchi egalik akkaunti ochiladi |
 | `BRANCH_ADMIN` — filial admini | Faqat o'z filiali, barcha bo'limlar |
-| `RECEPTION` — qabulxona xodimi | O'z filialida faqat **Jadval, Mijozlar, To'lovlar**. Mijoz qabul qiladi, abonement sotadi, to'lov oladi, davomat belgilaydi. Maosh, xodimlar va hisobotlar ko'rinmaydi; yozilgan to'lovni o'chira olmaydi |
+| `RECEPTION` — qabulxona xodimi | O'z filialida **Jadval, Qabullar, Mijozlar, To'lovlar**. Mijoz qabul qiladi, abonement sotadi, to'lov oladi, davomat belgilaydi. Maosh, xodimlar va hisobotlar ko'rinmaydi; yozilgan to'lovni o'chira olmaydi |
 | `SPECIALIST` — mutaxassis | Faqat o'ziga biriktirilgan mijozlar va o'z seanslari; davomat belgilaydi. To'lov/hisobot bo'limlari yopiq |
 | `PARENT` — ota-ona | Faqat o'z farzandi, o'zgartirish huquqisiz |
 
@@ -261,7 +261,7 @@ src/
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
   db.mjs               testlar uchun bazaga kichik ulanish
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (59 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, PWA (69 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
@@ -291,13 +291,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 95 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 105 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, PWA (59)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, PWA (69)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```

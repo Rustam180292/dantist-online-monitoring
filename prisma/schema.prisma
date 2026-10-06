@@ -24,6 +24,7 @@ model Branch {
   sessions    Session[]
   payments    Payment[]
   payouts     SalaryPayout[]
+  intakes     Intake[]
 }
 
 /// Tizim foydalanuvchisi. role: OWNER | BRANCH_ADMIN | SPECIALIST | PARENT
@@ -77,6 +78,7 @@ model Specialist {
   clients  Assignment[]
   sessions Session[]
   payouts  SalaryPayout[]
+  intakes  Intake[]
 
   @@index([branchId])
 }
@@ -103,6 +105,7 @@ model Client {
   sessions      Session[]
   payments      Payment[]
   notifications Notification[]
+  intake        Intake?
 
   @@index([branchId])
   @@index([parentUserId])
@@ -170,6 +173,39 @@ model Session {
 }
 
 /// To'lov. method: CASH | CARD | TRANSFER
+/// Qabul: markazga birinchi marta kelgan odam (hali mijoz emas).
+/// Konsultatsiyadan keyin yo mijozga aylanadi, yo ketadi.
+model Intake {
+  id           String    @id @default(cuid())
+  branchId     String
+  specialistId String?
+  childName    String
+  birthDate    DateTime
+  parentName   String
+  parentPhone  String
+  scheduledAt  DateTime
+  /// Konsultatsiya narxi, so'mda
+  price        Int       @default(0)
+  paidAt       DateTime?
+  method       String    @default("CASH")
+  /// PLANNED | DONE | NO_SHOW | CANCELLED
+  status       String    @default("PLANNED")
+  /// PENDING | CONVERTED | THINKING | REFUSED
+  result       String    @default("PENDING")
+  /// Mijozga aylangan bo'lsa — o'sha mijoz
+  clientId     String?   @unique
+  note         String?
+  createdById  String?
+  createdAt    DateTime  @default(now())
+
+  branch     Branch      @relation(fields: [branchId], references: [id])
+  specialist Specialist? @relation(fields: [specialistId], references: [id])
+  client     Client?     @relation(fields: [clientId], references: [id])
+
+  @@index([branchId, scheduledAt])
+  @@index([scheduledAt])
+}
+
 model Payment {
   id        String   @id @default(cuid())
   clientId  String

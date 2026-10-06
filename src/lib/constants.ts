@@ -66,3 +66,39 @@ export const PAYMENT_METHOD_KEYS = Object.keys(PAYMENT_METHODS) as PaymentMethod
 
 /** Hisob-kitobda "o'tgan" deb sanaladigan holatlar (mutaxassis haqi shulardan) */
 export const BILLABLE_STATUSES: SessionStatus[] = ["DONE", "NO_SHOW"];
+
+/** Qabul (konsultatsiya) holati */
+export const INTAKE_STATUSES = {
+  PLANNED: "Rejada",
+  DONE: "Bo'lib o'tdi",
+  NO_SHOW: "Kelmadi",
+  CANCELLED: "Bekor qilindi",
+} as const;
+
+export type IntakeStatus = keyof typeof INTAKE_STATUSES;
+export const INTAKE_STATUS_KEYS = Object.keys(INTAKE_STATUSES) as IntakeStatus[];
+
+export const INTAKE_STATUS_STYLE: Record<IntakeStatus, string> = {
+  PLANNED: "bg-slate-100 text-slate-700 ring-slate-200",
+  DONE: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  NO_SHOW: "bg-rose-50 text-rose-700 ring-rose-200",
+  CANCELLED: "bg-amber-50 text-amber-700 ring-amber-200",
+};
+
+/** Qabul natijasi: konsultatsiyadan keyin nima bo'ldi */
+export const INTAKE_RESULTS = {
+  PENDING: "Hali aniq emas",
+  CONVERTED: "Mijoz bo'ldi",
+  THINKING: "O'ylab ko'radi",
+  REFUSED: "Rad etdi",
+} as const;
+
+export type IntakeResult = keyof typeof INTAKE_RESULTS;
+export const INTAKE_RESULT_KEYS = Object.keys(INTAKE_RESULTS) as IntakeResult[];
+
+export const INTAKE_RESULT_STYLE: Record<IntakeResult, string> = {
+  PENDING: "bg-slate-100 text-slate-600 ring-slate-200",
+  CONVERTED: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  THINKING: "bg-amber-50 text-amber-700 ring-amber-200",
+  REFUSED: "bg-rose-50 text-rose-700 ring-rose-200",
+};

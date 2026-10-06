@@ -502,6 +502,85 @@ if (await payRow.count()) {
   check("Hisobotda jami qatori bor", panel.includes("Jami"));
 }
 
+/* 9i. Qabullar: yozish -> konsultatsiya puli -> mijozga o'tkazish */
+{
+  await page.goto(`${BASE}/intakes`);
+  await page.waitForLoadState("networkidle");
+  const seeded = await count("SELECT COUNT(*) AS n FROM Intake");
+  check("Qabullar sahifasi ochiladi", (await page.content()).includes("Qabullar"), page.url());
+  check("Seed'da qabullar bor", seeded > 0, `${seeded} ta`);
+
+  // Yangi qabul
+  const child = `Sinov Qabulov ${String(Date.now()).slice(-5)}`;
+  const parentPhone = `+99893${String(Date.now()).slice(-7)}`;
+  await page.click('summary:has-text("Yangi qabul")');
+  await page.fill("#childName", child);
+  await page.fill("#birthDate", "2021-05-10");
+  await page.fill("#parentName", "Sinov Ota-onayev");
+  await page.fill("#parentPhone", parentPhone);
+  await page.fill("#price", "150000");
+  await page.locator('form button:has-text("Saqlash")').first().click();
+
+  const created = await waitUntil(
+    async () => (await count(`SELECT COUNT(*) AS n FROM Intake WHERE childName = '${child}'`)) === 1,
+  );
+  check("Yangi qabul yoziladi", created, child);
+
+  const row = page.locator(`tr:has-text("${child}")`).first();
+  await page.waitForLoadState("networkidle");
+
+  // Konsultatsiya o'tdi
+  await row.locator('button:has-text("o\'tdi")').first().click();
+  const held = await waitUntil(
+    async () => (await one(`SELECT status FROM Intake WHERE childName = '${child}'`)).status === "DONE",
+  );
+  check("Qabul 'bo'lib o'tdi' deb belgilanadi", held);
+
+  // Konsultatsiya puli
+  await page.waitForLoadState("networkidle");
+  const payRow = page.locator(`tr:has-text("${child}")`).first();
+  await payRow.locator('input[name="price"]').fill("170000");
+  await payRow.locator('button:has-text("to\'landi")').click();
+  const paid = await waitUntil(async () => {
+    const r = await one(`SELECT price, paidAt FROM Intake WHERE childName = '${child}'`);
+    return r.price === 170000 && r.paidAt !== null;
+  });
+  check("Konsultatsiya puli qabul qilinadi", paid, "170 000");
+
+  // Mijozga o'tkazish
+  await page.waitForLoadState("networkidle");
+  const clientsBefore = await count("SELECT COUNT(*) AS n FROM Client");
+  const convRow = page.locator(`tr:has-text("${child}")`).first();
+  await convRow.locator('button:has-text("Mijozga o\'tkazish")').click();
+  const converted = await waitUntil(async () => {
+    const r = await one(`SELECT clientId, result FROM Intake WHERE childName = '${child}'`);
+    return r.clientId !== null && r.result === "CONVERTED";
+  });
+  check("Qabul mijozga o'tkaziladi", converted);
+  check(
+    "Mijozlar ro'yxatiga qo'shiladi",
+    (await count("SELECT COUNT(*) AS n FROM Client")) === clientsBefore + 1,
+  );
+  const madeClient = await one(
+    `SELECT c.fullName, c.parentPhone FROM Client c
+       JOIN Intake i ON i.clientId = c.id WHERE i.childName = '${child}'`,
+  );
+  check(
+    "Mijoz ma'lumoti qabuldan ko'chiriladi",
+    madeClient.fullName === child && madeClient.parentPhone === parentPhone,
+    `${madeClient.fullName} · ${madeClient.parentPhone}`,
+  );
+
+  // Konsultatsiya puli hisobotda ko'rinadi
+  await page.goto(`${BASE}/reports`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Hisobotda konsultatsiya puli bor",
+    (await page.locator("main").innerText()).includes("Konsultatsiyalardan"),
+    page.url(),
+  );
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check(
@@ -527,6 +606,7 @@ check(
   navText.replace(/\n/g, " | "),
 );
 await denied("Mutaxassis /payments ga kira olmaydi", "/payments", "Qarzdorlar");
+await denied("Mutaxassis /intakes ga kira olmaydi", "/intakes", "Yangi qabul");
 
 await page.goto(`${BASE}/earnings`);
 await page.waitForLoadState("networkidle");
