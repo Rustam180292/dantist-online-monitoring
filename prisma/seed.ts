@@ -99,7 +99,60 @@ function mondayOf(d: Date): Date {
   return x;
 }
 
+const CONFIRM = "hammasini-ochirishga-roziman";
+
+/** Ulanish manzilidagi server nomi (parolga tegmasdan) */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Bu skript bazadagi HAMMA narsani o'chiradi.
+ *
+ * Nega tekshiruv kerak: lokal `.env` ko'pincha bulutdagi haqiqiy bazaga ulangan
+ * bo'ladi. Demo ma'lumot tiklamoqchi bo'lgan odam o'sha paytda haqiqiy markazning
+ * mijozlarini, to'lovlarini va davomatini o'chirib yuborishi mumkin. Buni orqaga
+ * qaytarib bo'lmaydi, shuning uchun skript o'zi to'xtaydi.
+ *
+ * Bo'sh bazada va lokal bazada hech narsa so'ralmaydi — ish ravon ketaveradi.
+ */
+async function assertSafeToWipe() {
+  const [clients, sessions, payments] = await Promise.all([
+    prisma.client.count(),
+    prisma.session.count(),
+    prisma.payment.count(),
+  ]);
+
+  // Bo'sh baza — yo'qotadigan narsa yo'q
+  if (clients === 0 && sessions === 0 && payments === 0) return;
+
+  const host = hostOf(connectionString!);
+  if (host === "localhost" || host === "127.0.0.1" || host === "::1") return;
+
+  if (process.env.SEED_CONFIRM === CONFIRM) {
+    console.log(`DIQQAT: ${host} dagi ma'lumot tasdiq bilan o'chirilmoqda.`);
+    return;
+  }
+
+  throw new Error(
+    `To'xtatildi: "${host}" bazasida ma'lumot bor va u lokal emas.\n` +
+      `  Mijozlar: ${clients}, seanslar: ${sessions}, to'lovlar: ${payments}\n\n` +
+      `Bu skript ularning HAMMASINI o'chiradi va qaytarib bo'lmaydi.\n` +
+      `Haqiqiy markaz bazasiga ulangan bo'lsangiz — DATABASE_URL ni tekshiring.\n\n` +
+      `Haqiqatan shu bazani tozalamoqchi bo'lsangiz, avval zaxira oling:\n` +
+      `  pg_dump "$DATABASE_URL" > zaxira-$(date +%F).sql\n` +
+      `keyin shunday ishga tushiring:\n` +
+      `  SEED_CONFIRM=${CONFIRM} npm run db:seed`,
+  );
+}
+
 async function main() {
+  await assertSafeToWipe();
+
   console.log("Eski demo ma'lumotlar tozalanmoqda...");
   await prisma.notification.deleteMany();
   await prisma.salaryPayout.deleteMany();

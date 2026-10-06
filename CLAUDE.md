@@ -43,6 +43,10 @@ Haqiqiy mijoz ma'lumoti turgan bazada hech qachon ishlatmang. Lokal `.env` ko'pi
 o'sha bulutdagi bazaga ulangan bo'ladi — ishga tushirishdan oldin `DATABASE_URL`
 qayerni ko'rsatayotganini tekshiring.
 
+Skriptda to'siq bor: baza lokal bo'lmasa va ichida ma'lumot bo'lsa, u o'zi to'xtaydi
+va nima yo'qolishini ko'rsatadi. To'siqni `SEED_CONFIRM` bilan ataylab ochish mumkin —
+buni faqat zaxira olgandan keyin qiling. To'siqni kodidan olib tashlamang.
+
 ## Testlar
 
 Brauzerdagi uchidan-uchiga tekshiruvlar, jami 84 ta. Haqiqiy `next build` ustida

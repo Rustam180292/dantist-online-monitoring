@@ -111,6 +111,11 @@ o'sha direct manzilga almashtiring, so'ng `npm run dev`.
 > **Diqqat:** `npm run db:seed` bazadagi hamma narsani o'chirib, demo
 > ma'lumotni qayta yozadi. Haqiqiy mijozlar kiritilgandan keyin uni
 > **hech qachon ishlatmang**.
+>
+> Skriptda to'siq bor: baza lokal bo'lmasa va ichida ma'lumot bo'lsa, u o'zi
+> to'xtaydi va nechta mijoz, seans, to'lov yo'qolishini ko'rsatadi. Shunga
+> qaramay, buyruqni yozishdan oldin `DATABASE_URL` qayerni ko'rsatayotganini
+> o'zingiz tekshiring.
 
 Endi Vercel manzilini brauzerda oching va `+998901234567` / `parol123` bilan
 kiring — demo ma'lumot bilan ishlayotgan bo'lishi kerak.
