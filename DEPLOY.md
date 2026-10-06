@@ -180,6 +180,25 @@ birinchi so'rov 1-2 soniya kutadi. Bu normal; keyingi sahifalar tez ochiladi.
 
 ---
 
+## Haqiqiy ishga o'tish
+
+Demo ma'lumot bilan sinab ko'rib bo'lgach, markazning o'z ishini boshlashdan
+oldin bazani tozalash kerak. Demo hisoblarning paroli hammaga ma'lum
+(`parol123`, README'da ham yozilgan), shuning uchun ularni qoldirib bo'lmaydi.
+
+```bash
+npm run db:clean
+```
+
+Skript savol berib boradi: filial nomi, eganing ismi, telefoni va paroli.
+Tozalashdan oldin o'zi zaxira oladi, oxirida esa `TOZALASH` deb yozishni
+so'raydi — xato bosilgan buyruq bilan o'chib ketmaydi.
+
+Shundan keyin Vercel sozlamalarida `DEMO_LOGINS` o'zgaruvchisi bo'lsa, uni
+ham olib tashlang.
+
+---
+
 ## Tekshirish ro'yxati
 
 - [ ] Vercel manzili ochiladi, kirish ishlaydi
@@ -189,6 +208,7 @@ birinchi so'rov 1-2 soniya kutadi. Bu normal; keyingi sahifalar tez ochiladi.
 - [ ] Telefonda "Bosh ekranga qo'shish" ishladi (`/install` sahifasi)
 - [ ] Cron chaqirilganda `{"ok":true}` qaytdi
 - [ ] Settings → Functions'da mintaqa baza turgan shaharga mos
+- [ ] Haqiqiy ishdan oldin: `npm run db:clean` bajarildi, `DEMO_LOGINS` olib tashlandi
 
 ---
 

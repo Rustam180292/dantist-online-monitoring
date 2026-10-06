@@ -283,10 +283,14 @@ if (await payRow.count()) {
     payoutGrew,
     `${payoutBefore} -> ${await count("SELECT COUNT(*) AS n FROM SalaryPayout")}`,
   );
-  await page.waitForLoadState("networkidle");
-  // Pul formatlashda uzilmas probel (\u00a0) ishlatiladi — solishtirishdan oldin tenglashtiramiz
-  const shown = (await page.content()).replace(/\u00a0/g, " ");
-  check("Ish haqi to'lovi ro'yxatda ko'rinadi", shown.includes("100 000 so'm"));
+  // Ekrandagi matnni page.content() orqali emas, innerText orqali o'qiymiz:
+  // content() HTML qaytaradi va u yerda uzilmas probel "&nbsp;" ga aylanib
+  // qoladi, ya'ni "100 000 so'm" hech qachon topilmasdi.
+  // Amal tugagach ro'yxat bir zumdan keyin yangilanadi — shuning uchun kutamiz.
+  const listed = await waitUntil(async () =>
+    (await page.locator("main").innerText()).replace(/\u00a0/g, " ").includes("100 000 so'm"),
+  );
+  check("Ish haqi to'lovi ro'yxatda ko'rinadi", listed);
 } else {
   check("Ish haqi to'lab berildi", false, "to'lash tugmasi topilmadi");
 }

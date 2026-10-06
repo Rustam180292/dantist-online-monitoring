@@ -35,6 +35,7 @@ npx tsc --noEmit      # turlarni tekshirish
 npm run db:push       # schema o'zgarishini bazaga yozish
 npm run db:backup     # bazaning to'liq zaxirasi -> zaxira/*.json
 npm run db:restore -- zaxira/<fayl>.json    # zaxiradan tiklash
+npm run db:clean      # demo'ni tozalab, haqiqiy markazni ochish (savol berib boradi)
 npm run db:seed       # demo ma'lumot — DIQQAT, pastga qarang
 ```
 
@@ -49,7 +50,9 @@ Haqiqiy mijoz ma'lumoti turgan bazada hech qachon ishlatmang. Lokal `.env` ko'pi
 o'sha bulutdagi bazaga ulangan bo'ladi — ishga tushirishdan oldin `DATABASE_URL`
 qayerni ko'rsatayotganini tekshiring.
 
-`db:restore` ham bazani almashtiradi — u ham shunday xavfli.
+`db:restore` ham bazani almashtiradi — u ham shunday xavfli. `db:clean` esa
+ataylab tozalaydi (haqiqiy ishga o'tish uchun): u o'zi zaxira oladi va tasdiq
+so'zini yozdiradi.
 
 Ikkala skriptda to'siq bor: baza lokal bo'lmasa va ichida ma'lumot bo'lsa, ular o'zi
 to'xtaydi va nima yo'qolishini ko'rsatadi. To'siqni `SEED_CONFIRM` / `RESTORE_CONFIRM`
@@ -58,12 +61,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 84 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 89 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, PWA (48)
+node tests/smoke.mjs      # CRM, rollar, PWA (53)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 ```
@@ -114,3 +117,7 @@ Buni o'zgartirishdan oldin tushunib oling:
 
 Loyiha ustida bir nechta odam ishlaydi. O'z tarmog'ingizda ishlang va Pull Request
 qoldiring — to'g'ridan-to'g'ri asosiy tarmoqqa push qilmang.
+
+Sahifadagi matnni tekshirganda `page.content()` emas, `innerText` ishlating:
+`content()` HTML qaytaradi va pul formatidagi uzilmas probel u yerda `&nbsp;`
+bo'lib qoladi — "100 000 so'm" hech qachon topilmaydi.
