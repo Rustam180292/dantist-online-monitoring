@@ -104,7 +104,7 @@ curl -X POST -H "x-cron-secret: $CRON_SECRET" https://sizning-domeningiz.uz/api/
 TELEGRAM_BOT_TOKEN="123456:AA..."
 TELEGRAM_WEBHOOK_SECRET="uzun-tasodifiy-satr"   # openssl rand -hex 16
 APP_URL="https://sizning-domeningiz.uz"          # HTTPS shart
-CRON_SECRET="yana-bir-tasodifiy-satr"            # eslatmalar cron'i uchun
+CRON_SECRET="yana-bir-tasodifiy-satr"            # eslatma va zaxira cron'i uchun
 ```
 
 3. Webhook'ni ulang:
@@ -247,6 +247,7 @@ src/
                        Telegram Mini App ham shu sahifani ochadi
     tg/                Telegram kirish nuqtasi (imzoni tekshirib /m ga o'tkazadi)
     api/tg/            bot webhook'i, Mini App imzo tekshiruvi, eslatmalar cron'i
+    api/backup/        zaxirani Telegram orqali egaga yuboradigan cron manzili
   lib/
     auth.ts            sessiya, parol, rol bo'yicha ko'rish doirasi
     prisma.ts          baza ulanishi
@@ -261,7 +262,7 @@ src/
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
   db.mjs               testlar uchun bazaga kichik ulanish
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, PWA (99 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, PWA (103 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
   parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
 ```
@@ -291,13 +292,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 135 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 139 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, PWA (99)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, PWA (103)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
 ```
@@ -319,11 +320,29 @@ serveringizdagi baza yoki mahalliy hosting. Ko'chish uchun faqat
 `DATABASE_URL` ni almashtirish va `npx prisma db push` ishlatish kifoya —
 kod o'zgarmaydi.
 
-Zaxira nusxa:
+### Zaxira nusxa
+
+Uch yo'l bor, uchalasi ham bitta JSON faylga yig'adi (`pg_dump` kerak emas):
 
 ```bash
-pg_dump "$DATABASE_URL" > zaxira-$(date +%F).sql
+npm run db:backup                            # zaxira/*.json ga yozadi
+npm run db:restore -- zaxira/<fayl>.json     # zaxiradan tiklaydi
 ```
+
+Panelda **Sozlamalar → Zaxira nusxa** bo'limida "Hozir zaxiralash" tugmasi bor:
+fayl markaz egasiga Telegram orqali keladi. Avtomatik bo'lishi uchun cron
+kuniga bir marta shu manzilni chaqirsin:
+
+```bash
+curl -s -H "x-cron-secret: $CRON_SECRET" https://sizning-domeningiz.uz/api/backup
+```
+
+Telegram orqali ketgan nusxada **parol hash'lari bo'lmaydi** — fayl suhbatda
+qolib ketishi mumkin. Shuning uchun undan tiklaganda hamma parolni qaytadan
+belgilash kerak bo'ladi; to'liq nusxa uchun `npm run db:backup` ishlating.
+
+Zaxira fayllarida bolalar va ota-onalarning shaxsiy ma'lumoti bor — `zaxira/`
+papkasi git'ga tushmaydi, uni git'ga qo'shmang.
 
 ## Keyingi bosqichlar uchun g'oyalar
 

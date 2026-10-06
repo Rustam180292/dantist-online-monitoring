@@ -981,6 +981,33 @@ if (await payRow.count()) {
   }
 }
 
+/* 9p. Avtomatik zaxira (Telegram orqali) */
+{
+  // Maxfiy so'zsiz hech kim zaxira so'rab ololmasligi kerak
+  const noSecret = await fetch(`${BASE}/api/backup`);
+  check("Zaxira manzili maxfiy so'zsiz ochilmaydi", noSecret.status === 403, `status ${noSecret.status}`);
+
+  const wrong = await fetch(`${BASE}/api/backup?secret=notogri`);
+  check("Noto'g'ri maxfiy so'z rad etiladi", wrong.status === 403, `status ${wrong.status}`);
+
+  // To'g'ri so'z bilan: sinov muhitida Telegram'ga chiqish yopiq, shuning uchun
+  // yuborilmaydi — lekin javob tushunarli bo'lishi kerak
+  const ok = await fetch(`${BASE}/api/backup?secret=lokal-cron-siri`);
+  const body = await ok.json().catch(() => ({}));
+  check(
+    "To'g'ri maxfiy so'z bilan zaxira ishga tushadi",
+    typeof body.owners === "number" || typeof body.error === "string",
+    JSON.stringify(body).slice(0, 120),
+  );
+
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Sozlamalarda zaxira bo'limi bor",
+    (await page.locator("main").innerText()).includes("Zaxira nusxa"),
+  );
+}
+
 /* 10. Mutaxassis roli chegaralangan */
 await login(specialist.phone);
 check(

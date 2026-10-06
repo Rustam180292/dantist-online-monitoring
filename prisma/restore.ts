@@ -64,9 +64,20 @@ async function main() {
 
   const data = JSON.parse(readFileSync(file, "utf8"), reviver) as {
     takenAt?: string;
+    withoutPasswords?: boolean;
     tables: Record<string, Record<string, unknown>[]>;
   };
   if (!data?.tables) throw new Error("Fayl noto'g'ri: ichida 'tables' yo'q.");
+
+  // Telegram orqali kelgan nusxada parol xeshlari yo'q — tiklangandan keyin
+  // hech kim kira olmaydi. Buni oldindan aytib qo'yamiz.
+  if (data.withoutPasswords) {
+    console.log(
+      "\nDIQQAT: bu nusxada parollar yo'q (Telegram'ga yuborilgan zaxira).\n" +
+        "Tiklangandan keyin parollarni qaytadan qo'yish kerak bo'ladi:\n" +
+        "  npm run db:clean  — yoki foydalanuvchilarga Xodimlar bo'limidan yangi parol bering.\n",
+    );
+  }
 
   await assertSafeToWipe();
 

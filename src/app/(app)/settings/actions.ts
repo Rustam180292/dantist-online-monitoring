@@ -5,6 +5,7 @@ import { withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireUser, verifyPassword } from "@/lib/auth";
+import { sendBackupToOwners } from "@/lib/backup-send";
 
 /** Markaz sozlamalarini faqat egasi o'zgartiradi */
 async function requireOwner() {
@@ -147,6 +148,30 @@ async function changePasswordImpl(formData: FormData) {
   await setFlash("Parol o'zgartirildi.", "ok");
 }
 
+/**
+ * "Hozir zaxiralash" tugmasi.
+ *
+ * Cron har kuni o'zi yuboradi, lekin egasi xohlagan paytda ham olishi kerak:
+ * masalan ko'p o'zgarish kiritgandan keyin yoki cron sozlanganini tekshirish
+ * uchun.
+ */
+async function backupNowImpl() {
+  await requireOwner();
+  const result = await sendBackupToOwners();
+
+  if (!result.ok) {
+    throw new Error(
+      result.error ?? "Zaxira yuborilmadi. Telegram bot sozlanganini tekshiring.",
+    );
+  }
+
+  await setFlash(
+    `Zaxira Telegram'ga yuborildi (${result.records} ta yozuv).`,
+    "ok",
+  );
+}
+
+export const backupNow = withFlash(backupNowImpl);
 export const updateCenter = withFlash(updateCenterImpl);
 export const updatePricing = withFlash(updatePricingImpl);
 export const updateWorkHours = withFlash(updateWorkHoursImpl);

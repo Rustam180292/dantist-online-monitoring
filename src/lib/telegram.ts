@@ -136,6 +136,43 @@ export async function sendMessage(
   }
 }
 
+/**
+ * Faylni Telegram'ga hujjat qilib yuboradi.
+ *
+ * Zaxira nusxa uchun ishlatiladi: markaz egasi faylni o'z suhbatida saqlab
+ * qo'yadi. Yangi xizmat (pochta, bulut) ulashning hojati yo'q — bot
+ * allaqachon ishlab turibdi.
+ */
+export async function sendDocument(
+  chatId: number | string,
+  fileName: string,
+  content: string,
+  caption?: string,
+): Promise<boolean> {
+  const token = botToken();
+  if (!token) return false;
+
+  try {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    if (caption) {
+      form.append("caption", caption);
+      form.append("parse_mode", "HTML");
+    }
+    form.append("document", new Blob([content], { type: "application/json" }), fileName);
+
+    const res = await fetch(`${API}/bot${token}/sendDocument`, {
+      method: "POST",
+      body: form,
+      // Zaxira fayli katta bo'lishi mumkin — xabarga qaraganda ko'proq kutamiz
+      signal: AbortSignal.timeout(60_000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Mini App'ni ochadigan tugma */
 export function miniAppButton(text = "Kabinetni ochish") {
   return {

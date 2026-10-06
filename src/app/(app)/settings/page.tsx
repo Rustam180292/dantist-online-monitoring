@@ -1,12 +1,27 @@
 import { requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { appUrl } from "@/lib/telegram";
 import { getSettings, WEEKDAYS } from "@/lib/settings";
 import { Card, PageHeader, btnPrimary, input, label } from "@/components/ui";
-import { changePassword, updateCenter, updatePricing, updateWorkHours } from "./actions";
+import {
+  backupNow,
+  changePassword,
+  updateCenter,
+  updatePricing,
+  updateWorkHours,
+} from "./actions";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const s = await getSettings();
   const isOwner = user.role === "OWNER";
+
+  // Zaxira Telegram orqali ketadi — ega botga ulanmagan bo'lsa ogohlantiramiz
+  const me = isOwner
+    ? await prisma.user.findUnique({ where: { id: user.id }, select: { telegramId: true } })
+    : null;
+  const telegramLinked = Boolean(me?.telegramId);
+  const backupUrl = `${appUrl()}/api/backup?secret=<CRON_SECRET>`;
 
   return (
     <>
@@ -172,6 +187,52 @@ export default async function SettingsPage() {
                 </button>
               </div>
             </form>
+          </Card>
+
+          <Card
+            title="Zaxira nusxa"
+            subtitle="baza Telegram orqali sizga yuboriladi"
+            className="mt-5"
+          >
+            <div className="space-y-3 p-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Zaxira — bazaning to&apos;liq nusxasi: mijozlar, seanslar, to&apos;lovlar,
+                qabullar, xodimlar. Fayl Telegram&apos;dagi suhbatingizga keladi, uni
+                saqlab qo&apos;yasiz. <b>Parollar bu nusxaga kiritilmaydi.</b>
+              </p>
+
+              <form action={backupNow}>
+                <button type="submit" className={btnPrimary}>
+                  Hozir zaxiralash
+                </button>
+              </form>
+
+              {telegramLinked ? null : (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                  Siz Telegram botga ulanmagansiz — zaxira yuborilmaydi. Botga{" "}
+                  <code className="font-mono">/start</code> yozib, raqamingizni ulashing.
+                </p>
+              )}
+
+              <details className="text-sm text-slate-600 dark:text-slate-400">
+                <summary className="cursor-pointer font-semibold text-slate-800 dark:text-slate-200">
+                  Har kuni avtomatik bo&apos;lishi uchun (bir martalik sozlash)
+                </summary>
+                <ol className="mt-2 list-decimal space-y-1 pl-5">
+                  <li>
+                    <code className="font-mono">cron-job.org</code> da yangi vazifa
+                    oching (eslatmalar uchun ochganingiz kabi)
+                  </li>
+                  <li>
+                    Manzil: <code className="font-mono break-all">{backupUrl}</code>
+                  </li>
+                  <li>Vaqti: kuniga bir marta, masalan 22:00</li>
+                </ol>
+                <p className="mt-2">
+                  Shundan keyin har kecha zaxira o&apos;zi keladi.
+                </p>
+              </details>
+            </div>
           </Card>
         </>
       ) : null}
