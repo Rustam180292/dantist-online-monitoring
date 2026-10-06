@@ -417,6 +417,13 @@ export default async function IntakesPage({
                                   Mijozga o&apos;tkazish
                                 </button>
                               </form>
+                            ) : i.status === "PLANNED" ? (
+                              // Kelmagan odamni mijoz qilib bo'lmaydi. Lekin tugma
+                              // shunchaki yo'qolsa, uni qidirib ovora bo'ladi.
+                              <span className="text-xs whitespace-normal text-slate-400">
+                                Mijozga o&apos;tkazish uchun avval{" "}
+                                <b className="font-semibold">o&apos;tdi</b> deb belgilang
+                              </span>
                             ) : null}
                             {INTAKE_RESULT_KEYS.filter(
                               (r) => r !== "CONVERTED" && r !== i.result,

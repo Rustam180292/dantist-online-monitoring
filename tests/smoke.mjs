@@ -529,6 +529,12 @@ if (await payRow.count()) {
   const row = page.locator(`tr:has-text("${child}")`).first();
   await page.waitForLoadState("networkidle");
 
+  // Hali o'tmagan qabulda "Mijozga o'tkazish" bo'lmaydi — nega ekani yozilsin
+  check(
+    "Rejadagi qabulda o'tkazish shartini aytadi",
+    (await row.innerText()).includes("avval"),
+  );
+
   // Konsultatsiya o'tdi
   await row.locator('button:has-text("o\'tdi")').first().click();
   const held = await waitUntil(
