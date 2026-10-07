@@ -91,12 +91,12 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 193 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 203 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, PWA (124)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, PWA (134)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
@@ -144,6 +144,15 @@ Buni o'zgartirishdan oldin tushunib oling:
   uchun `getOverview().collected` ga qo'shiladi va To'lovlar sahifasida alohida
   ro'yxat bo'lib ko'rinadi. Hisobotda "Konsultatsiyalardan" deb ajratib ham
   ko'rsatiladi. Bu uch joydagi raqam bir xil bo'lishi kerak.
+
+**Mijozni o'chirish** ikki xil (ikkalasi ham faqat egada, bolaning ismini
+yozib tasdiqlanadi):
+- *Shaxsiy ma'lumotni tozalash* — ism, telefon, tashxis o'chadi, seans va
+  to'lov yozuvlari qoladi. Kassa va ish haqi hisobi o'zgarmaydi.
+- *Butunlay o'chirish* — mijoz bilan birga seans, to'lov, abonement va eslatma
+  ketadi (bazada `onDelete: Cascade`), ya'ni o'tgan oylardagi hisobot ham
+  o'zgaradi. Qabul (`Intake`) o'chmaydi — undan kelgan konsultatsiya puli
+  kassada qolishi kerak, shuning uchun avval mijozdan uziladi.
 
 Yangi jadval qo'shsangiz, uni `prisma/tables.ts` ga ham qo'shing — aks holda
 `db:backup` uni zaxiraga olmaydi va `db:seed` tozalashda chet el kaliti xatosi

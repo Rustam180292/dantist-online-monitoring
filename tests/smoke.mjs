@@ -793,6 +793,105 @@ if (await payRow.count()) {
   }
 }
 
+/* 9u. Mijozni tozalash va butunlay o'chirish */
+{
+  // Tozalash uchun alohida mijoz yasaymiz: tekshiruvning qolgan qismi
+  // seed'dagi mijozlarga tayanadi, ularga tegmaymiz
+  const makeClient = async (name, phone) => {
+    await page.goto(`${BASE}/clients`);
+    await page.waitForSelector("tbody tr", { timeout: 15000 });
+    await page.click('summary:has-text("Yangi mijoz")');
+    await page.fill("#fullName", name);
+    await page.fill("#birthDate", "2019-03-03");
+    await page.fill("#parentName", "Test Ota");
+    await page.fill("#parentPhone", phone);
+    await page.fill("#parentPassword", PASSWORD);
+    await page.click('form button:has-text("Saqlash")');
+    await waitUntil(
+      async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE fullName = ?", name)) === 1,
+    );
+    return one("SELECT id, parentUserId FROM Client WHERE fullName = ?", name);
+  };
+
+  const tag = Date.now().toString().slice(-6);
+
+  /* --- Shaxsiy ma'lumotni tozalash --- */
+  const wipeName = `Tozalash Bola ${tag}`;
+  const wiped = await makeClient(wipeName, `+99890555${tag.slice(-4)}`);
+  check("Tozalash uchun mijoz yasaldi", Boolean(wiped?.id));
+
+  await page.goto(`${BASE}/clients/${wiped.id}`);
+  await page.waitForLoadState("networkidle");
+  check("Mijoz kartasida 'Xavfli amallar' bor", (await page.locator("main").innerText()).includes("Xavfli amallar"));
+
+  // Noto'g'ri ism bilan hech narsa bo'lmasligi kerak
+  await page.fill("#confirmAnon", "boshqa ism");
+  await page.locator('form:has(#confirmAnon) button[type="submit"]').click();
+  await page.waitForTimeout(1500);
+  check(
+    "Noto'g'ri ism bilan tozalanmaydi",
+    (await one("SELECT fullName FROM Client WHERE id = ?", wiped.id))?.fullName === wipeName,
+  );
+
+  await page.goto(`${BASE}/clients/${wiped.id}`);
+  await page.waitForLoadState("networkidle");
+  await page.fill("#confirmAnon", wipeName);
+  await page.locator('form:has(#confirmAnon) button[type="submit"]').click();
+  const cleaned = await waitUntil(async () => {
+    const r = await one("SELECT fullName FROM Client WHERE id = ?", wiped.id);
+    return r?.fullName === "O'chirilgan mijoz";
+  });
+  const after = await one(
+    "SELECT fullName, parentPhone, diagnosis, status, parentUserId FROM Client WHERE id = ?",
+    wiped.id,
+  );
+  check(
+    "Shaxsiy ma'lumot tozalanadi",
+    cleaned && after.parentPhone === "—" && !after.diagnosis && after.status === "ARCHIVED",
+    JSON.stringify(after),
+  );
+  check(
+    "Ota-ona akkaunti ham o'chadi",
+    after.parentUserId === null &&
+      (await count("SELECT COUNT(*) AS n FROM User WHERE id = ?", wiped.parentUserId)) === 0,
+  );
+  check(
+    "Mijozning o'zi joyida qoladi",
+    (await count("SELECT COUNT(*) AS n FROM Client WHERE id = ?", wiped.id)) === 1,
+  );
+
+  /* --- Butunlay o'chirish --- */
+  const delName = `O'chirish Bola ${tag}`;
+  const doomed = await makeClient(delName, `+99890666${tag.slice(-4)}`);
+
+  // To'lov qo'shamiz: o'chirilganda u ham ketishi kerak
+  await page.goto(`${BASE}/clients/${doomed.id}?ochiq=tolov#tolov`);
+  await page.waitForLoadState("networkidle");
+  await page.fill("#amount", "100000");
+  await page.locator('form:has(#amount) button[type="submit"]').click();
+  await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM Payment WHERE clientId = ?", doomed.id)) === 1,
+  );
+
+  await page.goto(`${BASE}/clients/${doomed.id}`);
+  await page.waitForLoadState("networkidle");
+  await page.fill("#confirmDel", delName);
+  await page.locator('form:has(#confirmDel) button[type="submit"]').click();
+  const gone = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE id = ?", doomed.id)) === 0,
+  );
+  check("Mijoz butunlay o'chadi", gone);
+  check(
+    "To'lovi ham o'chadi",
+    (await count("SELECT COUNT(*) AS n FROM Payment WHERE clientId = ?", doomed.id)) === 0,
+  );
+  check(
+    "Ota-ona akkaunti ham o'chadi (o'chirishda)",
+    (await count("SELECT COUNT(*) AS n FROM User WHERE id = ?", doomed.parentUserId)) === 0,
+  );
+  check("O'chirgandan keyin ro'yxatga qaytaradi", page.url().endsWith("/clients"), page.url());
+}
+
 /* 9h. Bosh panelda filiallar kesimi */
 {
   await page.goto(`${BASE}/`);

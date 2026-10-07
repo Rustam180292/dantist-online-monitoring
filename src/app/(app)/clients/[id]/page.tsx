@@ -28,6 +28,7 @@ import {
   Empty,
   PageHeader,
   btn,
+  btnDanger,
   btnPrimary,
   card,
   input,
@@ -38,7 +39,9 @@ import {
 import {
   addPackage,
   addPayment,
+  anonymizeClient,
   assignSpecialist,
+  deleteClient,
   deletePayment,
   setClientStatus,
   unassignSpecialist,
@@ -100,7 +103,7 @@ export default async function ClientPage({
   // o'zgaradi
   const daily = client.billingType !== "PACKAGE";
 
-  const [packages, freeSpecialists, notifications, branches] = await Promise.all([
+  const [packages, freeSpecialists, notifications, branches, sessionCount] = await Promise.all([
     getClientPackages(client.id),
     canManage
       ? prisma.specialist.findMany({
@@ -124,6 +127,8 @@ export default async function ClientPage({
     user.role === "OWNER"
       ? prisma.branch.findMany({ orderBy: { name: "asc" } })
       : Promise.resolve([]),
+    // Ro'yxat 30 ta bilan cheklangan, o'chirishda esa aniq son kerak
+    prisma.session.count({ where: { clientId: client.id } }),
   ]);
 
   const totalPaid = client.payments.reduce((s, p) => s + p.amount, 0);
@@ -674,6 +679,79 @@ export default async function ClientPage({
                   ))}
                 </ul>
               )}
+            </Card>
+          ) : null}
+
+          {user.role === "OWNER" ? (
+            <Card
+              title={t("Xavfli amallar")}
+              subtitle={t("qaytarib bo'lmaydi")}
+              className="mt-5 border-rose-200 dark:border-rose-900"
+            >
+              <div className="space-y-4 p-4 text-sm">
+                <div>
+                  <p className="font-semibold text-slate-800 dark:text-slate-200">
+                    {t("Shaxsiy ma'lumotni tozalash")}
+                  </p>
+                  <p className="mt-1 text-slate-600 dark:text-slate-400">
+                    {t(
+                      "Bolaning va ota-onasining ismi, telefoni, tashxisi o'chadi. Seans va to'lov yozuvlari raqam bo'lib qoladi — kassa va ish haqi hisobi o'zgarmaydi.",
+                    )}
+                  </p>
+                  <form action={anonymizeClient} className="mt-2 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="clientId" value={client.id} />
+                    <div className="min-w-[200px] flex-1">
+                      <label className={label} htmlFor="confirmAnon">
+                        {t("Tasdiqlash uchun bolaning ismini yozing")}
+                      </label>
+                      <input
+                        id="confirmAnon"
+                        name="confirmName"
+                        placeholder={client.fullName}
+                        className={input}
+                        required
+                      />
+                    </div>
+                    <button type="submit" className={btnDanger}>
+                      {t("Tozalash")}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
+                  <p className="font-semibold text-rose-700 dark:text-rose-400">
+                    {t("Butunlay o'chirish")}
+                  </p>
+                  <p className="mt-1 text-slate-600 dark:text-slate-400">
+                    {t(
+                      "Mijoz bilan birga {sessions} ta seans, {payments} ta to'lov va {packages} ta abonement o'chadi. O'tgan oylardagi hisobot raqamlari ham o'zgaradi.",
+                      {
+                        sessions: sessionCount,
+                        payments: client.payments.length,
+                        packages: packages.length,
+                      },
+                    )}
+                  </p>
+                  <form action={deleteClient} className="mt-2 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="clientId" value={client.id} />
+                    <div className="min-w-[200px] flex-1">
+                      <label className={label} htmlFor="confirmDel">
+                        {t("Tasdiqlash uchun bolaning ismini yozing")}
+                      </label>
+                      <input
+                        id="confirmDel"
+                        name="confirmName"
+                        placeholder={client.fullName}
+                        className={input}
+                        required
+                      />
+                    </div>
+                    <button type="submit" className={btnDanger}>
+                      {t("Butunlay o'chirish")}
+                    </button>
+                  </form>
+                </div>
+              </div>
             </Card>
           ) : null}
 

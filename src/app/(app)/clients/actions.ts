@@ -222,6 +222,126 @@ async function setClientStatusImpl(formData: FormData) {
   revalidatePath("/clients");
 }
 
+/**
+ * Egani boshqa rollardan ajratib turadi: mijozni o'chirish va shaxsiy
+ * ma'lumotni tozalash — qaytarib bo'lmaydigan amallar, ularni qabulxona
+ * xodimi yoki filial admini qila olmaydi.
+ */
+async function requireOwnerFor(clientId: string) {
+  const user = await requireUser();
+  if (user.role !== "OWNER") throw new Error("Bu amalni faqat markaz egasi bajara oladi.");
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { id: true, fullName: true, parentUserId: true, birthDate: true },
+  });
+  if (!client) throw new Error("Mijoz topilmadi.");
+
+  // Tasdiq: bolaning ismini qo'lda yozdiramiz. Tugmani bexosdan bosish
+  // mumkin, ismni bexosdan yozib bo'lmaydi.
+  return client;
+}
+
+function assertNameTyped(formData: FormData, fullName: string) {
+  const typed = String(formData.get("confirmName") ?? "").trim();
+  if (typed.toLowerCase() !== fullName.trim().toLowerCase()) {
+    throw new Error("Tasdiqlash uchun bolaning ism-familiyasini aynan yozing.");
+  }
+}
+
+/**
+ * Ota-ona akkaunti boshqa farzandga bog'lanmagan bo'lsa, u ham keraksiz
+ * qoladi — o'chiramiz. Aka-uka bir akkauntni bo'lishishi mumkin, shuning
+ * uchun avval tekshiramiz.
+ */
+async function removeOrphanParent(parentUserId: string | null, exceptClientId?: string) {
+  if (!parentUserId) return;
+  const parent = await prisma.user.findUnique({
+    where: { id: parentUserId },
+    select: { id: true, role: true },
+  });
+  if (!parent || parent.role !== "PARENT") return;
+  const others = await prisma.client.count({
+    where: { parentUserId, ...(exceptClientId ? { NOT: { id: exceptClientId } } : {}) },
+  });
+  if (others === 0) await prisma.user.delete({ where: { id: parentUserId } });
+}
+
+/**
+ * Shaxsiy ma'lumotni tozalash.
+ *
+ * Bolaning va ota-onasining ismi, telefoni, tashxisi o'chadi; seans va
+ * to'lov yozuvlari raqam bo'lib qoladi. Shunda kassa va mutaxassis ish haqi
+ * hisobi o'zgarmaydi, lekin bazada bolaning shaxsiy ma'lumoti qolmaydi.
+ *
+ * Tug'ilgan sana yil boshiga keltiriladi: aniq sana ism bo'lmasa ham
+ * odamni tanishga yordam beradi.
+ */
+async function anonymizeClientImpl(formData: FormData) {
+  const clientId = String(formData.get("clientId") ?? "");
+  const client = await requireOwnerFor(clientId);
+  assertNameTyped(formData, client.fullName);
+
+  const yearStart = new Date(Date.UTC(client.birthDate.getUTCFullYear(), 0, 1));
+
+  await prisma.$transaction([
+    // Eslatma matnida bolaning ismi bor — ular ham qolmasin
+    prisma.notification.deleteMany({ where: { clientId } }),
+    // Qabul yozuvi alohida jadvalda, unda ham ism va telefon bor
+    prisma.intake.updateMany({
+      where: { clientId },
+      data: { childName: "O'chirilgan mijoz", parentName: "—", parentPhone: "—" },
+    }),
+    prisma.client.update({
+      where: { id: clientId },
+      data: {
+        fullName: "O'chirilgan mijoz",
+        parentName: "—",
+        parentPhone: "—",
+        diagnosis: null,
+        note: null,
+        gender: null,
+        birthDate: yearStart,
+        parentUserId: null,
+        status: "ARCHIVED",
+      },
+    }),
+  ]);
+
+  await removeOrphanParent(client.parentUserId, clientId);
+
+  revalidatePath(`/clients/${clientId}`);
+  revalidatePath("/clients");
+  revalidatePath("/");
+  await setFlash("Shaxsiy ma'lumot tozalandi.", "ok");
+}
+
+/**
+ * Mijozni butunlay o'chirish.
+ *
+ * Seans, to'lov, abonement, eslatma — hammasi birga ketadi (bazada chet el
+ * kaliti shunday sozlangan). Ya'ni o'tgan oylardagi hisobot raqamlari ham
+ * o'zgaradi; shuning uchun bu amal faqat egada va ism yozib tasdiqlanadi.
+ */
+async function deleteClientImpl(formData: FormData) {
+  const clientId = String(formData.get("clientId") ?? "");
+  const client = await requireOwnerFor(clientId);
+  assertNameTyped(formData, client.fullName);
+
+  // Qabul yozuvi mijozga bog'langan bo'lishi mumkin. U o'chmaydi:
+  // konsultatsiya puli kassaga tushgan va hisobotda qolishi kerak.
+  await prisma.intake.updateMany({ where: { clientId }, data: { clientId: null } });
+  await prisma.client.delete({ where: { id: clientId } });
+  await removeOrphanParent(client.parentUserId);
+
+  revalidatePath("/clients");
+  revalidatePath("/schedule");
+  revalidatePath("/payments");
+  revalidatePath("/reports");
+  revalidatePath("/");
+  await setFlash("{name} butunlay o'chirildi.", "ok", { name: client.fullName });
+  redirect("/clients");
+}
+
 /** Mijozni mutaxassisga biriktirish */
 async function assignSpecialistImpl(formData: FormData) {
   const user = await requireFrontDesk();
@@ -401,6 +521,8 @@ async function deletePaymentImpl(formData: FormData) {
 export const createClient = withFlash(createClientImpl);
 export const updateClient = withFlash(updateClientImpl);
 export const setClientStatus = withFlash(setClientStatusImpl);
+export const anonymizeClient = withFlash(anonymizeClientImpl);
+export const deleteClient = withFlash(deleteClientImpl);
 export const assignSpecialist = withFlash(assignSpecialistImpl);
 export const unassignSpecialist = withFlash(unassignSpecialistImpl);
 export const addPackage = withFlash(addPackageImpl);
