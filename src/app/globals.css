@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+/*
+ * Tun/kun rejimi foydalanuvchi tanlovi bilan boshqariladi: `dark:` klasslari
+ * qurilma mavzusiga emas, <html> dagi `dark` klassiga qaraydi. Klassni root
+ * layout'dagi skript (cookie yoki qurilma mavzusi bo'yicha) qo'yadi.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -13,10 +20,40 @@ body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    @apply bg-slate-950 text-slate-100;
-  }
+.dark body {
+  @apply bg-slate-950 text-slate-100;
+}
+
+/*
+ * Kunduzgi rejim ranglari: oq, mentol, och yashil, och ko'k va havo rang.
+ *
+ * Sahifalardagi yuzlab klassni (bg-slate-50, text-indigo-600 ...) birma-bir
+ * almashtirish o'rniga, kunduzgi rejimda faqat shu ranglarning qiymati
+ * o'zgartiriladi. Tungi rejim (`.dark`) bunga tegmaydi — avvalgi ranglari
+ * aynan saqlanadi. Matn uchun ishlatiladigan to'q kul ranglar (400-950)
+ * o'zgartirilmagan: o'qilishi buzilmasin.
+ */
+html:not(.dark) {
+  /* fon va chegaralar: mentol */
+  --color-slate-50: #effbf6;
+  --color-slate-100: #e1f5ed;
+  --color-slate-200: #cdebe0;
+  --color-slate-300: #b0dccc;
+  /* asosiy rang: binafsha o'rniga havo rang / och ko'k.
+     600 va 700 oq matnli tugmalarda turadi — o'qilishi uchun to'qroq tanlangan */
+  --color-indigo-50: #e7f6fd;
+  --color-indigo-100: #cfeefb;
+  --color-indigo-200: #a8e0f5;
+  --color-indigo-300: #72caeb;
+  --color-indigo-400: #3cb3dd;
+  --color-indigo-500: #189fcd;
+  --color-indigo-600: #0a7ba5;
+  --color-indigo-700: #096a8e;
+  --color-indigo-900: #0b3e55;
+}
+
+html:not(.dark) body {
+  background: linear-gradient(165deg, #f1fcf7 0%, #ecf8fd 55%, #f4fbff 100%) fixed;
 }
 
 /* Jadvallarni mobil ekranda gorizontal aylantirish uchun */
@@ -29,7 +66,7 @@ body {
    Telegram ichida ochilsa, Telegram mavzusining ranglari olinadi;
    oddiy brauzerda esa oddiy ranglarga tushadi. */
 .app-shell {
-  background: var(--tg-theme-bg-color, #f8fafc);
+  background: var(--tg-theme-bg-color, #effbf6);
   color: var(--tg-theme-text-color, #0f172a);
 }
 .app-card {
@@ -37,17 +74,19 @@ body {
   border-radius: 14px;
 }
 .app-muted { color: var(--tg-theme-hint-color, #64748b); }
-.app-link { color: var(--tg-theme-link-color, #4f46e5); }
+.app-link { color: var(--tg-theme-link-color, #0a7ba5); }
 .app-accent {
-  background: var(--tg-theme-button-color, #4f46e5);
+  background: var(--tg-theme-button-color, #0a7ba5);
   color: var(--tg-theme-button-text-color, #ffffff);
 }
 
-@media (prefers-color-scheme: dark) {
-  .app-shell {
-    background: var(--tg-theme-bg-color, #020617);
-    color: var(--tg-theme-text-color, #f1f5f9);
-  }
-  .app-card { background: var(--tg-theme-secondary-bg-color, #0f172a); }
-  .app-muted { color: var(--tg-theme-hint-color, #94a3b8); }
+.dark .app-shell {
+  background: var(--tg-theme-bg-color, #020617);
+  color: var(--tg-theme-text-color, #f1f5f9);
 }
+.dark .app-card { background: var(--tg-theme-secondary-bg-color, #0f172a); }
+.dark .app-muted { color: var(--tg-theme-hint-color, #94a3b8); }
+
+/* Tungi rejimda telefon kabinetining asosiy rangi avvalgidek binafsha qoladi */
+.dark .app-link { color: var(--tg-theme-link-color, #4f46e5); }
+.dark .app-accent { background: var(--tg-theme-button-color, #4f46e5); }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icons";
+import { useT } from "@/components/i18n";
 
 type InstallPrompt = Event & {
   prompt: () => Promise<void>;
@@ -28,6 +29,7 @@ export function Install({
   variant?: "link" | "banner";
   className?: string;
 }) {
+  const t = useT();
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [hidden, setHidden] = useState(true);
 
@@ -71,7 +73,7 @@ export function Install({
       >
         <Icon name="phone" className="h-5 w-5 shrink-0 text-indigo-600 dark:text-indigo-400" />
         <p className="flex-1 text-sm leading-snug text-indigo-900 dark:text-indigo-200">
-          Kabinetni telefon ekraniga ilova qilib qo&apos;yish mumkin.
+          {t("Kabinetni telefon ekraniga ilova qilib qo'yish mumkin.")}
         </p>
         {prompt ? (
           <button
@@ -79,20 +81,20 @@ export function Install({
             onClick={install}
             className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white"
           >
-            O&apos;rnatish
+            {t("O'rnatish")}
           </button>
         ) : (
           <a
             href="/install"
             className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white"
           >
-            O&apos;rnatish
+            {t("O'rnatish")}
           </a>
         )}
         <button
           type="button"
           onClick={() => setHidden(true)}
-          aria-label="Yopish"
+          aria-label={t("Yopish")}
           className="shrink-0 text-indigo-400 dark:text-indigo-500"
         >
           ✕
@@ -105,7 +107,7 @@ export function Install({
     return (
       <button type="button" onClick={install} className={className}>
         <Icon name="phone" className="h-4 w-4" />
-        Telefonga o&apos;rnatish
+        {t("Telefonga o'rnatish")}
       </button>
     );
   }
@@ -113,7 +115,7 @@ export function Install({
   return (
     <a href="/install" className={className}>
       <Icon name="phone" className="h-4 w-4" />
-      Telefonga o&apos;rnatish
+      {t("Telefonga o'rnatish")}
     </a>
   );
 }

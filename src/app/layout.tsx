@@ -27,14 +27,27 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: light)", color: "#effbf6" },
     { media: "(prefers-color-scheme: dark)", color: "#020617" },
   ],
 };
 
+/**
+ * Mavzu va til sahifa chizilishidan OLDIN qo'yiladi.
+ *
+ * Cookie'ni bu yerda serverda o'qisak, butun ilova statik bo'lmay qoladi
+ * (/tg, /install ham). Shuning uchun uni brauzerdagi kichik skript o'qiydi:
+ * u HTML tahlil qilinayotgan paytda ishlaydi, ya'ni rang chaqnab ketmaydi.
+ * Mavzu tanlanmagan bo'lsa qurilmaning o'z mavzusiga ergashadi.
+ */
+const PREFS_SCRIPT = `(function(){try{var d=document.documentElement,c=document.cookie,m=c.match(/(?:^|; )theme=(light|dark)/),t=m?m[1]:(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");d.classList.toggle("dark",t==="dark");d.style.colorScheme=t;var l=c.match(/(?:^|; )lang=(uz|en|ru)/);if(l)d.lang=l[1]}catch(e){}})()`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="uz">
+    <html lang="uz" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: PREFS_SCRIPT }} />
+      </head>
       <body>
         {children}
         <PwaRegister />

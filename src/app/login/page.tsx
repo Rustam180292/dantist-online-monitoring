@@ -1,6 +1,12 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { btnPrimary, card, input, label } from "@/components/ui";
+import { BrandMark } from "@/components/brand";
+import { I18nProvider } from "@/components/i18n";
+import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
+import { getSettings } from "@/lib/settings";
+import { dictFor } from "@/lib/i18n";
+import { getT } from "@/lib/i18n/server";
 import { login } from "./actions";
 
 const ERRORS: Record<string, string> = {
@@ -25,7 +31,9 @@ export default async function LoginPage({
   }
 
   const { error } = await searchParams;
-  const message = error ? ERRORS[error] ?? "Kirishda xatolik." : null;
+  const t = await getT();
+  const { logoUrl } = await getSettings();
+  const message = error ? t(ERRORS[error] ?? "Kirishda xatolik.") : null;
 
   /**
    * Demo hisoblar ro'yxati — faqat sinov muhitida.
@@ -39,17 +47,23 @@ export default async function LoginPage({
   const showDemo = process.env.NODE_ENV !== "production" || process.env.DEMO_LOGINS === "1";
 
   return (
+    <I18nProvider locale={t.locale} dict={dictFor(t.locale)}>
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
+        {/* Til va mavzu kirishdan oldin ham tanlansin: xodim o'zbekcha bilmasligi mumkin */}
+        <div className="mb-6 flex items-center justify-between">
+          <LanguageSwitcher />
+          <ThemeToggle className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
+        </div>
         <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-600 text-lg font-bold text-white">
-            L
+          <div className="mx-auto mb-3 flex w-fit">
+            <BrandMark logoUrl={logoUrl} size="lg" />
           </div>
           <h1 className="text-lg font-bold text-slate-900 dark:text-white">
-            Logopedik markaz CRM
+            {t("Logopedik markaz CRM")}
           </h1>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Tizimga kirish uchun ma&apos;lumotlaringizni kiriting
+            {t("Tizimga kirish uchun ma'lumotlaringizni kiriting")}
           </p>
         </div>
 
@@ -62,7 +76,7 @@ export default async function LoginPage({
 
           <div>
             <label className={label} htmlFor="phone">
-              Telefon raqam
+              {t("Telefon raqam")}
             </label>
             <input
               id="phone"
@@ -77,7 +91,7 @@ export default async function LoginPage({
 
           <div>
             <label className={label} htmlFor="password">
-              Parol
+              {t("Parol")}
             </label>
             <input
               id="password"
@@ -91,39 +105,39 @@ export default async function LoginPage({
           </div>
 
           <button type="submit" className={`${btnPrimary} w-full`}>
-            Kirish
+            {t("Kirish")}
           </button>
         </form>
 
         {showDemo ? (
         <div className={`${card} mt-4 p-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400`}>
           <p className="mb-2 font-semibold text-slate-700 dark:text-slate-300">
-            Demo kirish (parol: <code className="font-mono">parol123</code>)
+            {t("Demo kirish")} ({t("parol")}: <code className="font-mono">parol123</code>)
           </p>
           <ul className="space-y-1">
             <li>
-              Markaz egasi — <code className="font-mono">+998901234567</code>
+              {t("Markaz egasi")} — <code className="font-mono">+998901234567</code>
             </li>
             <li>
-              Filial admini — <code className="font-mono">+998901110011</code>
+              {t("Filial admini")} — <code className="font-mono">+998901110011</code>
             </li>
             <li>
-              Qabulxona xodimi — <code className="font-mono">+998901110012</code>
+              {t("Qabulxona xodimi")} — <code className="font-mono">+998901110012</code>
             </li>
             <li>
-              Mutaxassis — <code className="font-mono">+998901110101</code>
+              {t("Mutaxassis")} — <code className="font-mono">+998901110101</code>
             </li>
             <li className="pt-1 text-slate-500 dark:text-slate-500">
-              Ota-ona — mijoz kartasidagi telefon raqami
+              {t("Ota-ona")} — {t("mijoz kartasidagi telefon raqami")}
             </li>
           </ul>
           <p className="mt-2 text-slate-500 dark:text-slate-500">
-            Har bir rol boshqa ekranni ko&apos;radi. Kirgandan keyin chap menyuning
-            pastida qaysi rol ekani yozib turadi.
+            {t("Har bir rol boshqa ekranni ko'radi. Kirgandan keyin chap menyuning pastida qaysi rol ekani yozib turadi.")}
           </p>
         </div>
         ) : null}
       </div>
     </main>
+    </I18nProvider>
   );
 }

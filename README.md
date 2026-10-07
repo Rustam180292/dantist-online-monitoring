@@ -23,6 +23,7 @@ mutaxassisning **o'z mijozlari** bor.
 | **Hisobotlar** | Oylik hisobot: filiallar kesimi, mutaxassislar kesimi, yo'nalishlar kesimi, markaz ulushi. |
 | **Ota-ona kabineti** | Ota-ona faqat o'z farzandini ko'radi: keyingi mashg'ulotlar, qolgan seans, abonement holati, davomat tarixi, qarzdorlik. Telegram Mini App ko'rinishi ham bor (bir nechta farzand bo'lsa — almashtirib ko'radi). |
 | **Avtomatik eslatmalar** | Ota-onaga Telegram orqali: ertangi mashg'ulot, mashg'ulot o'tgani, abonement tugayotgani, to'lanmagan qarz. Bir xil xabar ikki marta ketmaydi. |
+| **Ko'rinish va til** | Tun va kun rejimi (kunduzgisi oq, mentol va havo rang tusida). Interfeys tili: o'zbekcha, inglizcha, ruscha — menyu pastida, Sozlamalarda va kirish sahifasida tanlanadi; tanlov shu qurilmada saqlanadi. Markaz egasi Sozlamalardan logotip yuklaydi — u menyuda va kirish sahifasida ko'rinadi. |
 
 ## Rollar va ko'rish doirasi
 
@@ -292,7 +293,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 159 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 187 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
@@ -301,6 +302,7 @@ npm run build && npm start -- -p 3100                    # boshqa terminalda
 node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, PWA (123)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
 node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
+node tests/prefs.mjs      # Tun/kun rejimi, til (uz/en/ru), tarjima to'liqligi, logotip (28)
 ```
 
 Testlar bazaga to'g'ridan-to'g'ri ham qaraydi (`tests/db.mjs`), shuning uchun

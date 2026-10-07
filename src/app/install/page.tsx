@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/components/i18n";
 
 type InstallPrompt = Event & {
   prompt: () => Promise<void>;
@@ -8,6 +9,7 @@ type InstallPrompt = Event & {
 };
 
 export default function InstallPage() {
+  const t = useT();
   const [prompt, setPrompt] = useState<InstallPrompt | null>(null);
   const [installed, setInstalled] = useState(false);
   const [platform, setPlatform] = useState<"ios" | "android" | "desktop">("desktop");
@@ -42,21 +44,19 @@ export default function InstallPage() {
           <div>
             <h1 className="text-base font-bold text-slate-900 dark:text-white">Logoped CRM</h1>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Telefon bosh ekraniga o&apos;rnatish
+              {t("Telefon bosh ekraniga o'rnatish")}
             </p>
           </div>
         </div>
 
         {installed ? (
           <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
-            Ilova allaqachon o&apos;rnatilgan — bosh ekrandagi ikonkadan oching.
+            {t("Ilova allaqachon o'rnatilgan — bosh ekrandagi ikonkadan oching.")}
           </p>
         ) : (
           <>
             <p className="mb-4 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-              O&apos;rnatilganda telefoningizda alohida ikonka paydo bo&apos;ladi va
-              brauzer satrisiz, to&apos;liq ekranda ochiladi. Hech narsa yuklab olish
-              shart emas.
+              {t("O'rnatilganda telefoningizda alohida ikonka paydo bo'ladi va brauzer satrisiz, to'liq ekranda ochiladi. Hech narsa yuklab olish shart emas.")}
             </p>
 
             {prompt ? (
@@ -70,35 +70,35 @@ export default function InstallPage() {
                 }}
                 className="mb-4 w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
               >
-                Ilovani o&apos;rnatish
+                {t("Ilovani o'rnatish")}
               </button>
             ) : null}
 
             {platform === "ios" ? (
               <Steps
-                title="iPhone / iPad (Safari)"
+                title={t("iPhone / iPad (Safari)")}
                 steps={[
-                  "Pastdagi «Ulashish» tugmasini bosing (yuqoriga strelkali kvadrat)",
-                  "Ro'yxatni pastga aylantirib «Bosh ekranga qo'shish» ni tanlang",
-                  "O'ng yuqoridagi «Qo'shish» ni bosing",
+                  t("Pastdagi «Ulashish» tugmasini bosing (yuqoriga strelkali kvadrat)"),
+                  t("Ro'yxatni pastga aylantirib «Bosh ekranga qo'shish» ni tanlang"),
+                  t("O'ng yuqoridagi «Qo'shish» ni bosing"),
                 ]}
                 note="Chrome emas, aynan Safari'da ochilishi kerak."
               />
             ) : platform === "android" ? (
               <Steps
-                title="Android (Chrome)"
+                title={t("Android (Chrome)")}
                 steps={[
-                  "O'ng yuqoridagi uch nuqtani bosing",
-                  "«Ilovani o'rnatish» yoki «Bosh ekranga qo'shish» ni tanlang",
-                  "«O'rnatish» ni bosing",
+                  t("O'ng yuqoridagi uch nuqtani bosing"),
+                  t("«Ilovani o'rnatish» yoki «Bosh ekranga qo'shish» ni tanlang"),
+                  t("«O'rnatish» ni bosing"),
                 ]}
               />
             ) : (
               <Steps
-                title="Kompyuter (Chrome / Edge)"
+                title={t("Kompyuter (Chrome / Edge)")}
                 steps={[
-                  "Manzil satrining o'ng chetidagi o'rnatish belgisini bosing",
-                  "«O'rnatish» ni tasdiqlang",
+                  t("Manzil satrining o'ng chetidagi o'rnatish belgisini bosing"),
+                  t("«O'rnatish» ni tasdiqlang"),
                 ]}
               />
             )}
@@ -109,7 +109,7 @@ export default function InstallPage() {
           href="/"
           className="mt-5 block text-center text-sm font-semibold text-indigo-600 dark:text-indigo-400"
         >
-          Kabinetga o&apos;tish →
+          {t("Kabinetga o'tish")} →
         </a>
       </div>
     </main>

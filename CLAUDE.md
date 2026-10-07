@@ -14,6 +14,31 @@ Batafsil tavsif `README.md` da, serverga chiqarish `DEPLOY.md` da.
 izohlar ham o'zbekcha — mavjud fayllarga qarab uslubni saqlang. O'zgaruvchi va
 funksiya nomlari inglizcha.
 
+Interfeysni inglizcha va ruschaga ham o'tkazish mumkin (`src/lib/i18n/`). Matn
+kodda baribir **o'zbekcha** yoziladi, faqat `t()` ga o'raladi — kalit sifatida
+o'zbekcha matnning o'zi ishlatiladi:
+
+```tsx
+const t = await getT();          // server komponent / action ichida
+const t = useT();                // "use client" komponentida
+t("Mijozlar")                    // -> "Clients" / "Клиенты"
+t("{n} ta seans", { n: 5 })      // o'zgaruvchi qismlar {..} bilan, satrni bo'lib yozmang
+t.money(150000)                  // "150 000 so'm" / "150 000 UZS" / "150 000 сум"
+t.date(d), t.weekday(d), t.age(birthDate)
+```
+
+Yangi matn qo'shsangiz, uning tarjimasini `en.ts` va `ru.ts` ga ham yozing —
+`tests/prefs.mjs` buni tekshiradi. Tarjima topilmasa o'zbekchasi ko'rinadi,
+sahifa buzilmaydi. `setFlash` va `throw new Error("...")` xabarlari
+`setFlash` ichida avtomatik tarjima qilinadi — ularning matni ham lug'atda
+bo'lsin. Telegram bot va SMS xabarlari hozircha faqat o'zbekcha (oluvchining
+tili noma'lum).
+
+Rejim (tun/kun) `<html>` dagi `dark` klassi bilan boshqariladi, `dark:`
+klasslari qurilma mavzusiga emas, shu klassga qaraydi. Kunduzgi rejim ranglari
+`globals.css` da Tailwind rang o'zgaruvchilarini almashtirish orqali beriladi
+— tungi rejim ranglariga tegmang.
+
 Izoh yozganda "nima qilinyapti" emas, **"nega shunday qilingan"** ni yozing: kod
 nima qilishini o'zi ko'rsatib turadi.
 
@@ -66,7 +91,7 @@ kodidan olib tashlamang.
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 159 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 187 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
@@ -74,9 +99,10 @@ npm run build && npm start -- -p 3100    # boshqa terminalda
 node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, PWA (123)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
+node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (28)
 ```
 
-Kod o'zgartirgandan keyin shu uchtasini ishga tushiring. Yangi imkoniyat qo'shsangiz
+Kod o'zgartirgandan keyin shu to'rttasini ishga tushiring. Yangi imkoniyat qo'shsangiz
 — unga tekshiruv ham qo'shing.
 
 ## Rollar va ko'rish doirasi

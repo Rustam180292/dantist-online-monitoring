@@ -4,7 +4,8 @@ import { requireRole } from "@/lib/auth";
 import { SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { daySlots, getSettings, isWorkDay } from "@/lib/settings";
 import { addDays, startOfDay } from "@/lib/stats";
-import { dateShort, timeUz, weekdayShortUz } from "@/lib/format";
+import { dateShort, timeUz } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
 import { Card, Empty, PageHeader, btn, btnPrimary, card, input, label } from "@/components/ui";
 import { createSession } from "@/app/(app)/schedule/actions";
 
@@ -26,6 +27,7 @@ export default async function SlotsPage({
   const user = await requireRole("OWNER", "BRANCH_ADMIN", "RECEPTION");
   const sp = await searchParams;
   const settings = await getSettings();
+  const t = await getT();
 
   const weekOffset = Number.parseInt(sp.w ?? "0", 10) || 0;
   const from = addDays(mondayOf(new Date()), weekOffset * 7);
@@ -120,22 +122,22 @@ export default async function SlotsPage({
   return (
     <>
       <PageHeader
-        title="Bo'sh vaqtlar"
-        subtitle={`${dateShort(from)} — ${dateShort(addDays(from, 6))} · ish vaqti ${
+        title={t("Bo'sh vaqtlar")}
+        subtitle={`${dateShort(from)} — ${dateShort(addDays(from, 6))} · ${t("ish vaqti")} ${
           settings.workStartHour
         }:00–${settings.workEndHour}:00`}
         action={
           <div className="flex gap-2">
             <Link href={qs({ w: String(weekOffset - 1), sp: null, d: null })} className={btn}>
-              ← O&apos;tgan hafta
+              ← {t("O'tgan hafta")}
             </Link>
             {weekOffset !== 0 ? (
               <Link href={qs({ w: "0", sp: null, d: null })} className={btn}>
-                Shu hafta
+                {t("Shu hafta")}
               </Link>
             ) : null}
             <Link href={qs({ w: String(weekOffset + 1), sp: null, d: null })} className={btn}>
-              Keyingi hafta →
+              {t("Keyingi hafta")} →
             </Link>
           </div>
         }
@@ -146,10 +148,10 @@ export default async function SlotsPage({
           {weekOffset !== 0 ? <input type="hidden" name="w" value={weekOffset} /> : null}
           <div className="min-w-[200px]">
             <label className={label} htmlFor="b">
-              Filial
+              {t("Filial")}
             </label>
             <select id="b" name="b" defaultValue={sp.b ?? ""} className={input}>
-              <option value="">Barcha filiallar</option>
+              <option value="">{t("Barcha filiallar")}</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -158,21 +160,21 @@ export default async function SlotsPage({
             </select>
           </div>
           <button type="submit" className={btnPrimary}>
-            Ko&apos;rsatish
+            {t("Ko'rsatish")}
           </button>
         </form>
       ) : null}
 
       <Card>
         {specialists.length === 0 ? (
-          <Empty>Mutaxassis yo&apos;q. Avval Xodimlar bo&apos;limidan qo&apos;shing.</Empty>
+          <Empty>{t("Mutaxassis yo'q. Avval Xodimlar bo'limidan qo'shing.")}</Empty>
         ) : (
           <div className="scroll-x">
             <table className="w-full min-w-[880px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    Mutaxassis
+                    {t("Mutaxassis")}
                   </th>
                   {days.map((d) => (
                     <th
@@ -183,7 +185,7 @@ export default async function SlotsPage({
                           : "text-slate-300 dark:text-slate-600"
                       }`}
                     >
-                      {weekdayShortUz(d)}
+                      {t.weekdayShort(d)}
                       <span className="block font-normal normal-case">{dateShort(d)}</span>
                     </th>
                   ))}
@@ -197,7 +199,7 @@ export default async function SlotsPage({
                         {s.user.fullName}
                       </span>
                       <span className="block text-xs text-slate-400">
-                        {SPECIALIZATIONS[s.specialization as Specialization]}
+                        {t(SPECIALIZATIONS[s.specialization as Specialization])}
                         {branchId ? "" : ` · ${s.branch.name}`}
                       </span>
                     </td>
@@ -230,26 +232,25 @@ export default async function SlotsPage({
           </div>
         )}
         <p className="border-t border-slate-200 px-4 py-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          Raqam — o&apos;sha kundagi bo&apos;sh vaqtlar soni. Raqamni bosib vaqtni tanlang.
-          O&apos;tib ketgan vaqtlar sanalmaydi.
+          {t("Raqam — o'sha kundagi bo'sh vaqtlar soni. Raqamni bosib vaqtni tanlang. O'tib ketgan vaqtlar sanalmaydi.")}
         </p>
       </Card>
 
       {picked?.specialist ? (
         <Card
           title={`${picked.specialist.user.fullName} · ${dateShort(picked.day)}`}
-          subtitle={`${pickedSlots.length} ta bo'sh vaqt`}
+          subtitle={t("{n} ta bo'sh vaqt", { n: pickedSlots.length })}
           className="mt-5"
           action={
             <Link href={qs({ sp: null, d: null })} className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-              Yopish
+              {t("Yopish")}
             </Link>
           }
         >
           {pickedSlots.length === 0 ? (
-            <Empty>Bu kunda bo&apos;sh vaqt qolmagan.</Empty>
+            <Empty>{t("Bu kunda bo'sh vaqt qolmagan.")}</Empty>
           ) : clients.length === 0 ? (
-            <Empty>Bu filialda faol mijoz yo&apos;q.</Empty>
+            <Empty>{t("Bu filialda faol mijoz yo'q.")}</Empty>
           ) : (
             <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
               {pickedSlots.map((slot) => (
@@ -265,7 +266,7 @@ export default async function SlotsPage({
                   </p>
                   <select name="clientId" className={input} required defaultValue="">
                     <option value="" disabled>
-                      Mijozni tanlang
+                      {t("Mijozni tanlang")}
                     </option>
                     {clients.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -281,11 +282,11 @@ export default async function SlotsPage({
                       max={240}
                       step={5}
                       defaultValue={45}
-                      aria-label="Davomiyligi (daqiqa)"
+                      aria-label={t("Davomiyligi (daqiqa)")}
                       className="w-20 rounded-lg border border-slate-200 px-2 py-1.5 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-900"
                     />
                     <button type="submit" className={`${btnPrimary} flex-1`}>
-                      Yozish
+                      {t("Yozish")}
                     </button>
                   </div>
                 </form>

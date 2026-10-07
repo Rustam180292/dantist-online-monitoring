@@ -10,7 +10,8 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { addDays, getSpecialistEarnings, monthRange, startOfDay } from "@/lib/stats";
-import { dateShort, money, monthYearUz, timeUz, weekdayShortUz } from "@/lib/format";
+import { dateShort, timeUz } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
 import { setSessionStatus } from "@/app/(app)/schedule/actions";
 import { ParentApp } from "./parent";
 
@@ -29,9 +30,10 @@ export default async function MiniAppPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/tg");
+  const t = await getT();
 
   const { tab: tabRaw, child: childRaw } = await searchParams;
-  const tab: Tab = (TABS.find((t) => t.key === tabRaw)?.key ?? "today") as Tab;
+  const tab: Tab = (TABS.find((x) => x.key === tabRaw)?.key ?? "today") as Tab;
 
   if (user.role === "PARENT") {
     return <ParentApp userId={user.id} tab={tabRaw} childId={childRaw} />;
@@ -42,15 +44,15 @@ export default async function MiniAppPage({
     return (
       <main className="mx-auto max-w-md px-4 py-8">
         <div className="app-card p-5 text-center">
-          <p className="text-base font-bold">Assalomu alaykum, {user.fullName}!</p>
+          <p className="text-base font-bold">{t("Assalomu alaykum, {name}!", { name: user.fullName })}</p>
           <p className="mt-2 text-sm app-muted">
-            Katta jadval va hisobotlar uchun to&apos;liq panel qulayroq.
+            {t("Katta jadval va hisobotlar uchun to'liq panel qulayroq.")}
           </p>
           <Link
             href="/"
             className="app-accent mt-4 inline-block rounded-xl px-4 py-2.5 text-sm font-semibold"
           >
-            Boshqaruv panelini ochish
+            {t("Boshqaruv panelini ochish")}
           </Link>
         </div>
       </main>
@@ -72,26 +74,26 @@ export default async function MiniAppPage({
         <div className="min-w-0">
           <p className="truncate text-base font-bold">{user.fullName}</p>
           <p className="truncate text-xs app-muted">
-            {SPECIALIZATIONS[user.specialization as Specialization]}
+            {t(SPECIALIZATIONS[user.specialization as Specialization])}
             {user.branchName ? ` · ${user.branchName}` : ""}
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-xs app-muted">Qolgan pulim</p>
-          <p className="text-base font-bold tabular-nums">{money(earnings.balance)}</p>
+          <p className="text-xs app-muted">{t("Qolgan pulim")}</p>
+          <p className="text-base font-bold tabular-nums">{t.money(earnings.balance)}</p>
         </div>
       </header>
 
       <nav className="mb-4 flex gap-1 overflow-x-auto">
-        {TABS.map((t) => (
+        {TABS.map((x) => (
           <Link
-            key={t.key}
-            href={`/m?tab=${t.key}`}
+            key={x.key}
+            href={`/m?tab=${x.key}`}
             className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-medium ${
-              t.key === tab ? "app-accent" : "app-card app-muted"
+              x.key === tab ? "app-accent" : "app-card app-muted"
             }`}
           >
-            {t.label}
+            {t(x.label)}
           </Link>
         ))}
       </nav>
@@ -101,7 +103,7 @@ export default async function MiniAppPage({
           specialistId={specialistId}
           from={todayFrom}
           to={todayTo}
-          emptyText="Bugunga seans belgilanmagan."
+          emptyText={t("Bugunga seans belgilanmagan.")}
           showDate={false}
         />
       ) : null}
@@ -111,7 +113,7 @@ export default async function MiniAppPage({
           specialistId={specialistId}
           from={todayFrom}
           to={weekTo}
-          emptyText="Yaqin 7 kunda seans yo'q."
+          emptyText={t("Yaqin 7 kunda seans yo'q.")}
           showDate
         />
       ) : null}
@@ -145,6 +147,7 @@ async function SessionList({
     orderBy: { startsAt: "asc" },
     include: { client: { select: { id: true, fullName: true } } },
   });
+  const t = await getT();
 
   if (sessions.length === 0) {
     return <p className="app-card px-4 py-8 text-center text-sm app-muted">{emptyText}</p>;
@@ -158,8 +161,8 @@ async function SessionList({
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold">{s.client.fullName}</p>
               <p className="text-xs app-muted">
-                {showDate ? `${weekdayShortUz(s.startsAt)}, ${dateShort(s.startsAt)} · ` : ""}
-                {timeUz(s.startsAt)} · {s.durationMin} daq.
+                {showDate ? `${t.weekdayShort(s.startsAt)}, ${dateShort(s.startsAt)} · ` : ""}
+                {timeUz(s.startsAt)} · {t("{n} daq.", { n: s.durationMin })}
               </p>
             </div>
             <span
@@ -173,19 +176,19 @@ async function SessionList({
                       : "bg-amber-100 text-amber-700"
               }`}
             >
-              {SESSION_STATUSES[s.status as SessionStatus]}
+              {t(SESSION_STATUSES[s.status as SessionStatus])}
             </span>
           </div>
 
           <div className="mt-2.5 flex flex-wrap gap-1.5">
             {s.status === "PLANNED" ? (
               <>
-                <MarkButton id={s.id} status="DONE" label="O'tdi" tone="good" />
-                <MarkButton id={s.id} status="NO_SHOW" label="Kelmadi" tone="bad" />
-                <MarkButton id={s.id} status="CANCELLED_CLIENT" label="Bekor" tone="warn" />
+                <MarkButton id={s.id} status="DONE" label={t("O'tdi")} tone="good" />
+                <MarkButton id={s.id} status="NO_SHOW" label={t("Kelmadi")} tone="bad" />
+                <MarkButton id={s.id} status="CANCELLED_CLIENT" label={t("Bekor")} tone="warn" />
               </>
             ) : (
-              <MarkButton id={s.id} status="PLANNED" label="Qaytarish" tone="plain" />
+              <MarkButton id={s.id} status="PLANNED" label={t("Qaytarish")} tone="plain" />
             )}
           </div>
         </li>
@@ -228,6 +231,7 @@ function MarkButton({
 /* ---------------- Mijozlarim ---------------- */
 
 async function MyClients({ specialistId }: { specialistId: string }) {
+  const t = await getT();
   const specialist = await prisma.specialist.findUniqueOrThrow({
     where: { id: specialistId },
     select: { specialization: true },
@@ -258,7 +262,7 @@ async function MyClients({ specialistId }: { specialistId: string }) {
   });
 
   if (assignments.length === 0) {
-    return <p className="app-card px-4 py-8 text-center text-sm app-muted">Mijoz biriktirilmagan.</p>;
+    return <p className="app-card px-4 py-8 text-center text-sm app-muted">{t("Mijoz biriktirilmagan.")}</p>;
   }
 
   const rows = assignments
@@ -289,13 +293,13 @@ async function MyClients({ specialistId }: { specialistId: string }) {
               <p className="truncate text-sm font-semibold">
                 {c.name}
                 {c.status !== "ACTIVE" ? (
-                  <span className="ml-1.5 text-xs font-normal app-muted">(to&apos;xtatilgan)</span>
+                  <span className="ml-1.5 text-xs font-normal app-muted">{t("(to'xtatilgan)")}</span>
                 ) : null}
               </p>
               <p className="text-xs app-muted">
                 {c.next
-                  ? `Keyingi: ${weekdayShortUz(c.next)}, ${dateShort(c.next)} ${timeUz(c.next)}`
-                  : "Keyingi seans belgilanmagan"}
+                  ? `${t("Keyingi:")} ${t.weekdayShort(c.next)}, ${dateShort(c.next)} ${timeUz(c.next)}`
+                  : t("Keyingi seans belgilanmagan")}
               </p>
               <a href={`tel:${c.phone}`} className="app-link text-xs">
                 {c.phone}
@@ -310,7 +314,7 @@ async function MyClients({ specialistId }: { specialistId: string }) {
                     : "bg-emerald-100 text-emerald-700"
               }`}
             >
-              {c.remaining} seans
+              {t("{n} seans", { n: c.remaining })}
             </span>
           </div>
         </li>
@@ -353,23 +357,25 @@ async function MyMoney({
   ]);
 
   const percent = specialist?.salaryPercent ?? 0;
+  const t = await getT();
+  const money = t.money;
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2">
-        <Stat label="Qolgan (olishim kerak)" value={money(earnings.balance)} strong />
-        <Stat label={`${monthYearUz(monthFrom)}da hisoblangan`} value={money(earnings.accruedMonth)} />
-        <Stat label="Jami hisoblangan" value={money(earnings.accruedTotal)} />
-        <Stat label="Jami to'langan" value={money(earnings.paidTotal)} />
+        <Stat label={t("Qolgan (olishim kerak)")} value={money(earnings.balance)} strong />
+        <Stat label={t("{month}da hisoblangan", { month: t.monthYear(monthFrom) })} value={money(earnings.accruedMonth)} />
+        <Stat label={t("Jami hisoblangan")} value={money(earnings.accruedTotal)} />
+        <Stat label={t("Jami to'langan")} value={money(earnings.paidTotal)} />
       </div>
 
       <section className="app-card p-3">
         <p className="mb-2 text-sm font-semibold">
-          {monthYearUz(monthFrom)} seanslari{" "}
-          <span className="font-normal app-muted">· ulushim {percent}%</span>
+          {t("{month} seanslari", { month: t.monthYear(monthFrom) })}{" "}
+          <span className="font-normal app-muted">· {t("ulushim {pct}%", { pct: percent })}</span>
         </p>
         {sessions.length === 0 ? (
-          <p className="py-4 text-center text-sm app-muted">Bu oyda hisobga kirgan seans yo&apos;q.</p>
+          <p className="py-4 text-center text-sm app-muted">{t("Bu oyda hisobga kirgan seans yo'q.")}</p>
         ) : (
           <ul className="divide-y divide-black/5">
             {sessions.map((s) => {
@@ -382,7 +388,7 @@ async function MyMoney({
                   <div className="min-w-0">
                     <p className="truncate text-sm">{s.client.fullName}</p>
                     <p className="text-xs app-muted">
-                      {dateShort(s.startsAt)} · {SESSION_STATUSES[s.status as SessionStatus]}
+                      {dateShort(s.startsAt)} · {t(SESSION_STATUSES[s.status as SessionStatus])}
                     </p>
                     {s.price > 0 ? (
                       <p className="text-xs app-muted tabular-nums">
@@ -392,7 +398,7 @@ async function MyMoney({
                       // Narx abonementdan olinadi: faol abonement bo'lmasa 0 bo'lib
                       // qoladi va ulush ham 0 chiqadi. Jim turmasin.
                       <p className="text-xs font-medium text-amber-600">
-                        narx belgilanmagan (abonement yo&apos;q)
+                        {t("narx belgilanmagan (abonement yo'q)")}
                       </p>
                     )}
                   </div>
@@ -407,9 +413,9 @@ async function MyMoney({
       </section>
 
       <section className="app-card p-3">
-        <p className="mb-2 text-sm font-semibold">Qo&apos;lga tekkan to&apos;lovlar</p>
+        <p className="mb-2 text-sm font-semibold">{t("Qo'lga tekkan to'lovlar")}</p>
         {payouts.length === 0 ? (
-          <p className="py-4 text-center text-sm app-muted">Hali to&apos;lov yozilmagan.</p>
+          <p className="py-4 text-center text-sm app-muted">{t("Hali to'lov yozilmagan.")}</p>
         ) : (
           <ul className="divide-y divide-black/5">
             {payouts.map((p) => (

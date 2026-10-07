@@ -11,6 +11,8 @@ export type CenterSettings = {
   slotMinutes: number;
   /** 1 = dushanba ... 7 = yakshanba */
   workDays: number[];
+  /** Logotip yuklangan bo'lsa — uning manzili (versiya bilan), aks holda null */
+  logoUrl: string | null;
 };
 
 const DEFAULTS: CenterSettings = {
@@ -22,6 +24,7 @@ const DEFAULTS: CenterSettings = {
   workEndHour: 18,
   slotMinutes: 60,
   workDays: [1, 2, 3, 4, 5, 6],
+  logoUrl: null,
 };
 
 export const WEEKDAYS: { value: number; label: string }[] = [
@@ -42,7 +45,12 @@ export const WEEKDAYS: { value: number; label: string }[] = [
  * sababli ishlamay qolmasin.
  */
 export async function getSettings(): Promise<CenterSettings> {
-  const row = await prisma.settings.findUnique({ where: { id: "main" } });
+  // Rasmning o'zi (logoData) bu yerda o'qilmaydi: getSettings har sahifada
+  // chaqiriladi, rasm esa alohida manzildan, brauzer keshi bilan olinadi.
+  const row = await prisma.settings.findUnique({
+    where: { id: "main" },
+    omit: { logoData: true },
+  });
   if (!row) return DEFAULTS;
 
   const workDays = row.workDays
@@ -59,7 +67,23 @@ export async function getSettings(): Promise<CenterSettings> {
     workEndHour: row.workEndHour,
     slotMinutes: row.slotMinutes,
     workDays: workDays.length > 0 ? workDays : DEFAULTS.workDays,
+    logoUrl: row.logoUpdatedAt && row.logoMime ? `/api/logo?v=${row.logoUpdatedAt.getTime()}` : null,
   };
+}
+
+/* ---------- Logotip ---------- */
+
+/** Faqat shu turlar qabul qilinadi. SVG ataylab yo'q: ichida skript bo'lishi mumkin */
+export const LOGO_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+export const LOGO_MAX_BYTES = 500 * 1024;
+
+export async function getLogo(): Promise<{ data: Buffer; mime: string } | null> {
+  const row = await prisma.settings.findUnique({
+    where: { id: "main" },
+    select: { logoData: true, logoMime: true },
+  });
+  if (!row?.logoData || !row.logoMime) return null;
+  return { data: Buffer.from(row.logoData, "base64"), mime: row.logoMime };
 }
 
 /** Sana ish kunimi (1=dushanba ... 7=yakshanba) */

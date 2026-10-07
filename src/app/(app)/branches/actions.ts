@@ -41,7 +41,7 @@ async function createBranchImpl(formData: FormData) {
   });
 
   refresh();
-  await setFlash(`"${name}" filiali qo'shildi.`, "ok");
+  await setFlash('"{name}" filiali qo\'shildi.', "ok", { name });
 }
 
 async function updateBranchImpl(formData: FormData) {
@@ -67,7 +67,7 @@ async function updateBranchImpl(formData: FormData) {
   });
 
   refresh();
-  await setFlash(`"${name}" saqlandi.`, "ok");
+  await setFlash('"{name}" saqlandi.', "ok", { name });
 }
 
 /**
@@ -106,7 +106,7 @@ async function deleteBranchImpl(formData: FormData) {
 
   await prisma.branch.delete({ where: { id } });
   refresh();
-  await setFlash(`"${branch.name}" o'chirildi.`, "ok");
+  await setFlash('"{name}" o\'chirildi.', "ok", { name: branch.name });
 }
 
 export const createBranch = withFlash(createBranchImpl);

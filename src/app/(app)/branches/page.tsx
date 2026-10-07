@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
-import { money, num } from "@/lib/format";
+import { num } from "@/lib/format";
 import { monthRange } from "@/lib/stats";
 import {
   Card,
@@ -14,9 +14,11 @@ import {
   th,
 } from "@/components/ui";
 import { createBranch, deleteBranch, updateBranch } from "./actions";
+import { getT } from "@/lib/i18n/server";
 
 export default async function BranchesPage() {
   await requireRole("OWNER");
+  const t = await getT();
   const { from, to } = monthRange();
 
   const branches = await prisma.branch.findMany({
@@ -46,42 +48,42 @@ export default async function BranchesPage() {
   return (
     <>
       <PageHeader
-        title="Filiallar"
-        subtitle={`${branches.length} ta filial`}
+        title={t("Filiallar")}
+        subtitle={t("{n} ta filial", { n: branches.length })}
       />
 
       <details className={`${card} mb-5 p-4`} open={branches.length === 0}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-          + Yangi filial qo&apos;shish
+          + {t("Yangi filial qo'shish")}
         </summary>
         <form action={createBranch} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className={label} htmlFor="name">
-              Filial nomi *
+              {t("Filial nomi")} *
             </label>
             <input
               id="name"
               name="name"
-              placeholder="Chilonzor filiali"
+              placeholder={t("Chilonzor filiali")}
               className={input}
               required
             />
           </div>
           <div className="lg:col-span-2">
             <label className={label} htmlFor="address">
-              Manzil
+              {t("Manzil")}
             </label>
             <input id="address" name="address" className={input} />
           </div>
           <div>
             <label className={label} htmlFor="phone">
-              Telefon
+              {t("Telefon")}
             </label>
             <input id="phone" name="phone" type="tel" className={input} />
           </div>
           <div className="flex items-end">
             <button type="submit" className={`${btnPrimary} w-full`}>
-              Qo&apos;shish
+              {t("Qo'shish")}
             </button>
           </div>
         </form>
@@ -89,17 +91,17 @@ export default async function BranchesPage() {
 
       <Card>
         {branches.length === 0 ? (
-          <Empty>Hali filial qo&apos;shilmagan.</Empty>
+          <Empty>{t("Hali filial qo'shilmagan.")}</Empty>
         ) : (
           <div className="scroll-x">
             <table className="w-full min-w-[820px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th className={th}>Filial</th>
-                  <th className={th}>Mijoz</th>
-                  <th className={th}>Mutaxassis</th>
-                  <th className={th}>Qabul</th>
-                  <th className={th}>Shu oy tushum</th>
+                  <th className={th}>{t("Filial")}</th>
+                  <th className={th}>{t("Mijoz")}</th>
+                  <th className={th}>{t("Mutaxassis")}</th>
+                  <th className={th}>{t("Qabul")}</th>
+                  <th className={th}>{t("Shu oy tushum")}</th>
                   <th className={th} />
                 </tr>
               </thead>
@@ -119,7 +121,7 @@ export default async function BranchesPage() {
 
                       <details className="mt-1">
                         <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-                          ✎ Tahrirlash
+                          ✎ {t("Tahrirlash")}
                         </summary>
                         <form
                           action={updateBranch}
@@ -127,20 +129,20 @@ export default async function BranchesPage() {
                         >
                           <input type="hidden" name="branchId" value={b.id} />
                           <div>
-                            <label className={label}>Nomi</label>
+                            <label className={label}>{t("Nomi")}</label>
                             <input name="name" defaultValue={b.name} className={input} required />
                           </div>
                           <div>
-                            <label className={label}>Manzil</label>
+                            <label className={label}>{t("Manzil")}</label>
                             <input name="address" defaultValue={b.address ?? ""} className={input} />
                           </div>
                           <div>
-                            <label className={label}>Telefon</label>
+                            <label className={label}>{t("Telefon")}</label>
                             <input name="phone" defaultValue={b.phone ?? ""} className={input} />
                           </div>
                           <div className="flex items-end">
                             <button type="submit" className={`${btnPrimary} w-full`}>
-                              Saqlash
+                              {t("Saqlash")}
                             </button>
                           </div>
                         </form>
@@ -149,7 +151,7 @@ export default async function BranchesPage() {
                     <td className={`${td} tabular-nums`}>{num(b._count.clients)}</td>
                     <td className={`${td} tabular-nums`}>{num(b._count.specialists)}</td>
                     <td className={`${td} tabular-nums`}>{num(b._count.intakes)}</td>
-                    <td className={`${td} font-semibold tabular-nums`}>{money(income[i])}</td>
+                    <td className={`${td} font-semibold tabular-nums`}>{t.money(income[i])}</td>
                     <td className={td}>
                       <form action={deleteBranch}>
                         <input type="hidden" name="branchId" value={b.id} />
@@ -157,7 +159,7 @@ export default async function BranchesPage() {
                           type="submit"
                           className="text-xs text-slate-400 hover:text-rose-600"
                         >
-                          o&apos;chirish
+                          {t("o'chirish")}
                         </button>
                       </form>
                     </td>
@@ -170,8 +172,7 @@ export default async function BranchesPage() {
       </Card>
 
       <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-        Filialni faqat bo&apos;sh bo&apos;lsa o&apos;chirish mumkin. Ichida mijoz, mutaxassis
-        yoki to&apos;lov bo&apos;lsa, o&apos;chirish o&apos;rniga nomini o&apos;zgartiring.
+        {t("Filialni faqat bo'sh bo'lsa o'chirish mumkin. Ichida mijoz, mutaxassis yoki to'lov bo'lsa, o'chirish o'rniga nomini o'zgartiring.")}
       </p>
     </>
   );
