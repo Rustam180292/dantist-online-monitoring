@@ -233,6 +233,95 @@ const PNG = Buffer.from(
   await ctx.close();
 }
 
+/* ---------- 5. Katta rasm brauzerda kichrayadi ---------- */
+{
+  const { ctx, page } = await newPage();
+  await login(page, owner.phone);
+  await page.goto(`${BASE}/settings`);
+
+  // Telefon rasmiga o'xshash katta fayl yasaymiz: shovqinli rasm siqilmaydi,
+  // shuning uchun PNG hajmi 500 KB dan oshadi
+  const big = await page.evaluate(async () => {
+    const c = document.createElement("canvas");
+    c.width = 1400;
+    c.height = 1400;
+    const ctx2d = c.getContext("2d");
+    const img = ctx2d.createImageData(c.width, c.height);
+    for (let i = 0; i < img.data.length; i += 4) {
+      img.data[i] = (Math.random() * 256) | 0;
+      img.data[i + 1] = (Math.random() * 256) | 0;
+      img.data[i + 2] = (Math.random() * 256) | 0;
+      img.data[i + 3] = 255;
+    }
+    ctx2d.putImageData(img, 0, 0);
+    const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+    const buf = new Uint8Array(await blob.arrayBuffer());
+    let bin = "";
+    for (const b of buf) bin += String.fromCharCode(b);
+    return btoa(bin);
+  });
+  const bigBuffer = Buffer.from(big, "base64");
+  check(
+    "Sinov rasmi haqiqatan katta",
+    bigBuffer.length > 500 * 1024,
+    `${Math.round(bigBuffer.length / 1024)} KB`,
+  );
+
+  await page.setInputFiles("#logo", {
+    name: "telefon-rasmi.png",
+    mimeType: "image/png",
+    buffer: bigBuffer,
+  });
+  // Kichraytirilgani haqida xabar chiqishi kerak
+  const shrunk = await page
+    .getByText("Rasm kichraytirildi")
+    .waitFor({ timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  check("Katta rasm brauzerda kichraytiriladi", shrunk);
+
+  await page.locator('form:has(#logo) button[type="submit"]').click();
+  await page.getByText("Logotip saqlandi.").waitFor({ timeout: 15000 }).catch(() => {});
+  const saved = await one("SELECT logoMime, logoData FROM Settings WHERE id='main'");
+  check(
+    "Kichraytirilgan rasm serverga yetib boradi",
+    Boolean(saved?.logoMime) && Buffer.from(saved.logoData, "base64").length <= 500 * 1024,
+    saved?.logoData ? `${Math.round(Buffer.from(saved.logoData, "base64").length / 1024)} KB` : "yo'q",
+  );
+
+  await page.getByRole("button", { name: "Logotipni olib tashlash" }).click();
+  await page.getByText("Logotip olib tashlandi.").waitFor({ timeout: 8000 }).catch(() => {});
+  await ctx.close();
+}
+
+/* ---------- 6. Bir nechta rejim tugmasi bir-biriga mos ---------- */
+{
+  const { ctx, page } = await newPage();
+  await login(page, owner.phone);
+  await page.goto(`${BASE}/settings`);
+
+  const toggles = page.locator('[data-testid="theme-toggle"]');
+  const n = await toggles.count();
+  check("Sozlamalarda bir nechta rejim tugmasi bor", n >= 2, `${n} ta`);
+
+  if (n >= 2) {
+    const labels = async () =>
+      Promise.all(
+        Array.from({ length: n }, (_, i) => toggles.nth(i).getAttribute("aria-label")),
+      );
+    const before = await labels();
+    await toggles.first().click();
+    await page.waitForTimeout(300);
+    const after = await labels();
+    check(
+      "Bitta tugma bosilsa qolganlari ham yangilanadi",
+      new Set(after).size === 1 && after[0] !== before[0],
+      `${before.join(" / ")} -> ${after.join(" / ")}`,
+    );
+  }
+  await ctx.close();
+}
+
 await browser.close();
 await closeDb();
 

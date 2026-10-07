@@ -5,6 +5,7 @@ import { getSettings, WEEKDAYS } from "@/lib/settings";
 import { getT } from "@/lib/i18n/server";
 import { Card, PageHeader, btn, btnDanger, btnPrimary, input, label } from "@/components/ui";
 import { BrandMark } from "@/components/brand";
+import { LogoInput } from "@/components/logo-upload";
 import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
 import {
   backupNow,
@@ -94,21 +95,11 @@ export default async function SettingsPage() {
             <div className="flex flex-wrap items-start gap-4 p-4">
               <BrandMark logoUrl={s.logoUrl} size="lg" />
               <div className="min-w-0 flex-1 space-y-3">
-                <form action={uploadLogo} className="flex flex-wrap items-center gap-2">
-                  <input
-                    id="logo"
-                    name="logo"
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    required
-                    className="block w-full max-w-xs text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 dark:text-slate-400 dark:file:bg-indigo-950 dark:file:text-indigo-300"
-                  />
-                  <button type="submit" className={btnPrimary}>
-                    {t("Yuklash")}
-                  </button>
+                <form action={uploadLogo}>
+                  <LogoInput inputClassName="block w-full max-w-xs text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 dark:text-slate-400 dark:file:bg-indigo-950 dark:file:text-indigo-300" />
                 </form>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {t("PNG, JPG yoki WEBP, 500 KB gacha. Kvadrat rasm yaxshi ko'rinadi.")}
+                  {t("PNG, JPG yoki WEBP. Katta rasm o'zi kichraytiriladi. Kvadrat rasm yaxshi ko'rinadi.")}
                 </p>
                 {s.logoUrl ? (
                   <form action={removeLogo}>

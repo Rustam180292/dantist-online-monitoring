@@ -82,7 +82,7 @@ export default function InstallPage() {
                   t("Ro'yxatni pastga aylantirib «Bosh ekranga qo'shish» ni tanlang"),
                   t("O'ng yuqoridagi «Qo'shish» ni bosing"),
                 ]}
-                note="Chrome emas, aynan Safari'da ochilishi kerak."
+                note={t("Chrome emas, aynan Safari'da ochilishi kerak.")}
               />
             ) : platform === "android" ? (
               <Steps

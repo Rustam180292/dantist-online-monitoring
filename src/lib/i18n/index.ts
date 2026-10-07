@@ -7,10 +7,9 @@
  * yozilgani darhol ko'rinadi. Tarjima topilmasa o'zbekchasi chiqadi, ya'ni
  * yangi matn qo'shib, tarjimasini unutsangiz sahifa buzilmaydi.
  *
- * Bu fayl serverda ham, brauzerda ham ishlaydi — cookie o'qimaydi.
+ * Bu fayl serverda ham, brauzerda ham ishlaydi — cookie o'qimaydi va
+ * lug'atlarni ham import qilmaydi (ular `dicts.ts` da, faqat server uchun).
  */
-import { en } from "./en";
-import { ru } from "./ru";
 
 export const LOCALES = ["uz", "en", "ru"] as const;
 export type Locale = (typeof LOCALES)[number];
@@ -25,14 +24,8 @@ export const LOCALE_NAMES: Record<Locale, string> = {
 
 export type Dict = Record<string, string>;
 
-const DICTS: Record<Locale, Dict> = { uz: {}, en, ru };
-
 export function isLocale(x: unknown): x is Locale {
   return typeof x === "string" && (LOCALES as readonly string[]).includes(x);
-}
-
-export function dictFor(locale: Locale): Dict {
-  return DICTS[locale];
 }
 
 export type Vars = Record<string, string | number>;
@@ -99,7 +92,7 @@ export type T = ((text: string, vars?: Vars) => string) & {
   age: (birth: Date | string, now?: Date) => string;
 };
 
-export function makeT(locale: Locale, dict: Dict = dictFor(locale)): T {
+export function makeT(locale: Locale, dict: Dict): T {
   const t = ((text: string, vars?: Vars) => fill(dict[text] ?? text, vars)) as T;
   t.locale = locale;
   t.currency = CURRENCY[locale];

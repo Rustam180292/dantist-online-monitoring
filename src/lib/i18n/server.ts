@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { DEFAULT_LOCALE, LOCALE_COOKIE, isLocale, makeT, type Locale, type T } from "./index";
+import { dictFor } from "./dicts";
 
 /**
  * Tanlangan til cookie'da saqlanadi (akkauntda emas): bitta qabulxona
@@ -17,4 +18,7 @@ export const getLocale = cache(async (): Promise<Locale> => {
   return isLocale(v) ? v : DEFAULT_LOCALE;
 });
 
-export const getT = cache(async (): Promise<T> => makeT(await getLocale()));
+export const getT = cache(async (): Promise<T> => {
+  const locale = await getLocale();
+  return makeT(locale, dictFor(locale));
+});

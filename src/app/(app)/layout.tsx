@@ -9,7 +9,7 @@ import { BrandMark } from "@/components/brand";
 import { I18nProvider } from "@/components/i18n";
 import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
 import { getSettings } from "@/lib/settings";
-import { dictFor } from "@/lib/i18n";
+import { dictFor } from "@/lib/i18n/dicts";
 import { getT } from "@/lib/i18n/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {

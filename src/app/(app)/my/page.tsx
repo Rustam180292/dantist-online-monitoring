@@ -168,7 +168,7 @@ export default async function MyChildrenPage() {
                             </div>
                             {p.debt > 0 ? (
                               <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-400">
-                                To&apos;lanmagan qism: {t.money(p.debt)}
+                                {t("To'lanmagan qism:")} {t.money(p.debt)}
                               </p>
                             ) : null}
                           </li>

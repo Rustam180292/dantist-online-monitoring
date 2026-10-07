@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { withFlash } from "@/lib/action";
+import { ActionError, withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
@@ -94,10 +94,11 @@ async function deleteBranchImpl(formData: FormData) {
   ]);
   const busy = clients + specialists + users + sessions + payments + intakes;
   if (busy > 0) {
-    throw new Error(
-      `"${branch.name}" bo'sh emas: ${clients} mijoz, ${specialists} mutaxassis, ` +
-        `${sessions} seans, ${payments} to'lov, ${intakes} qabul. ` +
-        `O'chirish o'rniga nomini o'zgartiring yoki xodimlarni boshqa filialga o'tkazing.`,
+    throw new ActionError(
+      "\"{name}\" bo'sh emas: {clients} mijoz, {specialists} mutaxassis, {sessions} seans, " +
+        "{payments} to'lov, {intakes} qabul. O'chirish o'rniga nomini o'zgartiring yoki " +
+        "xodimlarni boshqa filialga o'tkazing.",
+      { name: branch.name, clients, specialists, sessions, payments, intakes },
     );
   }
 

@@ -56,10 +56,15 @@ async function assertClientAccess(user: CurrentUser, clientId: string) {
   return client;
 }
 
-function parseAmount(raw: FormDataEntryValue | null, field: string): number {
+/**
+ * `message` — to'liq jumla, chunki u lug'atdan tarjima qilinadi. Bo'lak-bo'lak
+ * yig'ilgan matnni ("{maydon} to'g'ri kiritilmagan") tarjima qilib bo'lmaydi:
+ * maydon nomi o'zbekcha qolib ketardi.
+ */
+function parseAmount(raw: FormDataEntryValue | null, message: string): number {
   // "150 000" yoki "150000" ko'rinishini ham qabul qiladi
   const n = Number(String(raw ?? "").replace(/[^\d]/g, ""));
-  if (!Number.isFinite(n) || n <= 0) throw new Error(`${field} to'g'ri kiritilmagan.`);
+  if (!Number.isFinite(n) || n <= 0) throw new Error(message);
   return Math.round(n);
 }
 
@@ -270,7 +275,7 @@ async function addPackageImpl(formData: FormData) {
   if (!Number.isInteger(totalSessions) || totalSessions < 1 || totalSessions > 100) {
     throw new Error("Seans soni 1 dan 100 gacha bo'lishi kerak.");
   }
-  const pricePerSession = parseAmount(formData.get("pricePerSession"), "Seans narxi");
+  const pricePerSession = parseAmount(formData.get("pricePerSession"), "Seans narxi to'g'ri kiritilmagan.");
 
   await assertClientAccess(user, clientId);
 
@@ -315,7 +320,7 @@ async function addPackageImpl(formData: FormData) {
 async function addPaymentImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
-  const amount = parseAmount(formData.get("amount"), "Summa");
+  const amount = parseAmount(formData.get("amount"), "Summa to'g'ri kiritilmagan.");
   const method = String(formData.get("method") ?? "CASH") as PaymentMethod;
   if (!PAYMENT_METHOD_KEYS.includes(method)) throw new Error("To'lov usuli noto'g'ri.");
 

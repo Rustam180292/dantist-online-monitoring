@@ -8,8 +8,30 @@ import { useT } from "@/components/i18n";
 export const THEME_COOKIE = "theme";
 const YEAR = 60 * 60 * 24 * 365;
 
+/** Brauzer satrining rangi — root layout'dagi skript ham shu qiymatlarni qo'yadi */
+export const THEME_COLOR = { light: "#effbf6", dark: "#020617" } as const;
+
 function setCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${YEAR}; SameSite=Lax`;
+}
+
+/**
+ * Rejim bir nechta joyda almashtiriladi (menyu va Sozlamalar sahifasi), lekin
+ * u butun sahifaga tegishli bitta holat. Har bir tugma o'zinikini saqlasa,
+ * birini bosganda ikkinchisi eski belgisi bilan qolib ketardi — shuning uchun
+ * o'zgarish hammasiga xabar qilinadi.
+ */
+const watchers = new Set<(dark: boolean) => void>();
+
+function applyTheme(dark: boolean) {
+  const d = document.documentElement;
+  d.classList.toggle("dark", dark);
+  d.style.colorScheme = dark ? "dark" : "light";
+  // Telefonda brauzer/ilova satrining rangi ham tanlovga ergashsin
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute("content", dark ? THEME_COLOR.dark : THEME_COLOR.light);
+  setCookie(THEME_COOKIE, dark ? "dark" : "light");
+  for (const w of watchers) w(dark);
 }
 
 /**
@@ -27,14 +49,14 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
   const [dark, setDark] = useState<boolean | null>(null);
   useEffect(() => {
     setDark(document.documentElement.classList.contains("dark"));
+    watchers.add(setDark);
+    return () => {
+      watchers.delete(setDark);
+    };
   }, []);
 
   function toggle() {
-    const next = !document.documentElement.classList.contains("dark");
-    document.documentElement.classList.toggle("dark", next);
-    document.documentElement.style.colorScheme = next ? "dark" : "light";
-    setCookie(THEME_COOKIE, next ? "dark" : "light");
-    setDark(next);
+    applyTheme(!document.documentElement.classList.contains("dark"));
   }
 
   const label = dark ? t("Kunduzgi rejim") : t("Tungi rejim");

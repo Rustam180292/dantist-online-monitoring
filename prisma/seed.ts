@@ -183,6 +183,9 @@ async function main() {
   const thisMonday = mondayOf(new Date());
   let childIdx = 0;
   let surnameIdx = 0;
+  // Abonement to'lovi tasodif emas, navbat bilan: qarzdorlar ro'yxati va
+  // "to'lov eslatmasi" tekshiruvi demo'da doim ish bilan ta'minlansin
+  let pkgIdx = 0;
 
   for (const b of BRANCHES) {
     const branch = await prisma.branch.create({
@@ -265,8 +268,10 @@ async function main() {
       birth.setMonth(Math.floor(rnd() * 12), 1 + Math.floor(rnd() * 27));
       birth.setHours(0, 0, 0, 0);
 
-      // Markazga kelganlarning ko'pi abonement olmaydi — har kelganida to'laydi
-      const isPackage = chance(0.3);
+      // Markazga kelganlarning ko'pi abonement olmaydi — har kelganida to'laydi.
+      // Tasodif emas, har uchinchisi: har filialda ham abonementchi chiqsin,
+      // aks holda demo ba'zan butun bir filialni abonementsiz qoldirardi.
+      const isPackage = i % 3 === 0;
 
       const client = await prisma.client.create({
         data: {
@@ -313,9 +318,12 @@ async function main() {
           },
         }) : null;
 
-        // Abonement to'lovi (ba'zida bo'lib-bo'lib)
+        // Abonement to'lovi (ba'zida bo'lib-bo'lib).
+        // Har uchinchisi to'liq to'lanadi, qolgan ikkitasi bo'lib-bo'lib;
+        // ulardan biri qarzdor bo'lib qoladi.
         const full = totalSessions * pricePerSession;
-        if (pkg && chance(0.55)) {
+        const payPlan = pkg ? pkgIdx++ % 3 : -1;
+        if (pkg && payPlan === 0) {
           await prisma.payment.create({
             data: {
               clientId: client.id,
@@ -343,7 +351,7 @@ async function main() {
           const second = new Date(purchasedAt);
           second.setDate(second.getDate() + 14);
           // Qolgan qismi hammasida ham to'lanmagan — qarzdorlar ro'yxati bo'sh qolmasin
-          if (second <= new Date() && chance(0.4)) {
+          if (second <= new Date() && payPlan === 2) {
             await prisma.payment.create({
               data: {
                 clientId: client.id,

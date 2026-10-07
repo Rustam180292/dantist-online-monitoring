@@ -6,7 +6,7 @@ import { Flash } from "@/components/flash";
 import { Install } from "@/components/install";
 import { I18nProvider } from "@/components/i18n";
 import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
-import { dictFor } from "@/lib/i18n";
+import { dictFor } from "@/lib/i18n/dicts";
 import { getT } from "@/lib/i18n/server";
 
 export const metadata = {

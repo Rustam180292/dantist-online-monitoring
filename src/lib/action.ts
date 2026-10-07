@@ -1,6 +1,24 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
 import { setFlash } from "@/lib/flash";
+import type { Vars } from "@/lib/i18n";
+
+/**
+ * Ichida o'zgaruvchi qismi bor tekshiruv xatosi.
+ *
+ * Oddiy `new Error(`... ${n} ...`)` tarjima qilinmaydi: lug'atda shu
+ * raqamlar bilan birga kalit bo'lmaydi. Shuning uchun matn kalit holicha
+ * ("{n} ta mijoz bor") tashlanadi, raqamlar esa alohida keladi va tarjimadan
+ * keyin o'rniga qo'yiladi.
+ */
+export class ActionError extends Error {
+  readonly vars?: Vars;
+  constructor(message: string, vars?: Vars) {
+    super(message);
+    this.name = "ActionError";
+    this.vars = vars;
+  }
+}
 
 /**
  * Server action'ni o'rab oladi: ichkarida tashlangan tekshiruv xatosi
@@ -23,7 +41,7 @@ export function withFlash<T extends unknown[]>(
           ? error.message
           : "Amal bajarilmadi. Qaytadan urinib ko'ring.";
       console.error("Amal bajarilmadi:", error);
-      await setFlash(message);
+      await setFlash(message, "err", error instanceof ActionError ? error.vars : undefined);
     }
   };
 }
