@@ -7,7 +7,8 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { getClientPackages } from "@/lib/stats";
-import { ageUz, dateShort, money, timeUz, weekdayUz } from "@/lib/format";
+import { dateShort, timeUz } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
 
 type ParentTab = "schedule" | "history" | "billing";
 
@@ -26,7 +27,9 @@ export async function ParentApp({
   tab?: string;
   childId?: string;
 }) {
-  const tab: ParentTab = (TABS.find((t) => t.key === tabRaw)?.key ?? "schedule") as ParentTab;
+  const t = await getT();
+  const money = t.money;
+  const tab: ParentTab = (TABS.find((x) => x.key === tabRaw)?.key ?? "schedule") as ParentTab;
 
   const children = await prisma.client.findMany({
     where: { parentUserId: userId },
@@ -38,10 +41,9 @@ export async function ParentApp({
     return (
       <main className="mx-auto max-w-md px-4 py-10">
         <div className="app-card p-5 text-center">
-          <p className="text-base font-bold">Farzand biriktirilmagan</p>
+          <p className="text-base font-bold">{t("Farzand biriktirilmagan")}</p>
           <p className="mt-2 text-sm app-muted">
-            Hisobingizga farzandingiz bog&apos;lanmagan. Iltimos, markaz administratoriga
-            murojaat qiling.
+            {t("Hisobingizga farzandingiz bog'lanmagan. Iltimos, markaz administratoriga murojaat qiling.")}
           </p>
         </div>
       </main>
@@ -81,7 +83,7 @@ export async function ParentApp({
       <header className="mb-3">
         <p className="text-base font-bold">{child.fullName}</p>
         <p className="text-xs app-muted">
-          {ageUz(child.birthDate)} · {child.branch.name}
+          {t.age(child.birthDate)} · {child.branch.name}
         </p>
       </header>
 
@@ -103,28 +105,28 @@ export async function ParentApp({
 
       {/* Keyingi mashg'ulot — eng kerakli ma'lumot yuqorida */}
       <section className="app-card mb-3 p-4">
-        <p className="text-xs app-muted">Keyingi mashg&apos;ulot</p>
+        <p className="text-xs app-muted">{t("Keyingi mashg'ulot")}</p>
         {next ? (
           <>
             <p className="mt-1 text-lg font-bold">
-              {weekdayUz(next.startsAt)}, {timeUz(next.startsAt)}
+              {t.weekday(next.startsAt)}, {timeUz(next.startsAt)}
             </p>
             <p className="text-sm">
               {dateShort(next.startsAt)} ·{" "}
-              {SPECIALIZATIONS[next.specialist.specialization as Specialization]}
+              {t(SPECIALIZATIONS[next.specialist.specialization as Specialization])}
             </p>
             <p className="text-xs app-muted">
-              {next.specialist.user.fullName} · {next.durationMin} daqiqa
+              {next.specialist.user.fullName} · {t("{n} daqiqa", { n: next.durationMin })}
             </p>
           </>
         ) : (
-          <p className="mt-1 text-sm app-muted">Rejada mashg&apos;ulot yo&apos;q.</p>
+          <p className="mt-1 text-sm app-muted">{t("Rejada mashg'ulot yo'q.")}</p>
         )}
       </section>
 
       <div className="mb-3 grid grid-cols-2 gap-2">
         <div className="app-card p-3">
-          <p className="text-xs app-muted">Qolgan seans</p>
+          <p className="text-xs app-muted">{t("Qolgan seans")}</p>
           {/* Kunlik to'laydigan bolada abonement yo'q — "0 seans qoldi" deb
               qizartirib qo'yish ota-onani bekorga xavotirga soladi */}
           {child.billingType === "PACKAGE" ? (
@@ -136,29 +138,29 @@ export async function ParentApp({
               {remaining}
             </p>
           ) : (
-            <p className="mt-1 text-lg font-bold app-muted">kunlik</p>
+            <p className="mt-1 text-lg font-bold app-muted">{t("kunlik")}</p>
           )}
         </div>
         <div className="app-card p-3">
-          <p className="text-xs app-muted">Qarzdorlik</p>
+          <p className="text-xs app-muted">{t("Qarzdorlik")}</p>
           <p
             className={`mt-1 text-lg font-bold tabular-nums ${debt > 0 ? "text-rose-600" : ""}`}
           >
-            {debt > 0 ? money(debt) : "yo'q"}
+            {debt > 0 ? money(debt) : t("yo'q")}
           </p>
         </div>
       </div>
 
       <nav className="mb-3 flex gap-1 overflow-x-auto">
-        {TABS.map((t) => (
+        {TABS.map((x) => (
           <Link
-            key={t.key}
-            href={`/m?child=${child.id}&tab=${t.key}`}
+            key={x.key}
+            href={`/m?child=${child.id}&tab=${x.key}`}
             className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-medium ${
-              t.key === tab ? "app-accent" : "app-card app-muted"
+              x.key === tab ? "app-accent" : "app-card app-muted"
             }`}
           >
-            {t.label}
+            {t(x.label)}
           </Link>
         ))}
       </nav>
@@ -166,7 +168,7 @@ export async function ParentApp({
       {tab === "schedule" ? (
         upcoming.length === 0 ? (
           <p className="app-card px-4 py-8 text-center text-sm app-muted">
-            Rejada mashg&apos;ulot yo&apos;q.
+            {t("Rejada mashg'ulot yo'q.")}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -178,10 +180,10 @@ export async function ParentApp({
                 </div>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {SPECIALIZATIONS[s.specialist.specialization as Specialization]}
+                    {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
                   </p>
                   <p className="truncate text-xs app-muted">
-                    {s.specialist.user.fullName} · {weekdayUz(s.startsAt)}
+                    {s.specialist.user.fullName} · {t.weekday(s.startsAt)}
                   </p>
                 </div>
               </li>
@@ -193,7 +195,7 @@ export async function ParentApp({
       {tab === "history" ? (
         history.length === 0 ? (
           <p className="app-card px-4 py-8 text-center text-sm app-muted">
-            Hali mashg&apos;ulot bo&apos;lmagan.
+            {t("Hali mashg'ulot bo'lmagan.")}
           </p>
         ) : (
           <ul className="space-y-2">
@@ -201,7 +203,7 @@ export async function ParentApp({
               <li key={s.id} className="app-card flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
-                    {SPECIALIZATIONS[s.specialist.specialization as Specialization]}
+                    {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
                   </p>
                   <p className="text-xs app-muted">
                     {dateShort(s.startsAt)} {timeUz(s.startsAt)} · {s.specialist.user.fullName}
@@ -216,7 +218,7 @@ export async function ParentApp({
                         : "bg-amber-100 text-amber-700"
                   }`}
                 >
-                  {SESSION_STATUSES[s.status as SessionStatus]}
+                  {t(SESSION_STATUSES[s.status as SessionStatus])}
                 </span>
               </li>
             ))}
@@ -227,16 +229,16 @@ export async function ParentApp({
       {tab === "billing" ? (
         <div className="space-y-2">
           {packages.length === 0 ? (
-            <p className="app-card px-4 py-8 text-center text-sm app-muted">Abonement yo&apos;q.</p>
+            <p className="app-card px-4 py-8 text-center text-sm app-muted">{t("Abonement yo'q.")}</p>
           ) : (
             packages.map((p) => (
               <section key={p.id} className="app-card p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">
-                    {SPECIALIZATIONS[p.specialization as Specialization]}
+                    {t(SPECIALIZATIONS[p.specialization as Specialization])}
                   </p>
                   <p className="text-sm tabular-nums app-muted">
-                    {p.remaining} / {p.totalSessions} qoldi
+                    {t("{left} / {total} qoldi", { left: p.remaining, total: p.totalSessions })}
                   </p>
                 </div>
                 <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10">
@@ -248,13 +250,14 @@ export async function ParentApp({
                   />
                 </div>
                 <p className="mt-1.5 text-xs app-muted">
-                  Seans narxi {money(p.pricePerSession)} · jami {money(p.cost)} · to&apos;langan{" "}
-                  {money(p.paid)}
-                  {p.expiresAt ? ` · ${dateShort(p.expiresAt)} gacha` : ""}
+                  {t("Seans narxi {sum}", { sum: money(p.pricePerSession) })} ·{" "}
+                  {t("jami {sum}", { sum: money(p.cost) })} ·{" "}
+                  {t("to'langan {sum}", { sum: money(p.paid) })}
+                  {p.expiresAt ? ` · ${t("{date} gacha", { date: dateShort(p.expiresAt) })}` : ""}
                 </p>
                 {p.debt > 0 ? (
                   <p className="mt-1 text-xs font-semibold text-rose-600">
-                    To&apos;lanmagan: {money(p.debt)}
+                    {t("To'lanmagan: {sum}", { sum: money(p.debt) })}
                   </p>
                 ) : null}
               </section>

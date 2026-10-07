@@ -1,5 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { getT } from "@/lib/i18n/server";
+import type { Vars } from "@/lib/i18n";
 
 /**
  * Amal bajarilmaganda foydalanuvchiga ko'rsatiladigan qisqa xabar.
@@ -18,11 +20,19 @@ export const FLASH_COOKIE = "logoped_flash";
  * kerak. Masalan tahrirlash formasi yopiladi va qator joyiga qaytadi — tashqi
  * ko'rinishda hech narsa o'zgarmagandek tuyuladi, holbuki saqlangan.
  */
-export async function setFlash(message: string, kind: "ok" | "err" = "err"): Promise<void> {
+export async function setFlash(
+  message: string,
+  kind: "ok" | "err" = "err",
+  vars?: Vars,
+): Promise<void> {
   const jar = await cookies();
+  // Amallardagi xabarlar o'zbekcha yozilgan ("Parol o'zgartirildi.") — ularni
+  // shu yerda, bitta joyda, tanlangan tilga o'giramiz. Shunda har bir action
+  // faylida tarjimani alohida chaqirish shart emas.
+  const t = await getT();
   // Qiymatni Next'ning o'zi kodlaydi — bu yerda qayta kodlash kerak emas,
   // aks holda brauzerda %20 lar ko'rinib qoladi.
-  jar.set(FLASH_COOKIE, `${kind}:${message}`, {
+  jar.set(FLASH_COOKIE, `${kind}:${t(message, vars)}`, {
     httpOnly: false, // brauzerdagi komponent o'qib, keyin o'chiradi
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

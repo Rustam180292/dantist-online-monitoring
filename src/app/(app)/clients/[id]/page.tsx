@@ -21,7 +21,7 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { getClientPackages } from "@/lib/stats";
-import { ageUz, dateShort, dateTimeUz, money, timeUz, toDateInput } from "@/lib/format";
+import { dateShort, dateTimeUz, timeUz, toDateInput } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -44,6 +44,7 @@ import {
   unassignSpecialist,
   updateClient,
 } from "../actions";
+import { getT } from "@/lib/i18n/server";
 
 const NOTIFICATION_KINDS: Record<string, string> = {
   SESSION_REMINDER: "Ertangi mashg'ulot eslatmasi",
@@ -64,6 +65,7 @@ export default async function ClientPage({
   // ochgach yana qidirib o'tirmasin
   const { ochiq } = await searchParams;
   const user = await requireUser();
+  const t = await getT();
   // Qabulxona xodimi mijoz bilan ishlaydi, lekin yozuvni o'chira olmaydi
   const canManage =
     user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
@@ -133,12 +135,12 @@ export default async function ClientPage({
     <>
       <PageHeader
         title={client.fullName}
-        subtitle={`${ageUz(client.birthDate)} · ${client.branch.name} · ${
-          CLIENT_STATUSES[client.status as ClientStatus]
-        } · ${BILLING_TYPES[(client.billingType as BillingType) ?? "DAILY"]}`}
+        subtitle={`${t.age(client.birthDate)} · ${client.branch.name} · ${
+          t(CLIENT_STATUSES[client.status as ClientStatus])
+        } · ${t(BILLING_TYPES[(client.billingType as BillingType) ?? "DAILY"])}`}
         action={
           <Link href="/clients" className={btn}>
-            ← Mijozlar
+            ← {t("Mijozlar")}
           </Link>
         }
       />
@@ -146,11 +148,11 @@ export default async function ClientPage({
       <div className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
           <Card
-            title={daily ? "To'lov turi" : "Abonementlar"}
+            title={daily ? t("To'lov turi") : t("Abonementlar")}
             subtitle={
               daily
-                ? "bu mijoz har kelganida to'laydi"
-                : "qolgan seanslar va to'lov holati"
+                ? t("bu mijoz har kelganida to'laydi")
+                : t("qolgan seanslar va to'lov holati")
             }
           >
             {/* Kunlik to'laydigan mijozga abonement ro'yxatini ko'rsatishning
@@ -159,17 +161,16 @@ export default async function ClientPage({
             {daily ? (
               <div className="space-y-2 p-4 text-sm text-slate-600 dark:text-slate-400">
                 <p>
-                  Seans narxi Sozlamalardagi standart narxdan olinadi. Qolgan seans
-                  va qarzdorlik hisoblanmaydi.
+                  {t("Seans narxi Sozlamalardagi standart narxdan olinadi. Qolgan seans va qarzdorlik hisoblanmaydi.")}
                 </p>
                 <p>
-                  Abonementga o&apos;tkazmoqchi bo&apos;lsangiz, pastdagi
-                  <b> Mijoz ma&apos;lumoti</b> bo&apos;limida to&apos;lov turini
-                  &laquo;Abonement&raquo; qilib saqlang.
+                  {t("Abonementga o'tkazmoqchi bo'lsangiz, pastdagi")}
+                  <b> {t("Mijoz ma'lumoti")}</b>{" "}
+                  {t("bo'limida to'lov turini «Abonement» qilib saqlang.")}
                 </p>
               </div>
             ) : packages.length === 0 ? (
-              <Empty>Abonement sotilmagan.</Empty>
+              <Empty>{t("Abonement sotilmagan.")}</Empty>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {packages.map((p) => {
@@ -178,7 +179,7 @@ export default async function ClientPage({
                     <li key={p.id} className="px-4 py-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                          {SPECIALIZATIONS[p.specialization as Specialization]}
+                          {t(SPECIALIZATIONS[p.specialization as Specialization])}
                         </p>
                         <div className="flex items-center gap-2">
                           <Badge
@@ -190,15 +191,15 @@ export default async function ClientPage({
                                   : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900"
                             }
                           >
-                            {p.remaining} seans qoldi
+                            {t("{n} seans qoldi", { n: p.remaining })}
                           </Badge>
                           {p.debt > 0 ? (
                             <Badge className="bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900">
-                              qarz {money(p.debt)}
+                              {t("qarz {sum}", { sum: t.money(p.debt) })}
                             </Badge>
                           ) : (
                             <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900">
-                              to&apos;langan
+                              {t("to'langan")}
                             </Badge>
                           )}
                         </div>
@@ -210,10 +211,11 @@ export default async function ClientPage({
                         />
                       </div>
                       <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                        {p.used}/{p.totalSessions} seans ishlatilgan · seans narxi{" "}
-                        {money(p.pricePerSession)} · jami {money(p.cost)} · to&apos;langan{" "}
-                        {money(p.paid)}
-                        {p.expiresAt ? ` · amal qiladi ${dateShort(p.expiresAt)} gacha` : ""}
+                        {t("{used}/{total} seans ishlatilgan", { used: p.used, total: p.totalSessions })} ·{" "}
+                        {t("seans narxi {sum}", { sum: t.money(p.pricePerSession) })} ·{" "}
+                        {t("jami {sum}", { sum: t.money(p.cost) })} ·{" "}
+                        {t("to'langan {sum}", { sum: t.money(p.paid) })}
+                        {p.expiresAt ? ` · ${t("amal qiladi {date} gacha", { date: dateShort(p.expiresAt) })}` : ""}
                       </p>
                     </li>
                   );
@@ -228,25 +230,25 @@ export default async function ClientPage({
                 className="border-t border-slate-200 p-4 dark:border-slate-800"
               >
                 <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  + Abonement sotish
+                  + {t("Abonement sotish")}
                 </summary>
                 <form action={addPackage} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <input type="hidden" name="clientId" value={client.id} />
                   <div>
                     <label className={label} htmlFor="specialization">
-                      Yo&apos;nalish
+                      {t("Yo'nalish")}
                     </label>
                     <select id="specialization" name="specialization" className={input} required>
                       {SPECIALIZATION_KEYS.map((s) => (
                         <option key={s} value={s}>
-                          {SPECIALIZATIONS[s]}
+                          {t(SPECIALIZATIONS[s])}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
                     <label className={label} htmlFor="totalSessions">
-                      Seans soni
+                      {t("Seans soni")}
                     </label>
                     <input
                       id="totalSessions"
@@ -261,7 +263,7 @@ export default async function ClientPage({
                   </div>
                   <div>
                     <label className={label} htmlFor="pricePerSession">
-                      Bitta seans narxi (so&apos;m)
+                      {t("Bitta seans narxi ({currency})", { currency: t.currency })}
                     </label>
                     <input
                       id="pricePerSession"
@@ -274,19 +276,19 @@ export default async function ClientPage({
                   </div>
                   <div>
                     <label className={label} htmlFor="prepaid">
-                      Darhol to&apos;landi (so&apos;m)
+                      {t("Darhol to'landi ({currency})", { currency: t.currency })}
                     </label>
                     <input id="prepaid" name="prepaid" inputMode="numeric" className={input} />
                   </div>
                   <div>
                     <label className={label} htmlFor="expiresAt">
-                      Amal qilish muddati
+                      {t("Amal qilish muddati")}
                     </label>
                     <input id="expiresAt" name="expiresAt" type="date" className={input} />
                   </div>
                   <div className="flex items-end">
                     <button type="submit" className={`${btnPrimary} w-full`}>
-                      Sotish
+                      {t("Sotish")}
                     </button>
                   </div>
                 </form>
@@ -294,19 +296,19 @@ export default async function ClientPage({
             ) : null}
           </Card>
 
-          <Card title="Seanslar tarixi" subtitle="oxirgi 30 ta">
+          <Card title={t("Seanslar tarixi")} subtitle={t("oxirgi 30 ta")}>
             {client.sessions.length === 0 ? (
-              <Empty>Seans yo&apos;q.</Empty>
+              <Empty>{t("Seans yo'q.")}</Empty>
             ) : (
               <div className="scroll-x">
                 <table className="w-full min-w-[620px]">
                   <thead className="border-b border-slate-200 dark:border-slate-800">
                     <tr>
-                      <th className={th}>Sana</th>
-                      <th className={th}>Vaqt</th>
-                      <th className={th}>Mutaxassis</th>
-                      <th className={th}>Holat</th>
-                      <th className={th}>Narx</th>
+                      <th className={th}>{t("Sana")}</th>
+                      <th className={th}>{t("Vaqt")}</th>
+                      <th className={th}>{t("Mutaxassis")}</th>
+                      <th className={th}>{t("Holat")}</th>
+                      <th className={th}>{t("Narx")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -317,16 +319,16 @@ export default async function ClientPage({
                         <td className={td}>
                           {s.specialist.user.fullName}
                           <span className="block text-xs text-slate-400">
-                            {SPECIALIZATIONS[s.specialist.specialization as Specialization]}
+                            {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
                           </span>
                         </td>
                         <td className={td}>
                           <Badge className={SESSION_STATUS_STYLE[s.status as SessionStatus]}>
-                            {SESSION_STATUSES[s.status as SessionStatus]}
+                            {t(SESSION_STATUSES[s.status as SessionStatus])}
                           </Badge>
                         </td>
                         <td className={`${td} tabular-nums`}>
-                          {s.price > 0 ? money(s.price) : "—"}
+                          {s.price > 0 ? t.money(s.price) : "—"}
                         </td>
                       </tr>
                     ))}
@@ -337,18 +339,18 @@ export default async function ClientPage({
           </Card>
 
           {canManage || user.role === "PARENT" ? (
-            <Card title="To'lovlar" subtitle={`jami ${money(totalPaid)}`}>
+            <Card title={t("To'lovlar")} subtitle={t("jami {sum}", { sum: t.money(totalPaid) })}>
               {client.payments.length === 0 ? (
-                <Empty>To&apos;lov yo&apos;q.</Empty>
+                <Empty>{t("To'lov yo'q.")}</Empty>
               ) : (
                 <div className="scroll-x">
                   <table className="w-full min-w-[560px]">
                     <thead className="border-b border-slate-200 dark:border-slate-800">
                       <tr>
-                        <th className={th}>Sana</th>
-                        <th className={th}>Summa</th>
-                        <th className={th}>Usul</th>
-                        <th className={th}>Izoh</th>
+                        <th className={th}>{t("Sana")}</th>
+                        <th className={th}>{t("Summa")}</th>
+                        <th className={th}>{t("Usul")}</th>
+                        <th className={th}>{t("Izoh")}</th>
                         {canDelete ? <th className={th} /> : null}
                       </tr>
                     </thead>
@@ -356,8 +358,8 @@ export default async function ClientPage({
                       {client.payments.map((p) => (
                         <tr key={p.id}>
                           <td className={`${td} tabular-nums`}>{dateTimeUz(p.paidAt)}</td>
-                          <td className={`${td} font-semibold tabular-nums`}>{money(p.amount)}</td>
-                          <td className={td}>{PAYMENT_METHODS[p.method as PaymentMethod]}</td>
+                          <td className={`${td} font-semibold tabular-nums`}>{t.money(p.amount)}</td>
+                          <td className={td}>{t(PAYMENT_METHODS[p.method as PaymentMethod])}</td>
                           <td className={td}>{p.note ?? "—"}</td>
                           {canDelete ? (
                             <td className={td}>
@@ -366,7 +368,7 @@ export default async function ClientPage({
                                 <button
                                   type="submit"
                                   className="text-xs text-slate-400 hover:text-rose-600"
-                                  title="O'chirish"
+                                  title={t("O'chirish")}
                                 >
                                   ✕
                                 </button>
@@ -387,13 +389,13 @@ export default async function ClientPage({
                   className="border-t border-slate-200 p-4 dark:border-slate-800"
                 >
                   <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    + To&apos;lov qabul qilish
+                    + {t("To'lov qabul qilish")}
                   </summary>
                   <form action={addPayment} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <input type="hidden" name="clientId" value={client.id} />
                     <div>
                       <label className={label} htmlFor="amount">
-                        Summa (so&apos;m)
+                        {t("Summa ({currency})", { currency: t.currency })}
                       </label>
                       <input
                         id="amount"
@@ -406,19 +408,19 @@ export default async function ClientPage({
                     </div>
                     <div>
                       <label className={label} htmlFor="method">
-                        Usul
+                        {t("Usul")}
                       </label>
                       <select id="method" name="method" className={input}>
                         {PAYMENT_METHOD_KEYS.map((m) => (
                           <option key={m} value={m}>
-                            {PAYMENT_METHODS[m]}
+                            {t(PAYMENT_METHODS[m])}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div>
                       <label className={label} htmlFor="paidAt">
-                        Sana
+                        {t("Sana")}
                       </label>
                       <input
                         id="paidAt"
@@ -430,28 +432,28 @@ export default async function ClientPage({
                     </div>
                     <div>
                       <label className={label} htmlFor="packageId">
-                        Abonement
+                        {t("Abonement")}
                       </label>
                       <select id="packageId" name="packageId" className={input}>
-                        <option value="">Avtomatik — qarzi bor abonementga</option>
+                        <option value="">{t("Avtomatik — qarzi bor abonementga")}</option>
                         {packages.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {SPECIALIZATIONS[p.specialization as Specialization]} ·{" "}
-                            {p.totalSessions} seans
-                            {p.debt > 0 ? ` (qarz ${money(p.debt)})` : ""}
+                            {t(SPECIALIZATIONS[p.specialization as Specialization])} ·{" "}
+                            {t("{n} seans", { n: p.totalSessions })}
+                            {p.debt > 0 ? ` (${t("qarz {sum}", { sum: t.money(p.debt) })})` : ""}
                           </option>
                         ))}
                       </select>
                     </div>
                     <div className="sm:col-span-2">
                       <label className={label} htmlFor="paymentNote">
-                        Izoh
+                        {t("Izoh")}
                       </label>
                       <input id="paymentNote" name="note" className={input} />
                     </div>
                     <div className="flex items-end">
                       <button type="submit" className={`${btnPrimary} w-full`}>
-                        Qabul qilish
+                        {t("Qabul qilish")}
                       </button>
                     </div>
                   </form>
@@ -460,18 +462,18 @@ export default async function ClientPage({
             </Card>
           ) : null}
           {canManage ? (
-            <Card title="Mijoz ma'lumoti" subtitle="xato yozilgan bo'lsa shu yerdan tuzating">
+            <Card title={t("Mijoz ma'lumoti")} subtitle={t("xato yozilgan bo'lsa shu yerdan tuzating")}>
               <form
                 action={updateClient}
                 className="grid gap-3 p-4 sm:grid-cols-2"
               >
                 <input type="hidden" name="clientId" value={client.id} />
                 <div>
-                  <label className={label}>Bolaning F.I.Sh. *</label>
+                  <label className={label}>{t("Bolaning F.I.Sh.")} *</label>
                   <input name="fullName" defaultValue={client.fullName} className={input} required />
                 </div>
                 <div>
-                  <label className={label}>Tug&apos;ilgan sana *</label>
+                  <label className={label}>{t("Tug'ilgan sana")} *</label>
                   <input
                     name="birthDate"
                     type="date"
@@ -481,15 +483,15 @@ export default async function ClientPage({
                   />
                 </div>
                 <div>
-                  <label className={label}>Jinsi</label>
+                  <label className={label}>{t("Jinsi")}</label>
                   <select name="gender" defaultValue={client.gender ?? ""} className={input}>
-                    <option value="">Ko&apos;rsatilmagan</option>
-                    <option value="M">O&apos;g&apos;il bola</option>
-                    <option value="F">Qiz bola</option>
+                    <option value="">{t("Ko'rsatilmagan")}</option>
+                    <option value="M">{t("O'g'il bola")}</option>
+                    <option value="F">{t("Qiz bola")}</option>
                   </select>
                 </div>
                 <div>
-                  <label className={label}>To&apos;lov turi</label>
+                  <label className={label}>{t("To'lov turi")}</label>
                   <select
                     name="billingType"
                     defaultValue={client.billingType ?? "DAILY"}
@@ -497,14 +499,14 @@ export default async function ClientPage({
                   >
                     {BILLING_TYPE_KEYS.map((k) => (
                       <option key={k} value={k}>
-                        {BILLING_TYPES[k]}
+                        {t(BILLING_TYPES[k])}
                       </option>
                     ))}
                   </select>
                 </div>
                 {branches.length > 0 ? (
                   <div>
-                    <label className={label}>Filial</label>
+                    <label className={label}>{t("Filial")}</label>
                     <select name="branchId" defaultValue={client.branchId} className={input}>
                       {branches.map((b) => (
                         <option key={b.id} value={b.id}>
@@ -515,7 +517,7 @@ export default async function ClientPage({
                   </div>
                 ) : null}
                 <div>
-                  <label className={label}>Ota-ona F.I.Sh. *</label>
+                  <label className={label}>{t("Ota-ona F.I.Sh.")} *</label>
                   <input
                     name="parentName"
                     defaultValue={client.parentName}
@@ -524,7 +526,7 @@ export default async function ClientPage({
                   />
                 </div>
                 <div>
-                  <label className={label}>Ota-ona telefoni *</label>
+                  <label className={label}>{t("Ota-ona telefoni")} *</label>
                   <input
                     name="parentPhone"
                     type="tel"
@@ -534,20 +536,19 @@ export default async function ClientPage({
                   />
                 </div>
                 <div>
-                  <label className={label}>Tashxis / shikoyat</label>
+                  <label className={label}>{t("Tashxis / shikoyat")}</label>
                   <input name="diagnosis" defaultValue={client.diagnosis ?? ""} className={input} />
                 </div>
                 <div>
-                  <label className={label}>Izoh</label>
+                  <label className={label}>{t("Izoh")}</label>
                   <input name="note" defaultValue={client.note ?? ""} className={input} />
                 </div>
                 <div className="sm:col-span-2">
                   <button type="submit" className={btnPrimary}>
-                    Saqlash
+                    {t("Saqlash")}
                   </button>
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    Telefon raqamni o&apos;zgartirsangiz, eslatmalar yangi raqamga boradi.
-                    Ota-ona Telegram&apos;ga qaytadan ulanishi kerak bo&apos;ladi.
+                    {t("Telefon raqamni o'zgartirsangiz, eslatmalar yangi raqamga boradi. Ota-ona Telegram'ga qaytadan ulanishi kerak bo'ladi.")}
                   </p>
                 </div>
               </form>
@@ -556,34 +557,34 @@ export default async function ClientPage({
         </div>
 
         <div className="space-y-5">
-          <Card title="Qisqa ma'lumot">
+          <Card title={t("Qisqa ma'lumot")}>
             <dl className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
-              <Row k="Ota-ona" v={client.parentName} />
-              <Row k="Telefon" v={client.parentPhone} />
-              <Row k="Tug'ilgan sana" v={dateShort(client.birthDate)} />
+              <Row k={t("Ota-ona")} v={client.parentName} />
+              <Row k={t("Telefon")} v={client.parentPhone} />
+              <Row k={t("Tug'ilgan sana")} v={dateShort(client.birthDate)} />
               <Row
-                k="Jinsi"
-                v={client.gender === "M" ? "O'g'il bola" : client.gender === "F" ? "Qiz bola" : "—"}
+                k={t("Jinsi")}
+                v={client.gender === "M" ? t("O'g'il bola") : client.gender === "F" ? t("Qiz bola") : "—"}
               />
-              <Row k="Tashxis" v={client.diagnosis ?? "—"} />
-              <Row k="Izoh" v={client.note ?? "—"} />
-              <Row k="Qolgan seans" v={String(remaining)} />
-              <Row k="Qarzdorlik" v={totalDebt > 0 ? money(totalDebt) : "yo'q"} />
-              <Row k="O'tgan seans (oxirgi 30)" v={String(doneCount)} />
+              <Row k={t("Tashxis")} v={client.diagnosis ?? "—"} />
+              <Row k={t("Izoh")} v={client.note ?? "—"} />
+              <Row k={t("Qolgan seans")} v={String(remaining)} />
+              <Row k={t("Qarzdorlik")} v={totalDebt > 0 ? t.money(totalDebt) : t("yo'q")} />
+              <Row k={t("O'tgan seans (oxirgi 30)")} v={String(doneCount)} />
               <Row
-                k="Ota-ona kabineti"
-                v={client.parent ? `ochilgan (${client.parent.phone})` : "ochilmagan"}
+                k={t("Ota-ona kabineti")}
+                v={client.parent ? `${t("ochilgan")} (${client.parent.phone})` : t("ochilmagan")}
               />
               <Row
                 k="Telegram"
-                v={client.parent?.telegramId ? "ulangan" : "ulanmagan"}
+                v={client.parent?.telegramId ? t("ulangan") : t("ulanmagan")}
               />
             </dl>
           </Card>
 
-          <Card title="Mutaxassislar">
+          <Card title={t("Mutaxassislar")}>
             {client.specialists.length === 0 ? (
-              <Empty>Biriktirilmagan.</Empty>
+              <Empty>{t("Biriktirilmagan.")}</Empty>
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                 {client.specialists.map((a) => (
@@ -593,7 +594,7 @@ export default async function ClientPage({
                         {a.specialist.user.fullName}
                       </p>
                       <p className="truncate text-xs text-slate-400">
-                        {SPECIALIZATIONS[a.specialist.specialization as Specialization]}
+                        {t(SPECIALIZATIONS[a.specialist.specialization as Specialization])}
                       </p>
                     </div>
                     {canManage ? (
@@ -603,7 +604,7 @@ export default async function ClientPage({
                         <button
                           type="submit"
                           className="text-xs text-slate-400 hover:text-rose-600"
-                          title="Olib tashlash"
+                          title={t("Olib tashlash")}
                         >
                           ✕
                         </button>
@@ -622,38 +623,38 @@ export default async function ClientPage({
                 <input type="hidden" name="clientId" value={client.id} />
                 <div className="flex-1">
                   <label className={label} htmlFor="specialistId">
-                    Biriktirish
+                    {t("Biriktirish")}
                   </label>
                   <select id="specialistId" name="specialistId" className={input} required>
                     {freeSpecialists.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.user.fullName} — {SPECIALIZATIONS[s.specialization as Specialization]}
+                        {s.user.fullName} — {t(SPECIALIZATIONS[s.specialization as Specialization])}
                       </option>
                     ))}
                   </select>
                 </div>
                 <button type="submit" className={btnPrimary}>
-                  Qo&apos;shish
+                  {t("Qo'shish")}
                 </button>
               </form>
             ) : null}
           </Card>
 
           {canManage ? (
-            <Card title="Ota-onaga ketgan xabarlar" subtitle="oxirgi 8 ta">
+            <Card title={t("Ota-onaga ketgan xabarlar")} subtitle={t("oxirgi 8 ta")}>
               {!client.parent?.telegramId ? (
                 <Empty>
-                  Ota-ona Telegram botga ulanmagan — unga avtomatik xabar bormaydi.
+                  {t("Ota-ona Telegram botga ulanmagan — unga avtomatik xabar bormaydi.")}
                 </Empty>
               ) : notifications.length === 0 ? (
-                <Empty>Hali xabar yuborilmagan.</Empty>
+                <Empty>{t("Hali xabar yuborilmagan.")}</Empty>
               ) : (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {notifications.map((n) => (
                     <li key={n.id} className="px-4 py-2.5">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-medium text-slate-800 dark:text-slate-200">
-                          {NOTIFICATION_KINDS[n.kind] ?? n.kind}
+                          {NOTIFICATION_KINDS[n.kind] ? t(NOTIFICATION_KINDS[n.kind]) : n.kind}
                         </span>
                         <Badge
                           className={
@@ -662,7 +663,7 @@ export default async function ClientPage({
                               : "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900"
                           }
                         >
-                          {n.sentAt ? "yuborildi" : "navbatda"}
+                          {n.sentAt ? t("yuborildi") : t("navbatda")}
                         </Badge>
                       </div>
                       <p className="text-xs text-slate-400">
@@ -677,7 +678,7 @@ export default async function ClientPage({
           ) : null}
 
           {canManage ? (
-            <Card title="Holat">
+            <Card title={t("Holat")}>
               <div className="flex flex-wrap gap-2 p-4">
                 {CLIENT_STATUS_KEYS.map((s) => (
                   <form key={s} action={setClientStatus}>
@@ -690,7 +691,7 @@ export default async function ClientPage({
                         client.status === s ? "border-indigo-300 text-indigo-700" : ""
                       }`}
                     >
-                      {CLIENT_STATUSES[s]}
+                      {t(CLIENT_STATUSES[s])}
                     </button>
                   </form>
                 ))}

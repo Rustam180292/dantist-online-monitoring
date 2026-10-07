@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/components/i18n";
 
 type Option = { id: string; name: string };
 
@@ -28,6 +29,7 @@ export function ClientFilters({
   ages: number[];
   hasActions: boolean;
 }) {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const [name, setName] = useState(params.get("n") ?? "");
@@ -69,8 +71,8 @@ export function ClientFilters({
             typed.current = true;
             setName(e.target.value);
           }}
-          placeholder="Ism"
-          aria-label="Ism bo'yicha filtr"
+          placeholder={t("Ism")}
+          aria-label={t("Ism bo'yicha filtr")}
           className={cell}
         />
       </td>
@@ -78,13 +80,13 @@ export function ClientFilters({
         <select
           value={params.get("age") ?? ""}
           onChange={(e) => apply({ age: e.target.value })}
-          aria-label="Yosh bo'yicha filtr"
+          aria-label={t("Yosh bo'yicha filtr")}
           className={cell}
         >
-          <option value="">Hammasi</option>
+          <option value="">{t("Hammasi")}</option>
           {ages.map((a) => (
             <option key={a} value={String(a)}>
-              {a} yosh
+              {t("{n} yosh", { n: a })}
             </option>
           ))}
         </select>
@@ -94,10 +96,10 @@ export function ClientFilters({
           <select
             value={params.get("b") ?? ""}
             onChange={(e) => apply({ b: e.target.value })}
-            aria-label="Filial bo'yicha filtr"
+            aria-label={t("Filial bo'yicha filtr")}
             className={cell}
           >
-            <option value="">Hammasi</option>
+            <option value="">{t("Hammasi")}</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -110,10 +112,10 @@ export function ClientFilters({
         <select
           value={params.get("sp") ?? ""}
           onChange={(e) => apply({ sp: e.target.value })}
-          aria-label="Mutaxassis bo'yicha filtr"
+          aria-label={t("Mutaxassis bo'yicha filtr")}
           className={cell}
         >
-          <option value="">Hammasi</option>
+          <option value="">{t("Hammasi")}</option>
           {specialists.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -128,8 +130,8 @@ export function ClientFilters({
             typed.current = true;
             setPhone(e.target.value);
           }}
-          placeholder="Telefon"
-          aria-label="Telefon bo'yicha filtr"
+          placeholder={t("Telefon")}
+          aria-label={t("Telefon bo'yicha filtr")}
           className={cell}
         />
         {/* Telegram'ga ulanmagan ota-onaga eslatma bormaydi — ularni bir
@@ -137,37 +139,37 @@ export function ClientFilters({
         <select
           value={params.get("tg") ?? ""}
           onChange={(e) => apply({ tg: e.target.value })}
-          aria-label="Telegram bo'yicha filtr"
+          aria-label={t("Telegram bo'yicha filtr")}
           className={`${cell} mt-1`}
         >
-          <option value="">Telegram: hammasi</option>
-          <option value="bor">Ulangan</option>
-          <option value="yoq">Ulanmagan</option>
+          <option value="">{t("Telegram: hammasi")}</option>
+          <option value="bor">{t("Ulangan")}</option>
+          <option value="yoq">{t("Ulanmagan")}</option>
         </select>
       </td>
       <td className="px-4 py-2">
         <select
           value={params.get("rem") ?? ""}
           onChange={(e) => apply({ rem: e.target.value })}
-          aria-label="Qolgan seans bo'yicha filtr"
+          aria-label={t("Qolgan seans bo'yicha filtr")}
           className={cell}
         >
-          <option value="">Hammasi</option>
-          <option value="0">Tugagan (0)</option>
-          <option value="low">Kam (1-2)</option>
-          <option value="ok">Yetarli (3+)</option>
+          <option value="">{t("Hammasi")}</option>
+          <option value="0">{t("Tugagan (0)")}</option>
+          <option value="low">{t("Kam (1-2)")}</option>
+          <option value="ok">{t("Yetarli (3+)")}</option>
         </select>
         {/* Kunlik to'laydigan mijozda "qolgan seans" yo'q — ularni shu yerdan
             ajratib olish eng tabiiy joy */}
         <select
           value={params.get("bt") ?? ""}
           onChange={(e) => apply({ bt: e.target.value })}
-          aria-label="To'lov turi bo'yicha filtr"
+          aria-label={t("To'lov turi bo'yicha filtr")}
           className={`${cell} mt-1`}
         >
-          <option value="">Turi: hammasi</option>
-          <option value="DAILY">Kunlik</option>
-          <option value="PACKAGE">Abonement</option>
+          <option value="">{t("Turi: hammasi")}</option>
+          <option value="DAILY">{t("Kunlik")}</option>
+          <option value="PACKAGE">{t("Abonement")}</option>
         </select>
       </td>
       <td className="px-4 py-2" />
@@ -175,10 +177,10 @@ export function ClientFilters({
         <select
           value={params.get("st") ?? ""}
           onChange={(e) => apply({ st: e.target.value })}
-          aria-label="Holat bo'yicha filtr"
+          aria-label={t("Holat bo'yicha filtr")}
           className={cell}
         >
-          <option value="">Hammasi</option>
+          <option value="">{t("Hammasi")}</option>
           {statuses.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -196,7 +198,7 @@ export function ClientFilters({
             }}
             className="mt-1 text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
           >
-            Tozalash
+            {t("Tozalash")}
           </button>
         ) : null}
       </td>

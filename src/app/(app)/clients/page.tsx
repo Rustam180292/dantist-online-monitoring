@@ -12,7 +12,6 @@ import {
   type ClientStatus,
   type Specialization,
 } from "@/lib/constants";
-import { ageUz, money } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -27,6 +26,7 @@ import {
 } from "@/components/ui";
 import { createClient } from "./actions";
 import { ClientFilters } from "./filters";
+import { getT } from "@/lib/i18n/server";
 
 type Search = {
   n?: string;
@@ -82,6 +82,7 @@ export default async function ClientsPage({
   searchParams: Promise<Search>;
 }) {
   const user = await requireUser();
+  const t = await getT();
   const sp = await searchParams;
   const canManage =
     user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
@@ -209,59 +210,59 @@ export default async function ClientsPage({
   return (
     <>
       <PageHeader
-        title="Mijozlar"
-        subtitle={`${visible.length} ta mijoz${
-          rows.length !== visible.length ? ` (jami ${rows.length})` : ""
-        }${user.role === "SPECIALIST" ? " · menga biriktirilgan" : ""}`}
+        title={t("Mijozlar")}
+        subtitle={`${t("{n} ta mijoz", { n: visible.length })}${
+          rows.length !== visible.length ? ` (${t("jami {n}", { n: rows.length })})` : ""
+        }${user.role === "SPECIALIST" ? ` · ${t("menga biriktirilgan")}` : ""}`}
       />
 
       {canManage ? (
         <details className={`${card} mb-5 p-4`}>
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-            + Yangi mijoz qo&apos;shish
+            + {t("Yangi mijoz qo'shish")}
           </summary>
           <form action={createClient} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
               <label className={label} htmlFor="fullName">
-                Bolaning F.I.Sh. *
+                {t("Bolaning F.I.Sh.")} *
               </label>
               <input id="fullName" name="fullName" className={input} required />
             </div>
             <div>
               <label className={label} htmlFor="birthDate">
-                Tug&apos;ilgan sana *
+                {t("Tug'ilgan sana")} *
               </label>
               <input id="birthDate" name="birthDate" type="date" className={input} required />
             </div>
             <div>
               <label className={label} htmlFor="gender">
-                Jinsi
+                {t("Jinsi")}
               </label>
               <select id="gender" name="gender" className={input}>
                 <option value="">—</option>
-                <option value="M">O&apos;g&apos;il bola</option>
-                <option value="F">Qiz bola</option>
+                <option value="M">{t("O'g'il bola")}</option>
+                <option value="F">{t("Qiz bola")}</option>
               </select>
             </div>
             <div>
               <label className={label} htmlFor="billingType">
-                To&apos;lov turi
+                {t("To'lov turi")}
               </label>
               <select id="billingType" name="billingType" className={input}>
                 {BILLING_TYPE_KEYS.map((k) => (
                   <option key={k} value={k}>
-                    {BILLING_TYPES[k]}
+                    {t(BILLING_TYPES[k])}
                   </option>
                 ))}
               </select>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Kunlikda har kelganida to&apos;laydi, abonementda oldindan.
+                {t("Kunlikda har kelganida to'laydi, abonementda oldindan.")}
               </p>
             </div>
             {user.role === "OWNER" ? (
               <div>
                 <label className={label} htmlFor="branchId">
-                  Filial *
+                  {t("Filial")} *
                 </label>
                 <select id="branchId" name="branchId" className={input} required>
                   {branches.map((b) => (
@@ -274,13 +275,13 @@ export default async function ClientsPage({
             ) : null}
             <div>
               <label className={label} htmlFor="parentName">
-                Ota-ona F.I.Sh. *
+                {t("Ota-ona F.I.Sh.")} *
               </label>
               <input id="parentName" name="parentName" className={input} required />
             </div>
             <div>
               <label className={label} htmlFor="parentPhone">
-                Ota-ona telefoni *
+                {t("Ota-ona telefoni")} *
               </label>
               <input
                 id="parentPhone"
@@ -293,31 +294,31 @@ export default async function ClientsPage({
             </div>
             <div>
               <label className={label} htmlFor="parentPassword">
-                Ota-ona kabineti uchun parol
+                {t("Ota-ona kabineti uchun parol")}
               </label>
               <input
                 id="parentPassword"
                 name="parentPassword"
                 type="text"
-                placeholder="bo'sh qoldirsangiz kabinet ochilmaydi"
+                placeholder={t("bo'sh qoldirsangiz kabinet ochilmaydi")}
                 className={input}
               />
             </div>
             <div className="sm:col-span-2">
               <label className={label} htmlFor="diagnosis">
-                Tashxis / shikoyat
+                {t("Tashxis / shikoyat")}
               </label>
               <input id="diagnosis" name="diagnosis" className={input} />
             </div>
             <div className="sm:col-span-2 lg:col-span-3">
               <label className={label} htmlFor="note">
-                Izoh
+                {t("Izoh")}
               </label>
               <input id="note" name="note" className={input} />
             </div>
             <div className="flex items-end">
               <button type="submit" className={`${btnPrimary} w-full`}>
-                Saqlash
+                {t("Saqlash")}
               </button>
             </div>
           </form>
@@ -326,28 +327,28 @@ export default async function ClientsPage({
 
       <Card>
         {rows.length === 0 && !hasFilter ? (
-          <Empty>Hali mijoz qo&apos;shilmagan.</Empty>
+          <Empty>{t("Hali mijoz qo'shilmagan.")}</Empty>
         ) : (
           <div className="scroll-x">
             <table className="w-full min-w-[1240px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th className={th}>Bola</th>
-                  <th className={th}>Yoshi</th>
-                  {user.role === "OWNER" ? <th className={th}>Filial</th> : null}
-                  <th className={th}>Mutaxassis</th>
-                  <th className={th}>Ota-ona</th>
-                  <th className={th}>Qolgan seans</th>
-                  <th className={th}>Qarz</th>
-                  <th className={th}>Holat</th>
+                  <th className={th}>{t("Bola")}</th>
+                  <th className={th}>{t("Yoshi")}</th>
+                  {user.role === "OWNER" ? <th className={th}>{t("Filial")}</th> : null}
+                  <th className={th}>{t("Mutaxassis")}</th>
+                  <th className={th}>{t("Ota-ona")}</th>
+                  <th className={th}>{t("Qolgan seans")}</th>
+                  <th className={th}>{t("Qarz")}</th>
+                  <th className={th}>{t("Holat")}</th>
                   {canManage ? (
-                    <th className={`${th} ${stickyCell} text-right`}>Amallar</th>
+                    <th className={`${th} ${stickyCell} text-right`}>{t("Amallar")}</th>
                   ) : null}
                 </tr>
                 <ClientFilters
                   branches={user.role === "OWNER" ? branches.map((b) => ({ id: b.id, name: b.name })) : []}
                   specialists={specialists.map((x) => ({ id: x.id, name: x.user.fullName }))}
-                  statuses={CLIENT_STATUS_KEYS.map((k) => ({ id: k, name: CLIENT_STATUSES[k] }))}
+                  statuses={CLIENT_STATUS_KEYS.map((k) => ({ id: k, name: t(CLIENT_STATUSES[k]) }))}
                   ages={AGE_OPTIONS}
                   hasActions={canManage}
                 />
@@ -368,7 +369,7 @@ export default async function ClientsPage({
                         </span>
                       ) : null}
                     </td>
-                    <td className={td}>{ageUz(c.birthDate)}</td>
+                    <td className={td}>{t.age(c.birthDate)}</td>
                     {user.role === "OWNER" ? <td className={td}>{c.branch.name}</td> : null}
                     <td className={td}>
                       <div className="flex flex-wrap gap-1">
@@ -381,7 +382,7 @@ export default async function ClientsPage({
                                 {a.specialist.user.fullName}
                               </span>
                               <span className="ml-1.5 text-xs text-slate-400">
-                                {SPECIALIZATIONS[a.specialist.specialization as Specialization]}
+                                {t(SPECIALIZATIONS[a.specialist.specialization as Specialization])}
                               </span>
                             </span>
                           ))
@@ -393,14 +394,14 @@ export default async function ClientsPage({
                       <span className="block text-xs text-slate-400">{c.parentPhone}</span>
                       {c.parent?.telegramId ? (
                         <span className="mt-0.5 block text-xs text-emerald-600 dark:text-emerald-400">
-                          Telegram ulangan
+                          {t("Telegram ulangan")}
                         </span>
                       ) : (
                         <span
                           className="mt-0.5 block text-xs text-amber-600 dark:text-amber-400"
-                          title="Eslatmalar bormaydi — mijoz kartasidan ulanish havolasini bering"
+                          title={t("Eslatmalar bormaydi — mijoz kartasidan ulanish havolasini bering")}
                         >
-                          Telegram yo&apos;q
+                          {t("Telegram yo'q")}
                         </span>
                       )}
                     </td>
@@ -408,8 +409,8 @@ export default async function ClientsPage({
                       {/* Kunlik to'laydigan mijozning "qolgan seansi" 0 emas,
                           umuman yo'q. Qizil 0 yozib qo'yilsa bekorga qo'rqitadi. */}
                       {c.billingType !== "PACKAGE" ? (
-                        <span className="text-slate-400" title="Har kelganida to'laydi">
-                          kunlik
+                        <span className="text-slate-400" title={t("Har kelganida to'laydi")}>
+                          {t("kunlik")}
                         </span>
                       ) : (
                         <span
@@ -428,7 +429,7 @@ export default async function ClientsPage({
                     <td className={`${td} tabular-nums`}>
                       {c.debt > 0 ? (
                         <span className="font-semibold text-rose-600 dark:text-rose-400">
-                          {money(c.debt)}
+                          {t.money(c.debt)}
                         </span>
                       ) : (
                         <span className="text-slate-400">—</span>
@@ -436,7 +437,7 @@ export default async function ClientsPage({
                     </td>
                     <td className={td}>
                       <Badge className={STATUS_STYLE[c.status as ClientStatus]}>
-                        {CLIENT_STATUSES[c.status as ClientStatus]}
+                        {t(CLIENT_STATUSES[c.status as ClientStatus])}
                       </Badge>
                     </td>
                     {canManage ? (
@@ -445,10 +446,10 @@ export default async function ClientsPage({
                       >
                         <div className="flex justify-end gap-1.5 whitespace-nowrap">
                           <Link href={`/schedule?yangi=${c.id}#yangi`} className={btnTiny}>
-                            Seans
+                            {t("Seans")}
                           </Link>
                           <Link href={`/clients/${c.id}?ochiq=tolov#tolov`} className={btnTiny}>
-                            To&apos;lov
+                            {t("To'lov")}
                           </Link>
                           {/* Kunlik to'laydigan mijozga abonement taklif
                               qilinmaydi — unda bunaqa tushuncha yo'q */}
@@ -457,7 +458,7 @@ export default async function ClientsPage({
                               href={`/clients/${c.id}?ochiq=abonement#abonement`}
                               className={btnTiny}
                             >
-                              Abonement
+                              {t("Abonement")}
                             </Link>
                           ) : null}
                         </div>

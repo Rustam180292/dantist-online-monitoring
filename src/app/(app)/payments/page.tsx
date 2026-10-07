@@ -9,7 +9,7 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { getClientAlerts, monthRange } from "@/lib/stats";
-import { dateTimeUz, money, monthYearUz, toDateInput } from "@/lib/format";
+import { dateTimeUz, toDateInput } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -25,6 +25,7 @@ import {
   th,
 } from "@/components/ui";
 import { addPayment } from "@/app/(app)/clients/actions";
+import { getT } from "@/lib/i18n/server";
 
 type Search = { m?: string; b?: string; pm?: string; q?: string };
 
@@ -34,6 +35,7 @@ export default async function PaymentsPage({
   searchParams: Promise<Search>;
 }) {
   const user = await requireRole("OWNER", "BRANCH_ADMIN", "RECEPTION");
+  const t = await getT();
   const sp = await searchParams;
 
   const offset = Number.parseInt(sp.m ?? "0", 10) || 0;
@@ -115,7 +117,7 @@ export default async function PaymentsPage({
   }
   const clientLabel = (c: (typeof clients)[number]) => {
     const debt = debtByClient.get(c.id) ?? 0;
-    return debt > 0 ? `${c.fullName} — qarz ${money(debt)}` : c.fullName;
+    return debt > 0 ? `${c.fullName} — ${t("qarz {sum}", { sum: t.money(debt) })}` : c.fullName;
   };
 
   const qs = (o: number) => {
@@ -129,23 +131,23 @@ export default async function PaymentsPage({
   return (
     <>
       <PageHeader
-        title="To'lovlar"
-        subtitle={`${monthYearUz(from)} · ${payments.length} ta to'lov${
-          intakes.length > 0 ? ` · ${intakes.length} ta konsultatsiya` : ""
+        title={t("To'lovlar")}
+        subtitle={`${t.monthYear(from)} · ${t("{n} ta to'lov", { n: payments.length })}${
+          intakes.length > 0 ? ` · ${t("{n} ta konsultatsiya", { n: intakes.length })}` : ""
         }`}
         action={
           <div className="flex gap-2">
             <Link href={qs(offset - 1)} className={btn}>
-              ← O&apos;tgan oy
+              ← {t("O'tgan oy")}
             </Link>
             {offset !== 0 ? (
               <Link href={qs(0)} className={btn}>
-                Bu oy
+                {t("Bu oy")}
               </Link>
             ) : null}
             {offset < 0 ? (
               <Link href={qs(offset + 1)} className={btn}>
-                Keyingi oy →
+                {t("Keyingi oy")} →
               </Link>
             ) : null}
           </div>
@@ -154,18 +156,18 @@ export default async function PaymentsPage({
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard
-          label="Jami tushum"
-          value={money(total)}
-          hint={intakeTotal > 0 ? `${money(intakeTotal)} konsultatsiyadan` : undefined}
+          label={t("Jami tushum")}
+          value={t.money(total)}
+          hint={intakeTotal > 0 ? t("{sum} konsultatsiyadan", { sum: t.money(intakeTotal) }) : undefined}
           tone="good"
         />
         {byMethod.map((m) => (
-          <StatCard key={m.method} label={PAYMENT_METHODS[m.method]} value={money(m.sum)} />
+          <StatCard key={m.method} label={t(PAYMENT_METHODS[m.method])} value={t.money(m.sum)} />
         ))}
         <StatCard
-          label="Qarzdorlik"
-          value={money(totalDebt)}
-          hint={`${alerts.debtors.length} ta abonement`}
+          label={t("Qarzdorlik")}
+          value={t.money(totalDebt)}
+          hint={t("{n} ta abonement", { n: alerts.debtors.length })}
           tone={totalDebt > 0 ? "bad" : "default"}
         />
       </div>
@@ -175,10 +177,10 @@ export default async function PaymentsPage({
         {branches.length > 0 ? (
           <div className="min-w-[170px]">
             <label className={label} htmlFor="b">
-              Filial
+              {t("Filial")}
             </label>
             <select id="b" name="b" defaultValue={sp.b ?? ""} className={input}>
-              <option value="">Barchasi</option>
+              <option value="">{t("Barchasi")}</option>
               {branches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
@@ -189,53 +191,53 @@ export default async function PaymentsPage({
         ) : null}
         <div className="min-w-[150px]">
           <label className={label} htmlFor="pm">
-            To&apos;lov usuli
+            {t("To'lov usuli")}
           </label>
           <select id="pm" name="pm" defaultValue={sp.pm ?? ""} className={input}>
-            <option value="">Barchasi</option>
+            <option value="">{t("Barchasi")}</option>
             {PAYMENT_METHOD_KEYS.map((m) => (
               <option key={m} value={m}>
-                {PAYMENT_METHODS[m]}
+                {t(PAYMENT_METHODS[m])}
               </option>
             ))}
           </select>
         </div>
         <div className="min-w-[200px]">
           <label className={label} htmlFor="q">
-            Bola ismi
+            {t("Bola ismi")}
           </label>
           <input
             id="q"
             name="q"
             defaultValue={sp.q ?? ""}
-            placeholder="ism bo'yicha qidirish"
+            placeholder={t("ism bo'yicha qidirish")}
             className={input}
           />
         </div>
         <button type="submit" className={btnPrimary}>
-          Filtrlash
+          {t("Filtrlash")}
         </button>
         {sp.q || sp.pm || sp.b ? (
           <Link href={`/payments?m=${offset}`} className={btn}>
-            Tozalash
+            {t("Tozalash")}
           </Link>
         ) : null}
       </form>
 
       <details className={`${card} mb-5 p-4`} open={payments.length === 0}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-          + To&apos;lov qabul qilish
+          + {t("To'lov qabul qilish")}
         </summary>
         {clients.length === 0 ? (
           <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-            Avval mijoz qo&apos;shing.
+            {t("Avval mijoz qo'shing.")}
           </p>
         ) : (
           <>
             <form action={addPayment} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="lg:col-span-2">
                 <label className={label} htmlFor="clientId">
-                  Mijoz *
+                  {t("Mijoz")} *
                 </label>
                 <select id="clientId" name="clientId" className={input} required>
                   {user.role === "OWNER" && !branchId
@@ -257,7 +259,7 @@ export default async function PaymentsPage({
               </div>
               <div>
                 <label className={label} htmlFor="amount">
-                  Summa (so&apos;m) *
+                  {t("Summa ({currency})", { currency: t.currency })} *
                 </label>
                 <input
                   id="amount"
@@ -270,19 +272,19 @@ export default async function PaymentsPage({
               </div>
               <div>
                 <label className={label} htmlFor="method">
-                  Usul
+                  {t("Usul")}
                 </label>
                 <select id="method" name="method" className={input}>
                   {PAYMENT_METHOD_KEYS.map((m) => (
                     <option key={m} value={m}>
-                      {PAYMENT_METHODS[m]}
+                      {t(PAYMENT_METHODS[m])}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
                 <label className={label} htmlFor="paidAt">
-                  Sana
+                  {t("Sana")}
                 </label>
                 <input
                   id="paidAt"
@@ -294,40 +296,38 @@ export default async function PaymentsPage({
               </div>
               <div className="sm:col-span-2">
                 <label className={label} htmlFor="note">
-                  Izoh
+                  {t("Izoh")}
                 </label>
-                <input id="note" name="note" className={input} placeholder="ixtiyoriy" />
+                <input id="note" name="note" className={input} placeholder={t("ixtiyoriy")} />
               </div>
               <div className="flex items-end">
                 <button type="submit" className={`${btnPrimary} w-full`}>
-                  Qabul qilish
+                  {t("Qabul qilish")}
                 </button>
               </div>
             </form>
             <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-              Summa mijozning qarzi bor abonementlariga eng eskisidan boshlab taqsimlanadi.
-              Ortgan qismi oldindan to&apos;lov sifatida yoziladi. Aniq bir abonementga
-              yozmoqchi bo&apos;lsangiz — mijoz kartasidan kiriting.
+              {t("Summa mijozning qarzi bor abonementlariga eng eskisidan boshlab taqsimlanadi. Ortgan qismi oldindan to'lov sifatida yoziladi. Aniq bir abonementga yozmoqchi bo'lsangiz — mijoz kartasidan kiriting.")}
             </p>
           </>
         )}
       </details>
 
       <div className="grid gap-5 xl:grid-cols-3">
-        <Card className="xl:col-span-2" title="To'lovlar ro'yxati">
+        <Card className="xl:col-span-2" title={t("To'lovlar ro'yxati")}>
           {payments.length === 0 ? (
-            <Empty>Bu davrda to&apos;lov yo&apos;q.</Empty>
+            <Empty>{t("Bu davrda to'lov yo'q.")}</Empty>
           ) : (
             <div className="scroll-x">
               <table className="w-full min-w-[720px]">
                 <thead className="border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className={th}>Sana</th>
-                    <th className={th}>Mijoz</th>
-                    {!branchId ? <th className={th}>Filial</th> : null}
-                    <th className={th}>Yo&apos;nalish</th>
-                    <th className={th}>Usul</th>
-                    <th className={th}>Summa</th>
+                    <th className={th}>{t("Sana")}</th>
+                    <th className={th}>{t("Mijoz")}</th>
+                    {!branchId ? <th className={th}>{t("Filial")}</th> : null}
+                    <th className={th}>{t("Yo'nalish")}</th>
+                    <th className={th}>{t("Usul")}</th>
+                    <th className={th}>{t("Summa")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -345,13 +345,13 @@ export default async function PaymentsPage({
                       {!branchId ? <td className={td}>{p.branch.name}</td> : null}
                       <td className={td}>
                         {p.package
-                          ? SPECIALIZATIONS[p.package.specialization as Specialization]
+                          ? t(SPECIALIZATIONS[p.package.specialization as Specialization])
                           : "—"}
                       </td>
                       <td className={td}>
-                        <Badge>{PAYMENT_METHODS[p.method as PaymentMethod]}</Badge>
+                        <Badge>{t(PAYMENT_METHODS[p.method as PaymentMethod])}</Badge>
                       </td>
-                      <td className={`${td} font-semibold tabular-nums`}>{money(p.amount)}</td>
+                      <td className={`${td} font-semibold tabular-nums`}>{t.money(p.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -363,11 +363,11 @@ export default async function PaymentsPage({
         {intakes.length > 0 ? (
           <Card
             className="xl:col-span-2"
-            title="Konsultatsiyalar"
-            subtitle="qabullardan tushgan pul"
+            title={t("Konsultatsiyalar")}
+            subtitle={t("qabullardan tushgan pul")}
             action={
               <Link href="/intakes" className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                Qabullar →
+                {t("Qabullar")} →
               </Link>
             }
           >
@@ -375,12 +375,12 @@ export default async function PaymentsPage({
               <table className="w-full min-w-[620px]">
                 <thead className="border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className={th}>Sana</th>
-                    <th className={th}>Bola</th>
-                    <th className={th}>Kim ko&apos;rdi</th>
-                    {!branchId ? <th className={th}>Filial</th> : null}
-                    <th className={th}>Usul</th>
-                    <th className={th}>Summa</th>
+                    <th className={th}>{t("Sana")}</th>
+                    <th className={th}>{t("Bola")}</th>
+                    <th className={th}>{t("Kim ko'rdi")}</th>
+                    {!branchId ? <th className={th}>{t("Filial")}</th> : null}
+                    <th className={th}>{t("Usul")}</th>
+                    <th className={th}>{t("Summa")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -395,9 +395,9 @@ export default async function PaymentsPage({
                       </td>
                       {!branchId ? <td className={td}>{i.branch.name}</td> : null}
                       <td className={td}>
-                        <Badge>{PAYMENT_METHODS[i.method as PaymentMethod]}</Badge>
+                        <Badge>{t(PAYMENT_METHODS[i.method as PaymentMethod])}</Badge>
                       </td>
-                      <td className={`${td} font-semibold tabular-nums`}>{money(i.price)}</td>
+                      <td className={`${td} font-semibold tabular-nums`}>{t.money(i.price)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -406,9 +406,9 @@ export default async function PaymentsPage({
           </Card>
         ) : null}
 
-        <Card title="Qarzdorlar" subtitle="to'liq to'lanmagan abonementlar">
+        <Card title={t("Qarzdorlar")} subtitle={t("to'liq to'lanmagan abonementlar")}>
           {alerts.debtors.length === 0 ? (
-            <Empty>Qarzdor yo&apos;q.</Empty>
+            <Empty>{t("Qarzdor yo'q.")}</Empty>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-800">
               {alerts.debtors.map((d) => (
@@ -424,11 +424,11 @@ export default async function PaymentsPage({
                       {d.clientName}
                     </Link>
                     <p className="truncate text-xs text-slate-400">
-                      {SPECIALIZATIONS[d.specialization as Specialization]} · {d.parentPhone}
+                      {t(SPECIALIZATIONS[d.specialization as Specialization])} · {d.parentPhone}
                     </p>
                   </div>
                   <span className="shrink-0 text-sm font-semibold tabular-nums text-rose-600 dark:text-rose-400">
-                    {money(d.debt)}
+                    {t.money(d.debt)}
                   </span>
                 </li>
               ))}

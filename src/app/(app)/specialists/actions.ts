@@ -137,7 +137,7 @@ async function updateSpecialistImpl(formData: FormData) {
   revalidatePath("/schedule");
   revalidatePath("/clients");
   revalidatePath("/reports");
-  await setFlash(`${fullName} saqlandi.`, "ok");
+  await setFlash("{name} saqlandi.", "ok", { name: fullName });
 }
 
 /** Qabulxona xodimining ma'lumotini o'zgartirish */
@@ -179,7 +179,7 @@ async function updateReceptionImpl(formData: FormData) {
   });
 
   revalidatePath("/specialists");
-  await setFlash(`${fullName} saqlandi.`, "ok");
+  await setFlash("{name} saqlandi.", "ok", { name: fullName });
 }
 
 /** Ishdan bo'shatish / qaytarish */

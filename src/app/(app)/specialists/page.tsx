@@ -4,7 +4,7 @@ import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { SPECIALIZATIONS, SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
 import { getSpecialistBalances, getSpecialistRows, monthRange } from "@/lib/stats";
-import { dateShort, money, monthYearUz, toDateInput } from "@/lib/format";
+import { dateShort, toDateInput } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -31,9 +31,11 @@ import {
   updateSalaryPercent,
   updateSpecialist,
 } from "./actions";
+import { getT } from "@/lib/i18n/server";
 
 export default async function SpecialistsPage() {
   const user = await requireRole("OWNER", "BRANCH_ADMIN");
+  const t = await getT();
   const branchId = user.role === "OWNER" ? null : user.branchId;
   const settings = await getSettings();
   const month = monthRange();
@@ -79,31 +81,34 @@ export default async function SpecialistsPage() {
   return (
     <>
       <PageHeader
-        title="Xodimlar"
-        subtitle={`${rows.length} ta faol mutaxassis · ${monthYearUz(new Date())}: xizmat ${money(
-          totalRevenue,
-        )}, ish haqi ${money(totalSalary)}`}
+        title={t("Xodimlar")}
+        subtitle={t("{n} ta faol mutaxassis · {month}: xizmat {revenue}, ish haqi {salary}", {
+          n: rows.length,
+          month: t.monthYear(new Date()),
+          revenue: t.money(totalRevenue),
+          salary: t.money(totalSalary),
+        })}
       />
 
       <details className={`${card} mb-5 p-4`}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-          + Yangi mutaxassis qo&apos;shish
+          + {t("Yangi mutaxassis qo'shish")}
         </summary>
         <form action={createSpecialist} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className={label} htmlFor="fullName">
-              F.I.Sh. *
+              {t("F.I.Sh.")} *
             </label>
             <input id="fullName" name="fullName" className={input} required />
           </div>
           <div>
             <label className={label} htmlFor="specialization">
-              Mutaxassislik *
+              {t("Mutaxassislik")} *
             </label>
             <select id="specialization" name="specialization" className={input} required>
               {SPECIALIZATION_KEYS.map((s) => (
                 <option key={s} value={s}>
-                  {SPECIALIZATIONS[s]}
+                  {t(SPECIALIZATIONS[s])}
                 </option>
               ))}
             </select>
@@ -111,7 +116,7 @@ export default async function SpecialistsPage() {
           {branches.length > 0 ? (
             <div>
               <label className={label} htmlFor="branchId">
-                Filial *
+                {t("Filial")} *
               </label>
               <select id="branchId" name="branchId" className={input} required>
                 {branches.map((b) => (
@@ -124,7 +129,7 @@ export default async function SpecialistsPage() {
           ) : null}
           <div>
             <label className={label} htmlFor="phone">
-              Telefon (login) *
+              {t("Telefon (login)")} *
             </label>
             <input
               id="phone"
@@ -137,13 +142,13 @@ export default async function SpecialistsPage() {
           </div>
           <div>
             <label className={label} htmlFor="password">
-              Parol *
+              {t("Parol")} *
             </label>
             <input id="password" name="password" type="text" className={input} required />
           </div>
           <div>
             <label className={label} htmlFor="salaryPercent">
-              Ish haqi foizi (%)
+              {t("Ish haqi foizi (%)")}
             </label>
             <input
               id="salaryPercent"
@@ -157,30 +162,30 @@ export default async function SpecialistsPage() {
           </div>
           <div className="flex items-end">
             <button type="submit" className={`${btnPrimary} w-full`}>
-              Qo&apos;shish
+              {t("Qo'shish")}
             </button>
           </div>
         </form>
       </details>
 
-      <Card title={`${monthYearUz(new Date())} natijalari`}>
+      <Card title={t("{month} natijalari", { month: t.monthYear(new Date()) })}>
         {rows.length === 0 ? (
-          <Empty>Mutaxassis yo&apos;q.</Empty>
+          <Empty>{t("Mutaxassis yo'q.")}</Empty>
         ) : (
           <div className="scroll-x">
             <table className="w-full min-w-[900px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th className={th}>Mutaxassis</th>
-                  <th className={th}>Yo&apos;nalish</th>
-                  {!branchId ? <th className={th}>Filial</th> : null}
-                  <th className={th}>Mijoz</th>
-                  <th className={th}>O&apos;tdi</th>
-                  <th className={th}>Kelmadi</th>
-                  <th className={th}>Rejada</th>
-                  <th className={th}>Xizmat qiymati</th>
-                  <th className={th}>Foiz</th>
-                  <th className={th}>Ish haqi</th>
+                  <th className={th}>{t("Mutaxassis")}</th>
+                  <th className={th}>{t("Yo'nalish")}</th>
+                  {!branchId ? <th className={th}>{t("Filial")}</th> : null}
+                  <th className={th}>{t("Mijoz")}</th>
+                  <th className={th}>{t("O'tdi")}</th>
+                  <th className={th}>{t("Kelmadi")}</th>
+                  <th className={th}>{t("Rejada")}</th>
+                  <th className={th}>{t("Xizmat qiymati")}</th>
+                  <th className={th}>{t("Foiz")}</th>
+                  <th className={th}>{t("Ish haqi")}</th>
                   <th className={th} />
                 </tr>
               </thead>
@@ -192,12 +197,12 @@ export default async function SpecialistsPage() {
                       {r.fullName}
                       {tgOf.get(r.id) ? null : (
                         <span className="block text-xs font-normal text-amber-600 dark:text-amber-400">
-                          Telegram yo&apos;q
+                          {t("Telegram yo'q")}
                         </span>
                       )}
                     </td>
                     <td className={td}>
-                      <Badge>{SPECIALIZATIONS[r.specialization as Specialization]}</Badge>
+                      <Badge>{t(SPECIALIZATIONS[r.specialization as Specialization])}</Badge>
                     </td>
                     {!branchId ? <td className={td}>{r.branchName}</td> : null}
                     <td className={`${td} tabular-nums`}>{r.clients}</td>
@@ -206,7 +211,7 @@ export default async function SpecialistsPage() {
                     </td>
                     <td className={`${td} tabular-nums`}>{r.noShow}</td>
                     <td className={`${td} tabular-nums`}>{r.planned}</td>
-                    <td className={`${td} tabular-nums`}>{money(r.revenue)}</td>
+                    <td className={`${td} tabular-nums`}>{t.money(r.revenue)}</td>
                     <td className={td}>
                       <form action={updateSalaryPercent} className="flex items-center gap-1">
                         <input type="hidden" name="specialistId" value={r.id} />
@@ -217,19 +222,19 @@ export default async function SpecialistsPage() {
                           max={100}
                           defaultValue={r.salaryPercent}
                           className="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950"
-                          aria-label="Ish haqi foizi"
+                          aria-label={t("Ish haqi foizi")}
                         />
                         <button type="submit" className="text-xs text-indigo-600 hover:underline">
-                          saqlash
+                          {t("saqlash")}
                         </button>
                       </form>
                     </td>
-                    <td className={`${td} font-semibold tabular-nums`}>{money(r.salary)}</td>
+                    <td className={`${td} font-semibold tabular-nums`}>{t.money(r.salary)}</td>
                     <td className={td}>
                       <form action={toggleSpecialistActive}>
                         <input type="hidden" name="specialistId" value={r.id} />
                         <button type="submit" className="text-xs text-slate-400 hover:text-rose-600">
-                          bo&apos;shatish
+                          {t("bo'shatish")}
                         </button>
                       </form>
                     </td>
@@ -238,7 +243,7 @@ export default async function SpecialistsPage() {
                     <td colSpan={branchId ? 10 : 11} className="px-4 pb-2">
                       <details>
                         <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-                          ✎ Tahrirlash
+                          ✎ {t("Tahrirlash")}
                         </summary>
                         <form
                           action={updateSpecialist}
@@ -246,11 +251,11 @@ export default async function SpecialistsPage() {
                         >
                           <input type="hidden" name="specialistId" value={r.id} />
                           <div>
-                            <label className={label}>F.I.Sh.</label>
+                            <label className={label}>{t("F.I.Sh.")}</label>
                             <input name="fullName" defaultValue={r.fullName} className={input} required />
                           </div>
                           <div>
-                            <label className={label}>Telefon (login)</label>
+                            <label className={label}>{t("Telefon (login)")}</label>
                             <input
                               name="phone"
                               type="tel"
@@ -260,7 +265,7 @@ export default async function SpecialistsPage() {
                             />
                           </div>
                           <div>
-                            <label className={label}>Mutaxassislik</label>
+                            <label className={label}>{t("Mutaxassislik")}</label>
                             <select
                               name="specialization"
                               defaultValue={r.specialization}
@@ -268,14 +273,14 @@ export default async function SpecialistsPage() {
                             >
                               {SPECIALIZATION_KEYS.map((k) => (
                                 <option key={k} value={k}>
-                                  {SPECIALIZATIONS[k]}
+                                  {t(SPECIALIZATIONS[k])}
                                 </option>
                               ))}
                             </select>
                           </div>
                           {branches.length > 0 ? (
                             <div>
-                              <label className={label}>Filial</label>
+                              <label className={label}>{t("Filial")}</label>
                               <select
                                 name="branchId"
                                 defaultValue={branches.find((b) => b.name === r.branchName)?.id ?? ""}
@@ -290,7 +295,7 @@ export default async function SpecialistsPage() {
                             </div>
                           ) : null}
                           <div>
-                            <label className={label}>Ish haqi foizi</label>
+                            <label className={label}>{t("Ish haqi foizi")}</label>
                             <input
                               name="salaryPercent"
                               type="number"
@@ -301,17 +306,17 @@ export default async function SpecialistsPage() {
                             />
                           </div>
                           <div>
-                            <label className={label}>Yangi parol</label>
+                            <label className={label}>{t("Yangi parol")}</label>
                             <input
                               name="password"
                               type="text"
-                              placeholder="o'zgartirmasangiz bo'sh qoldiring"
+                              placeholder={t("o'zgartirmasangiz bo'sh qoldiring")}
                               className={input}
                             />
                           </div>
                           <div className="flex items-end">
                             <button type="submit" className={`${btnPrimary} w-full`}>
-                              Saqlash
+                              {t("Saqlash")}
                             </button>
                           </div>
                         </form>
@@ -327,20 +332,20 @@ export default async function SpecialistsPage() {
       </Card>
 
       <Card
-        title="Ish haqi hisob-kitobi"
-        subtitle="boshidan beri: hisoblangan − to'langan = qolgan"
+        title={t("Ish haqi hisob-kitobi")}
+        subtitle={t("boshidan beri: hisoblangan − to'langan = qolgan")}
         className="mt-5"
       >
         <div className="scroll-x">
           <table className="w-full min-w-[760px]">
             <thead className="border-b border-slate-200 dark:border-slate-800">
               <tr>
-                <th className={th}>Mutaxassis</th>
-                {!branchId ? <th className={th}>Filial</th> : null}
-                <th className={th}>Hisoblangan</th>
-                <th className={th}>To&apos;langan</th>
-                <th className={th}>Qolgan</th>
-                <th className={th}>To&apos;lab berish</th>
+                <th className={th}>{t("Mutaxassis")}</th>
+                {!branchId ? <th className={th}>{t("Filial")}</th> : null}
+                <th className={th}>{t("Hisoblangan")}</th>
+                <th className={th}>{t("To'langan")}</th>
+                <th className={th}>{t("Qolgan")}</th>
+                <th className={th}>{t("To'lab berish")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -349,12 +354,12 @@ export default async function SpecialistsPage() {
                   <td className={`${td} font-medium`}>
                     {b.fullName}
                     <span className="block text-xs text-slate-400">
-                      {SPECIALIZATIONS[b.specialization as Specialization]}
+                      {t(SPECIALIZATIONS[b.specialization as Specialization])}
                     </span>
                   </td>
                   {!branchId ? <td className={td}>{b.branchName}</td> : null}
-                  <td className={`${td} tabular-nums`}>{money(b.accrued)}</td>
-                  <td className={`${td} tabular-nums`}>{money(b.paid)}</td>
+                  <td className={`${td} tabular-nums`}>{t.money(b.accrued)}</td>
+                  <td className={`${td} tabular-nums`}>{t.money(b.paid)}</td>
                   <td className={`${td} font-semibold tabular-nums`}>
                     <span
                       className={
@@ -363,7 +368,7 @@ export default async function SpecialistsPage() {
                           : "text-emerald-600 dark:text-emerald-400"
                       }
                     >
-                      {money(b.balance)}
+                      {t.money(b.balance)}
                     </span>
                   </td>
                   <td className={td}>
@@ -374,22 +379,22 @@ export default async function SpecialistsPage() {
                         name="amount"
                         inputMode="numeric"
                         defaultValue={b.balance > 0 ? String(b.balance) : ""}
-                        placeholder="summa"
+                        placeholder={t("summa")}
                         className="w-28 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950"
-                        aria-label="To'lov summasi"
+                        aria-label={t("To'lov summasi")}
                         required
                       />
                       <select
                         name="method"
                         className="rounded-md border border-slate-300 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-950"
-                        aria-label="To'lov usuli"
+                        aria-label={t("To'lov usuli")}
                       >
-                        <option value="CASH">Naqd</option>
-                        <option value="CARD">Karta</option>
-                        <option value="TRANSFER">O&apos;tkazma</option>
+                        <option value="CASH">{t("Naqd")}</option>
+                        <option value="CARD">{t("Karta")}</option>
+                        <option value="TRANSFER">{t("O'tkazma")}</option>
                       </select>
                       <button type="submit" className="text-xs font-semibold text-indigo-600 hover:underline">
-                        to&apos;lash
+                        {t("to'lash")}
                       </button>
                     </form>
                   </td>
@@ -402,7 +407,7 @@ export default async function SpecialistsPage() {
         {payouts.length > 0 ? (
           <div className="border-t border-slate-200 px-4 py-3 dark:border-slate-800">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Oxirgi to&apos;lovlar
+              {t("Oxirgi to'lovlar")}
             </p>
             <ul className="divide-y divide-slate-100 text-sm dark:divide-slate-800">
               {payouts.map((p) => (
@@ -413,14 +418,14 @@ export default async function SpecialistsPage() {
                   </span>
                   <span className="flex items-center gap-2">
                     <span className="font-semibold tabular-nums text-slate-800 dark:text-slate-200">
-                      {money(p.amount)}
+                      {t.money(p.amount)}
                     </span>
                     <form action={deletePayout}>
                       <input type="hidden" name="payoutId" value={p.id} />
                       <button
                         type="submit"
                         className="text-xs text-slate-400 hover:text-rose-600"
-                        title="O'chirish"
+                        title={t("O'chirish")}
                       >
                         ✕
                       </button>
@@ -435,8 +440,8 @@ export default async function SpecialistsPage() {
 
       {user.role === "OWNER" ? (
         <Card
-          title="Markaz egalari"
-          subtitle="hamma filialni va hamma bo'limni ko'radi"
+          title={t("Markaz egalari")}
+          subtitle={t("hamma filialni va hamma bo'limni ko'radi")}
           className="mt-5"
         >
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -451,7 +456,7 @@ export default async function SpecialistsPage() {
                       </span>
                     ) : null}
                     {!o.isActive ? (
-                      <span className="ml-2 text-xs font-normal text-slate-400">(faol emas)</span>
+                      <span className="ml-2 text-xs font-normal text-slate-400">{t("(faol emas)")}</span>
                     ) : null}
                   </p>
                   <p className="truncate text-xs text-slate-400">{o.phone}</p>
@@ -467,7 +472,7 @@ export default async function SpecialistsPage() {
                           : "text-xs font-semibold text-indigo-600 hover:underline"
                       }
                     >
-                      {o.isActive ? "o'chirish" : "qaytarish"}
+                      {o.isActive ? t("o'chirish") : t("qaytarish")}
                     </button>
                   </form>
                 )}
@@ -477,22 +482,21 @@ export default async function SpecialistsPage() {
 
           <details className="border-t border-slate-200 p-4 dark:border-slate-800">
             <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-              + Egalik akkaunti qo&apos;shish
+              + {t("Egalik akkaunti qo'shish")}
             </summary>
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              Yangi ega sizdek to&apos;liq huquqqa ega bo&apos;ladi: hamma filial, to&apos;lovlar,
-              ish haqi va hisobotlar. Faqat ishonchli odamga bering.
+              {t("Yangi ega sizdek to'liq huquqqa ega bo'ladi: hamma filial, to'lovlar, ish haqi va hisobotlar. Faqat ishonchli odamga bering.")}
             </p>
             <form action={createOwner} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <label className={label} htmlFor="oFullName">
-                  F.I.Sh. *
+                  {t("F.I.Sh.")} *
                 </label>
                 <input id="oFullName" name="fullName" className={input} required />
               </div>
               <div>
                 <label className={label} htmlFor="oPhone">
-                  Telefon (login) *
+                  {t("Telefon (login)")} *
                 </label>
                 <input
                   id="oPhone"
@@ -505,13 +509,13 @@ export default async function SpecialistsPage() {
               </div>
               <div>
                 <label className={label} htmlFor="oPassword">
-                  Parol *
+                  {t("Parol")} *
                 </label>
                 <input id="oPassword" name="password" type="text" className={input} required />
               </div>
               <div className="flex items-end">
                 <button type="submit" className={`${btnPrimary} w-full`}>
-                  Qo&apos;shish
+                  {t("Qo'shish")}
                 </button>
               </div>
             </form>
@@ -520,12 +524,12 @@ export default async function SpecialistsPage() {
       ) : null}
 
       <Card
-        title="Qabulxona xodimlari"
-        subtitle="mijoz qabul qiladi va to'lov oladi; maosh, hisobot va xodimlar bo'limi ularga ko'rinmaydi"
+        title={t("Qabulxona xodimlari")}
+        subtitle={t("mijoz qabul qiladi va to'lov oladi; maosh, hisobot va xodimlar bo'limi ularga ko'rinmaydi")}
         className="mt-5"
       >
         {reception.length === 0 ? (
-          <Empty>Qabulxona xodimi qo&apos;shilmagan.</Empty>
+          <Empty>{t("Qabulxona xodimi qo'shilmagan.")}</Empty>
         ) : (
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
             {reception.map((r) => (
@@ -534,7 +538,7 @@ export default async function SpecialistsPage() {
                   <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
                     {r.fullName}
                     {!r.isActive ? (
-                      <span className="ml-2 text-xs font-normal text-slate-400">(faol emas)</span>
+                      <span className="ml-2 text-xs font-normal text-slate-400">{t("(faol emas)")}</span>
                     ) : null}
                   </p>
                   <p className="truncate text-xs text-slate-400">
@@ -542,12 +546,12 @@ export default async function SpecialistsPage() {
                     {!branchId ? ` · ${r.branch?.name ?? ""}` : ""}
                   </p>
                   {r.telegramId ? null : (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">Telegram yo&apos;q</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">{t("Telegram yo'q")}</p>
                   )}
 
                   <details className="mt-1">
                     <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-                      ✎ Tahrirlash
+                      ✎ {t("Tahrirlash")}
                     </summary>
                     <form
                       action={updateReception}
@@ -555,16 +559,16 @@ export default async function SpecialistsPage() {
                     >
                       <input type="hidden" name="userId" value={r.id} />
                       <div>
-                        <label className={label}>F.I.Sh.</label>
+                        <label className={label}>{t("F.I.Sh.")}</label>
                         <input name="fullName" defaultValue={r.fullName} className={input} required />
                       </div>
                       <div>
-                        <label className={label}>Telefon (login)</label>
+                        <label className={label}>{t("Telefon (login)")}</label>
                         <input name="phone" type="tel" defaultValue={r.phone} className={input} required />
                       </div>
                       {branches.length > 0 ? (
                         <div>
-                          <label className={label}>Filial</label>
+                          <label className={label}>{t("Filial")}</label>
                           <select name="branchId" defaultValue={r.branchId ?? ""} className={input}>
                             {branches.map((b) => (
                               <option key={b.id} value={b.id}>
@@ -575,17 +579,17 @@ export default async function SpecialistsPage() {
                         </div>
                       ) : null}
                       <div>
-                        <label className={label}>Yangi parol</label>
+                        <label className={label}>{t("Yangi parol")}</label>
                         <input
                           name="password"
                           type="text"
-                          placeholder="o'zgartirmasangiz bo'sh qoldiring"
+                          placeholder={t("o'zgartirmasangiz bo'sh qoldiring")}
                           className={input}
                         />
                       </div>
                       <div className="flex items-end">
                         <button type="submit" className={`${btnPrimary} w-full`}>
-                          Saqlash
+                          {t("Saqlash")}
                         </button>
                       </div>
                     </form>
@@ -601,7 +605,7 @@ export default async function SpecialistsPage() {
                         : "text-xs font-semibold text-indigo-600 hover:underline"
                     }
                   >
-                    {r.isActive ? "bo'shatish" : "qaytarish"}
+                    {r.isActive ? t("bo'shatish") : t("qaytarish")}
                   </button>
                 </form>
               </li>
@@ -611,18 +615,18 @@ export default async function SpecialistsPage() {
 
         <details className="border-t border-slate-200 p-4 dark:border-slate-800">
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-            + Qabulxona xodimi qo&apos;shish
+            + {t("Qabulxona xodimi qo'shish")}
           </summary>
           <form action={createReception} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className={label} htmlFor="rFullName">
-                F.I.Sh. *
+                {t("F.I.Sh.")} *
               </label>
               <input id="rFullName" name="fullName" className={input} required />
             </div>
             <div>
               <label className={label} htmlFor="rPhone">
-                Telefon (login) *
+                {t("Telefon (login)")} *
               </label>
               <input
                 id="rPhone"
@@ -635,14 +639,14 @@ export default async function SpecialistsPage() {
             </div>
             <div>
               <label className={label} htmlFor="rPassword">
-                Parol *
+                {t("Parol")} *
               </label>
               <input id="rPassword" name="password" type="text" className={input} required />
             </div>
             {branches.length > 0 ? (
               <div>
                 <label className={label} htmlFor="rBranch">
-                  Filial *
+                  {t("Filial")} *
                 </label>
                 <select id="rBranch" name="branchId" className={input} required>
                   {branches.map((b) => (
@@ -655,7 +659,7 @@ export default async function SpecialistsPage() {
             ) : null}
             <div className="flex items-end">
               <button type="submit" className={`${btnPrimary} w-full`}>
-                Qo&apos;shish
+                {t("Qo'shish")}
               </button>
             </div>
           </form>
@@ -663,7 +667,7 @@ export default async function SpecialistsPage() {
       </Card>
 
       {inactive.length > 0 ? (
-        <Card title="Faol bo'lmaganlar" className="mt-5">
+        <Card title={t("Faol bo'lmaganlar")} className="mt-5">
           <ul className="divide-y divide-slate-100 dark:divide-slate-800">
             {inactive.map((s) => (
               <li key={s.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
@@ -672,13 +676,13 @@ export default async function SpecialistsPage() {
                     {s.user.fullName}
                   </p>
                   <p className="text-xs text-slate-400">
-                    {SPECIALIZATIONS[s.specialization as Specialization]} · {s.branch.name}
+                    {t(SPECIALIZATIONS[s.specialization as Specialization])} · {s.branch.name}
                   </p>
                 </div>
                 <form action={toggleSpecialistActive}>
                   <input type="hidden" name="specialistId" value={s.id} />
                   <button type="submit" className={btn}>
-                    Qaytarish
+                    {t("Qaytarish")}
                   </button>
                 </form>
               </li>

@@ -200,7 +200,7 @@ async function updateClientImpl(formData: FormData) {
   revalidatePath("/clients");
   revalidatePath("/schedule");
   revalidatePath("/");
-  await setFlash(`${fullName} saqlandi.`, "ok");
+  await setFlash("{name} saqlandi.", "ok", { name: fullName });
 }
 
 /** Mijoz holatini o'zgartirish: Faol / To'xtatilgan / Arxiv */

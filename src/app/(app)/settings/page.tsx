@@ -2,18 +2,24 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { appUrl } from "@/lib/telegram";
 import { getSettings, WEEKDAYS } from "@/lib/settings";
-import { Card, PageHeader, btnPrimary, input, label } from "@/components/ui";
+import { getT } from "@/lib/i18n/server";
+import { Card, PageHeader, btn, btnDanger, btnPrimary, input, label } from "@/components/ui";
+import { BrandMark } from "@/components/brand";
+import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
 import {
   backupNow,
   changePassword,
+  removeLogo,
   updateCenter,
   updatePricing,
   updateWorkHours,
+  uploadLogo,
 } from "./actions";
 
 export default async function SettingsPage() {
   const user = await requireUser();
   const s = await getSettings();
+  const t = await getT();
   const isOwner = user.role === "OWNER";
 
   // Zaxira Telegram orqali ketadi — ega botga ulanmagan bo'lsa ogohlantiramiz
@@ -26,17 +32,31 @@ export default async function SettingsPage() {
   return (
     <>
       <PageHeader
-        title="Sozlamalar"
-        subtitle={isOwner ? "markaz sozlamalari va shaxsiy parol" : "shaxsiy parol"}
+        title={t("Sozlamalar")}
+        subtitle={isOwner ? t("markaz sozlamalari va shaxsiy parol") : t("shaxsiy parol")}
       />
+
+      {/* Ko'rinish va til — har bir foydalanuvchi o'zi uchun tanlaydi */}
+      <Card title={t("Ko'rinish va til")} subtitle={t("shu qurilmada saqlanadi")} className="mb-5">
+        <div className="flex flex-wrap items-center gap-x-8 gap-y-4 p-4">
+          <div>
+            <p className={label}>{t("Rejim")}</p>
+            <ThemeToggle className={btn} />
+          </div>
+          <div>
+            <p className={label}>{t("Til")}</p>
+            <LanguageSwitcher className="rounded-lg border border-slate-200 p-1 dark:border-slate-700" />
+          </div>
+        </div>
+      </Card>
 
       {isOwner ? (
         <>
-          <Card title="Markaz" subtitle="nomi hisobotlarda va hujjatlarda ishlatiladi">
+          <Card title={t("Markaz")} subtitle={t("nomi hisobotlarda va hujjatlarda ishlatiladi")}>
             <form action={updateCenter} className="grid gap-3 p-4 sm:grid-cols-2">
               <div>
                 <label className={label} htmlFor="centerName">
-                  Markaz nomi *
+                  {t("Markaz nomi")} *
                 </label>
                 <input
                   id="centerName"
@@ -48,7 +68,7 @@ export default async function SettingsPage() {
               </div>
               <div>
                 <label className={label} htmlFor="centerPhone">
-                  Markaz telefoni
+                  {t("Markaz telefoni")}
                 </label>
                 <input
                   id="centerPhone"
@@ -60,21 +80,56 @@ export default async function SettingsPage() {
               </div>
               <div className="sm:col-span-2">
                 <button type="submit" className={btnPrimary}>
-                  Saqlash
+                  {t("Saqlash")}
                 </button>
               </div>
             </form>
           </Card>
 
           <Card
-            title="Narx va ulush"
-            subtitle="yangi abonement va yangi mutaxassis uchun standart qiymatlar"
+            title={t("Logotip")}
+            subtitle={t("menyuda va kirish sahifasida ko'rinadi")}
+            className="mt-5"
+          >
+            <div className="flex flex-wrap items-start gap-4 p-4">
+              <BrandMark logoUrl={s.logoUrl} size="lg" />
+              <div className="min-w-0 flex-1 space-y-3">
+                <form action={uploadLogo} className="flex flex-wrap items-center gap-2">
+                  <input
+                    id="logo"
+                    name="logo"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    required
+                    className="block w-full max-w-xs text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 dark:text-slate-400 dark:file:bg-indigo-950 dark:file:text-indigo-300"
+                  />
+                  <button type="submit" className={btnPrimary}>
+                    {t("Yuklash")}
+                  </button>
+                </form>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t("PNG, JPG yoki WEBP, 500 KB gacha. Kvadrat rasm yaxshi ko'rinadi.")}
+                </p>
+                {s.logoUrl ? (
+                  <form action={removeLogo}>
+                    <button type="submit" className={btnDanger}>
+                      {t("Logotipni olib tashlash")}
+                    </button>
+                  </form>
+                ) : null}
+              </div>
+            </div>
+          </Card>
+
+          <Card
+            title={t("Narx va ulush")}
+            subtitle={t("yangi abonement va yangi mutaxassis uchun standart qiymatlar")}
             className="mt-5"
           >
             <form action={updatePricing} className="grid gap-3 p-4 sm:grid-cols-2">
               <div>
                 <label className={label} htmlFor="defaultPrice">
-                  Bitta seans narxi (so&apos;m)
+                  {t("Bitta seans narxi ({currency})", { currency: t.currency })}
                 </label>
                 <input
                   id="defaultPrice"
@@ -86,7 +141,7 @@ export default async function SettingsPage() {
               </div>
               <div>
                 <label className={label} htmlFor="defaultSalaryPercent">
-                  Yangi mutaxassis uchun ulush (%)
+                  {t("Yangi mutaxassis uchun ulush (%)")}
                 </label>
                 <input
                   id="defaultSalaryPercent"
@@ -99,27 +154,27 @@ export default async function SettingsPage() {
                 />
               </div>
               <p className="text-xs text-slate-500 sm:col-span-2 dark:text-slate-400">
-                Bu qiymatlar formalarda oldindan to&apos;ldirilgan bo&apos;lib turadi.
-                Mavjud mutaxassislarning foizi o&apos;zgarmaydi — u Xodimlar bo&apos;limida
-                alohida turadi.
+                {t(
+                  "Bu qiymatlar formalarda oldindan to'ldirilgan bo'lib turadi. Mavjud mutaxassislarning foizi o'zgarmaydi — u Xodimlar bo'limida alohida turadi.",
+                )}
               </p>
               <div className="sm:col-span-2">
                 <button type="submit" className={btnPrimary}>
-                  Saqlash
+                  {t("Saqlash")}
                 </button>
               </div>
             </form>
           </Card>
 
           <Card
-            title="Ish vaqti"
-            subtitle="bo'sh vaqtlar shu jadval bo'yicha hisoblanadi"
+            title={t("Ish vaqti")}
+            subtitle={t("bo'sh vaqtlar shu jadval bo'yicha hisoblanadi")}
             className="mt-5"
           >
             <form action={updateWorkHours} className="grid gap-3 p-4 sm:grid-cols-3">
               <div>
                 <label className={label} htmlFor="workStartHour">
-                  Ish boshlanishi (soat)
+                  {t("Ish boshlanishi (soat)")}
                 </label>
                 <input
                   id="workStartHour"
@@ -133,7 +188,7 @@ export default async function SettingsPage() {
               </div>
               <div>
                 <label className={label} htmlFor="workEndHour">
-                  Ish tugashi (soat)
+                  {t("Ish tugashi (soat)")}
                 </label>
                 <input
                   id="workEndHour"
@@ -147,7 +202,7 @@ export default async function SettingsPage() {
               </div>
               <div>
                 <label className={label} htmlFor="slotMinutes">
-                  Vaqt oralig&apos;i (daqiqa)
+                  {t("Vaqt oralig'i (daqiqa)")}
                 </label>
                 <input
                   id="slotMinutes"
@@ -162,7 +217,7 @@ export default async function SettingsPage() {
               </div>
 
               <div className="sm:col-span-3">
-                <p className={label}>Ish kunlari</p>
+                <p className={label}>{t("Ish kunlari")}</p>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {WEEKDAYS.map((d) => (
                     <label
@@ -175,7 +230,7 @@ export default async function SettingsPage() {
                         value={d.value}
                         defaultChecked={s.workDays.includes(d.value)}
                       />
-                      {d.label}
+                      {t.isoWeekday(d.value)}
                     </label>
                   ))}
                 </div>
@@ -183,54 +238,51 @@ export default async function SettingsPage() {
 
               <div className="sm:col-span-3">
                 <button type="submit" className={btnPrimary}>
-                  Saqlash
+                  {t("Saqlash")}
                 </button>
               </div>
             </form>
           </Card>
 
           <Card
-            title="Zaxira nusxa"
-            subtitle="baza Telegram orqali sizga yuboriladi"
+            title={t("Zaxira nusxa")}
+            subtitle={t("baza Telegram orqali sizga yuboriladi")}
             className="mt-5"
           >
             <div className="space-y-3 p-4">
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Zaxira — bazaning to&apos;liq nusxasi: mijozlar, seanslar, to&apos;lovlar,
-                qabullar, xodimlar. Fayl Telegram&apos;dagi suhbatingizga keladi, uni
-                saqlab qo&apos;yasiz. <b>Parollar bu nusxaga kiritilmaydi.</b>
+                {t(
+                  "Zaxira — bazaning to'liq nusxasi: mijozlar, seanslar, to'lovlar, qabullar, xodimlar. Fayl Telegram'dagi suhbatingizga keladi, uni saqlab qo'yasiz.",
+                )}{" "}
+                <b>{t("Parollar bu nusxaga kiritilmaydi.")}</b>
               </p>
 
               <form action={backupNow}>
                 <button type="submit" className={btnPrimary}>
-                  Hozir zaxiralash
+                  {t("Hozir zaxiralash")}
                 </button>
               </form>
 
               {telegramLinked ? null : (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
-                  Siz Telegram botga ulanmagansiz — zaxira yuborilmaydi. Botga{" "}
-                  <code className="font-mono">/start</code> yozib, raqamingizni ulashing.
+                  {t("Siz Telegram botga ulanmagansiz — zaxira yuborilmaydi. Botga /start yozib, raqamingizni ulashing.")}
                 </p>
               )}
 
               <details className="text-sm text-slate-600 dark:text-slate-400">
                 <summary className="cursor-pointer font-semibold text-slate-800 dark:text-slate-200">
-                  Har kuni avtomatik bo&apos;lishi uchun (bir martalik sozlash)
+                  {t("Har kuni avtomatik bo'lishi uchun (bir martalik sozlash)")}
                 </summary>
                 <ol className="mt-2 list-decimal space-y-1 pl-5">
                   <li>
-                    <code className="font-mono">cron-job.org</code> da yangi vazifa
-                    oching (eslatmalar uchun ochganingiz kabi)
+                    {t("cron-job.org da yangi vazifa oching (eslatmalar uchun ochganingiz kabi)")}
                   </li>
                   <li>
-                    Manzil: <code className="font-mono break-all">{backupUrl}</code>
+                    {t("Manzil:")} <code className="font-mono break-all">{backupUrl}</code>
                   </li>
-                  <li>Vaqti: kuniga bir marta, masalan 22:00</li>
+                  <li>{t("Vaqti: kuniga bir marta, masalan 22:00")}</li>
                 </ol>
-                <p className="mt-2">
-                  Shundan keyin har kecha zaxira o&apos;zi keladi.
-                </p>
+                <p className="mt-2">{t("Shundan keyin har kecha zaxira o'zi keladi.")}</p>
               </details>
             </div>
           </Card>
@@ -238,14 +290,14 @@ export default async function SettingsPage() {
       ) : null}
 
       <Card
-        title="Parolni o'zgartirish"
-        subtitle="o'z parolingizni o'zingiz almashtirasiz"
+        title={t("Parolni o'zgartirish")}
+        subtitle={t("o'z parolingizni o'zingiz almashtirasiz")}
         className={isOwner ? "mt-5" : ""}
       >
         <form action={changePassword} className="grid gap-3 p-4 sm:grid-cols-3">
           <div>
             <label className={label} htmlFor="currentPassword">
-              Joriy parol *
+              {t("Joriy parol")} *
             </label>
             <input
               id="currentPassword"
@@ -257,7 +309,7 @@ export default async function SettingsPage() {
           </div>
           <div>
             <label className={label} htmlFor="newPassword">
-              Yangi parol (kamida 5 belgi) *
+              {t("Yangi parol (kamida 5 belgi)")} *
             </label>
             <input
               id="newPassword"
@@ -269,7 +321,7 @@ export default async function SettingsPage() {
           </div>
           <div>
             <label className={label} htmlFor="repeatPassword">
-              Yangi parolni takrorlang *
+              {t("Yangi parolni takrorlang")} *
             </label>
             <input
               id="repeatPassword"
@@ -281,7 +333,7 @@ export default async function SettingsPage() {
           </div>
           <div className="sm:col-span-3">
             <button type="submit" className={btnPrimary}>
-              Parolni o&apos;zgartirish
+              {t("Parolni o'zgartirish")}
             </button>
           </div>
         </form>

@@ -8,8 +8,9 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { getOverview, getSpecialistRows, monthRange } from "@/lib/stats";
-import { money, monthYearUz, num } from "@/lib/format";
+import { num } from "@/lib/format";
 import { Card, Empty, PageHeader, StatCard, btn, td, th } from "@/components/ui";
+import { getT } from "@/lib/i18n/server";
 
 type Search = { m?: string };
 
@@ -19,6 +20,7 @@ export default async function ReportsPage({
   searchParams: Promise<Search>;
 }) {
   const user = await requireRole("OWNER", "BRANCH_ADMIN");
+  const t = await getT();
   const sp = await searchParams;
 
   const offset = Number.parseInt(sp.m ?? "0", 10) || 0;
@@ -88,21 +90,21 @@ export default async function ReportsPage({
   return (
     <>
       <PageHeader
-        title="Hisobotlar"
-        subtitle={`${monthYearUz(from)} · ${user.branchName ?? "barcha filiallar"}`}
+        title={t("Hisobotlar")}
+        subtitle={`${t.monthYear(from)} · ${user.branchName ?? t("barcha filiallar")}`}
         action={
           <div className="flex gap-2">
             <Link href={qs(offset - 1)} className={btn}>
-              ← O&apos;tgan oy
+              ← {t("O'tgan oy")}
             </Link>
             {offset !== 0 ? (
               <Link href={qs(0)} className={btn}>
-                Bu oy
+                {t("Bu oy")}
               </Link>
             ) : null}
             {offset < 0 ? (
               <Link href={qs(offset + 1)} className={btn}>
-                Keyingi oy →
+                {t("Keyingi oy")} →
               </Link>
             ) : null}
           </div>
@@ -110,47 +112,47 @@ export default async function ReportsPage({
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="O'tgan seanslar" value={num(overview.done)} tone="good" />
+        <StatCard label={t("O'tgan seanslar")} value={num(overview.done)} tone="good" />
         <StatCard
-          label="Davomat"
+          label={t("Davomat")}
           value={overview.attendanceRate === null ? "—" : `${overview.attendanceRate}%`}
-          hint={`${overview.noShow} kelmadi · ${overview.cancelled} bekor`}
+          hint={t("{noShow} kelmadi · {cancelled} bekor", { noShow: overview.noShow, cancelled: overview.cancelled })}
         />
-        <StatCard label="Kassaga tushgan" value={money(overview.collected)} />
-        <StatCard label="Xizmat qiymati" value={money(overview.earned)} />
+        <StatCard label={t("Kassaga tushgan")} value={t.money(overview.collected)} />
+        <StatCard label={t("Xizmat qiymati")} value={t.money(overview.earned)} />
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Mutaxassis haqi" value={money(overview.salary)} tone="warn" />
+        <StatCard label={t("Mutaxassis haqi")} value={t.money(overview.salary)} tone="warn" />
         <StatCard
-          label="Markaz ulushi"
-          value={money(profit)}
-          hint="xizmat qiymati − ish haqi"
+          label={t("Markaz ulushi")}
+          value={t.money(profit)}
+          hint={t("xizmat qiymati − ish haqi")}
           tone="good"
         />
-        <StatCard label="Rejadagi seanslar" value={num(overview.planned)} />
+        <StatCard label={t("Rejadagi seanslar")} value={num(overview.planned)} />
         <StatCard
-          label="Konsultatsiyalardan"
-          value={money(intakeAgg._sum.price ?? 0)}
-          hint={`${intakeAgg._count} ta to'langan qabul`}
+          label={t("Konsultatsiyalardan")}
+          value={t.money(intakeAgg._sum.price ?? 0)}
+          hint={t("{n} ta to'langan qabul", { n: intakeAgg._count })}
           href="/intakes"
         />
       </div>
 
       {branchStats.length > 0 ? (
-        <Card title="Filiallar kesimi" className="mt-5">
+        <Card title={t("Filiallar kesimi")} className="mt-5">
           <div className="scroll-x">
             <table className="w-full min-w-[820px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th className={th}>Filial</th>
-                  <th className={th}>Faol mijoz</th>
-                  <th className={th}>O&apos;tdi</th>
-                  <th className={th}>Davomat</th>
-                  <th className={th}>Tushum</th>
-                  <th className={th}>Xizmat qiymati</th>
-                  <th className={th}>Ish haqi</th>
-                  <th className={th}>Markaz ulushi</th>
+                  <th className={th}>{t("Filial")}</th>
+                  <th className={th}>{t("Faol mijoz")}</th>
+                  <th className={th}>{t("O'tdi")}</th>
+                  <th className={th}>{t("Davomat")}</th>
+                  <th className={th}>{t("Tushum")}</th>
+                  <th className={th}>{t("Xizmat qiymati")}</th>
+                  <th className={th}>{t("Ish haqi")}</th>
+                  <th className={th}>{t("Markaz ulushi")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -162,11 +164,11 @@ export default async function ReportsPage({
                     <td className={`${td} tabular-nums`}>
                       {b.attendanceRate === null ? "—" : `${b.attendanceRate}%`}
                     </td>
-                    <td className={`${td} tabular-nums`}>{money(b.collected)}</td>
-                    <td className={`${td} tabular-nums`}>{money(b.earned)}</td>
-                    <td className={`${td} tabular-nums`}>{money(b.salary)}</td>
+                    <td className={`${td} tabular-nums`}>{t.money(b.collected)}</td>
+                    <td className={`${td} tabular-nums`}>{t.money(b.earned)}</td>
+                    <td className={`${td} tabular-nums`}>{t.money(b.salary)}</td>
                     <td className={`${td} font-semibold tabular-nums`}>
-                      {money(b.earned - b.salary)}
+                      {t.money(b.earned - b.salary)}
                     </td>
                   </tr>
                 ))}
@@ -177,18 +179,18 @@ export default async function ReportsPage({
       ) : null}
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
-        <Card title="Mutaxassislar bo'yicha">
+        <Card title={t("Mutaxassislar bo'yicha")}>
           {specialistRows.length === 0 ? (
-            <Empty>Ma&apos;lumot yo&apos;q.</Empty>
+            <Empty>{t("Ma'lumot yo'q.")}</Empty>
           ) : (
             <div className="scroll-x">
               <table className="w-full min-w-[520px]">
                 <thead className="border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className={th}>Mutaxassis</th>
-                    <th className={th}>O&apos;tdi</th>
-                    <th className={th}>Xizmat</th>
-                    <th className={th}>Ish haqi</th>
+                    <th className={th}>{t("Mutaxassis")}</th>
+                    <th className={th}>{t("O'tdi")}</th>
+                    <th className={th}>{t("Xizmat")}</th>
+                    <th className={th}>{t("Ish haqi")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -197,13 +199,13 @@ export default async function ReportsPage({
                       <td className={td}>
                         {r.fullName}
                         <span className="block text-xs text-slate-400">
-                          {SPECIALIZATIONS[r.specialization as Specialization]}
+                          {t(SPECIALIZATIONS[r.specialization as Specialization])}
                           {!branchId ? ` · ${r.branchName}` : ""}
                         </span>
                       </td>
                       <td className={`${td} tabular-nums`}>{r.done}</td>
-                      <td className={`${td} tabular-nums`}>{money(r.revenue)}</td>
-                      <td className={`${td} font-semibold tabular-nums`}>{money(r.salary)}</td>
+                      <td className={`${td} tabular-nums`}>{t.money(r.revenue)}</td>
+                      <td className={`${td} font-semibold tabular-nums`}>{t.money(r.salary)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -212,9 +214,9 @@ export default async function ReportsPage({
           )}
         </Card>
 
-        <Card title="Yo'nalishlar bo'yicha">
+        <Card title={t("Yo'nalishlar bo'yicha")}>
           {specRows.length === 0 ? (
-            <Empty>Ma&apos;lumot yo&apos;q.</Empty>
+            <Empty>{t("Ma'lumot yo'q.")}</Empty>
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-slate-800">
               {specRows.map((r) => {
@@ -224,10 +226,10 @@ export default async function ReportsPage({
                   <li key={r.specialization} className="px-4 py-3">
                     <div className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-medium text-slate-800 dark:text-slate-200">
-                        {SPECIALIZATIONS[r.specialization as Specialization]}
+                        {t(SPECIALIZATIONS[r.specialization as Specialization])}
                       </span>
                       <span className="tabular-nums text-slate-600 dark:text-slate-400">
-                        {r.done} seans · {money(r.revenue)}
+                        {t("{n} seans", { n: r.done })} · {t.money(r.revenue)}
                       </span>
                     </div>
                     <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">

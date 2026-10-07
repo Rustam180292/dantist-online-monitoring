@@ -16,16 +16,7 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { monthRange } from "@/lib/stats";
-import {
-  ageUz,
-  dateShort,
-  money,
-  monthYearUz,
-  num,
-  timeUz,
-  toDateInput,
-  toDateTimeInput,
-} from "@/lib/format";
+import { dateShort, num, timeUz, toDateInput, toDateTimeInput } from "@/lib/format";
 import {
   Badge,
   Card,
@@ -49,6 +40,7 @@ import {
   setIntakeStatus,
   updateIntake,
 } from "./actions";
+import { getT } from "@/lib/i18n/server";
 
 /** Jadvaldagi tugmalar uchun qisqa yozuv — to'liq nomi ustunga sig'maydi */
 const SHORT_STATUS: Record<IntakeStatus, string> = {
@@ -66,6 +58,7 @@ export default async function IntakesPage({
   searchParams: Promise<Search>;
 }) {
   const user = await requireRole("OWNER", "BRANCH_ADMIN", "RECEPTION");
+  const t = await getT();
   const sp = await searchParams;
 
   const offset = Number.parseInt(sp.m ?? "0", 10) || 0;
@@ -117,21 +110,21 @@ export default async function IntakesPage({
   return (
     <>
       <PageHeader
-        title="Qabullar"
-        subtitle={`${monthYearUz(from)} · ${intakes.length} ta qabul`}
+        title={t("Qabullar")}
+        subtitle={`${t.monthYear(from)} · ${t("{n} ta qabul", { n: intakes.length })}`}
         action={
           <div className="flex gap-2">
             <Link href={qs(offset - 1)} className={btn}>
-              ← O&apos;tgan oy
+              ← {t("O'tgan oy")}
             </Link>
             {offset !== 0 ? (
               <Link href={qs(0)} className={btn}>
-                Bu oy
+                {t("Bu oy")}
               </Link>
             ) : null}
             {offset < 0 ? (
               <Link href={qs(offset + 1)} className={btn}>
-                Keyingi oy →
+                {t("Keyingi oy")} →
               </Link>
             ) : null}
           </div>
@@ -139,48 +132,48 @@ export default async function IntakesPage({
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label="Qabullar" value={num(intakes.length)} hint={`${held} tasi bo'lib o'tdi`} />
+        <StatCard label={t("Qabullar")} value={num(intakes.length)} hint={t("{n} tasi bo'lib o'tdi", { n: held })} />
         <StatCard
-          label="Mijoz bo'ldi"
+          label={t("Mijoz bo'ldi")}
           value={num(converted)}
-          hint={held > 0 ? `${Math.round((converted / held) * 100)}%` : "hali yo'q"}
+          hint={held > 0 ? `${Math.round((converted / held) * 100)}%` : t("hali yo'q")}
           tone={converted > 0 ? "good" : "default"}
         />
-        <StatCard label="Konsultatsiyadan tushgan" value={money(paidSum)} tone="good" />
+        <StatCard label={t("Konsultatsiyadan tushgan")} value={t.money(paidSum)} tone="good" />
         <StatCard
-          label="To'lanmagan"
+          label={t("To'lanmagan")}
           value={num(unpaid.length)}
-          hint="o'tgan, lekin puli olinmagan"
+          hint={t("o'tgan, lekin puli olinmagan")}
           tone={unpaid.length > 0 ? "bad" : "default"}
         />
       </div>
 
       <details className={`${card} mt-5 p-4`}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-          + Yangi qabul yozish
+          + {t("Yangi qabul yozish")}
         </summary>
         <form action={createIntake} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label className={label} htmlFor="childName">
-              Bolaning F.I.Sh. *
+              {t("Bolaning F.I.Sh.")} *
             </label>
             <input id="childName" name="childName" className={input} required />
           </div>
           <div>
             <label className={label} htmlFor="birthDate">
-              Tug&apos;ilgan sana *
+              {t("Tug'ilgan sana")} *
             </label>
             <input id="birthDate" name="birthDate" type="date" className={input} required />
           </div>
           <div>
             <label className={label} htmlFor="parentName">
-              Ota-ona F.I.Sh. *
+              {t("Ota-ona F.I.Sh.")} *
             </label>
             <input id="parentName" name="parentName" className={input} required />
           </div>
           <div>
             <label className={label} htmlFor="parentPhone">
-              Telefon *
+              {t("Telefon")} *
             </label>
             <input
               id="parentPhone"
@@ -193,7 +186,7 @@ export default async function IntakesPage({
           </div>
           <div>
             <label className={label} htmlFor="scheduledAt">
-              Qabul vaqti *
+              {t("Qabul vaqti")} *
             </label>
             <input
               id="scheduledAt"
@@ -207,7 +200,7 @@ export default async function IntakesPage({
           {branches.length > 0 ? (
             <div>
               <label className={label} htmlFor="branchId">
-                Filial *
+                {t("Filial")} *
               </label>
               <select id="branchId" name="branchId" className={input} required>
                 {branches.map((b) => (
@@ -220,30 +213,30 @@ export default async function IntakesPage({
           ) : null}
           <div>
             <label className={label} htmlFor="specialistId">
-              Kim ko&apos;radi
+              {t("Kim ko'radi")}
             </label>
             <select id="specialistId" name="specialistId" className={input}>
-              <option value="">Hali aniq emas</option>
+              <option value="">{t("Hali aniq emas")}</option>
               {specialists.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.user.fullName} · {SPECIALIZATIONS[s.specialization as Specialization]}
+                  {s.user.fullName} · {t(SPECIALIZATIONS[s.specialization as Specialization])}
                   {branches.length > 0 ? ` · ${s.branch.name}` : ""}
                 </option>
               ))}
             </select>
             {specialists.length === 0 ? (
               <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                Mutaxassis ro&apos;yxati bo&apos;sh.{" "}
+                {t("Mutaxassis ro'yxati bo'sh.")}{" "}
                 <Link href="/specialists" className="font-semibold underline">
-                  Xodimlar
+                  {t("Xodimlar")}
                 </Link>{" "}
-                bo&apos;limidan qo&apos;shing.
+                {t("bo'limidan qo'shing.")}
               </p>
             ) : null}
           </div>
           <div>
             <label className={label} htmlFor="price">
-              Konsultatsiya narxi
+              {t("Konsultatsiya narxi")}
             </label>
             <input
               id="price"
@@ -255,13 +248,13 @@ export default async function IntakesPage({
           </div>
           <div className="sm:col-span-2 lg:col-span-3">
             <label className={label} htmlFor="note">
-              Izoh (shikoyat, kim tavsiya qilgan)
+              {t("Izoh (shikoyat, kim tavsiya qilgan)")}
             </label>
             <input id="note" name="note" className={input} />
           </div>
           <div className="flex items-end">
             <button type="submit" className={`${btnPrimary} w-full`}>
-              Saqlash
+              {t("Saqlash")}
             </button>
           </div>
         </form>
@@ -269,20 +262,20 @@ export default async function IntakesPage({
 
       <Card className="mt-5">
         {intakes.length === 0 ? (
-          <Empty>Bu oyda qabul yozilmagan.</Empty>
+          <Empty>{t("Bu oyda qabul yozilmagan.")}</Empty>
         ) : (
           <div className="scroll-x">
             <table className="w-full min-w-[1080px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
-                  <th className={th}>Qachon</th>
-                  <th className={th}>Bola</th>
-                  <th className={th}>Ota-ona</th>
-                  <th className={th}>Kim ko&apos;rdi</th>
-                  {!branchId ? <th className={th}>Filial</th> : null}
-                  <th className={`${th} w-[190px]`}>Konsultatsiya puli</th>
-                  <th className={`${th} w-[150px]`}>Holat</th>
-                  <th className={`${th} w-[160px]`}>Natija</th>
+                  <th className={th}>{t("Qachon")}</th>
+                  <th className={th}>{t("Bola")}</th>
+                  <th className={th}>{t("Ota-ona")}</th>
+                  <th className={th}>{t("Kim ko'rdi")}</th>
+                  {!branchId ? <th className={th}>{t("Filial")}</th> : null}
+                  <th className={`${th} w-[190px]`}>{t("Konsultatsiya puli")}</th>
+                  <th className={`${th} w-[150px]`}>{t("Holat")}</th>
+                  <th className={`${th} w-[160px]`}>{t("Natija")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -297,7 +290,7 @@ export default async function IntakesPage({
                       <span className="font-medium text-slate-800 dark:text-slate-200">
                         {i.childName}
                       </span>
-                      <span className="block text-xs text-slate-400">{ageUz(i.birthDate)}</span>
+                      <span className="block text-xs text-slate-400">{t.age(i.birthDate)}</span>
                       {i.note ? (
                         <span className="block max-w-[200px] truncate text-xs text-slate-400">
                           {i.note}
@@ -313,7 +306,7 @@ export default async function IntakesPage({
                         <>
                           {i.specialist.user.fullName}
                           <span className="block text-xs text-slate-400">
-                            {SPECIALIZATIONS[i.specialist.specialization as Specialization]}
+                            {t(SPECIALIZATIONS[i.specialist.specialization as Specialization])}
                           </span>
                         </>
                       ) : (
@@ -325,11 +318,11 @@ export default async function IntakesPage({
                       {i.paidAt ? (
                         <>
                           <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
-                            {money(i.price)}
+                            {t.money(i.price)}
                           </span>
                           <span className="block text-xs text-slate-400">
-                            {PAYMENT_METHODS[i.method as keyof typeof PAYMENT_METHODS]} ·{" "}
-                            to&apos;landi
+                            {t(PAYMENT_METHODS[i.method as keyof typeof PAYMENT_METHODS])} ·{" "}
+                            {t("to'landi")}
                           </span>
                           <form action={payIntake}>
                             <input type="hidden" name="intakeId" value={i.id} />
@@ -337,7 +330,7 @@ export default async function IntakesPage({
                               type="submit"
                               className="text-xs text-slate-400 hover:text-rose-600"
                             >
-                              to&apos;lovni qaytarish
+                              {t("to'lovni qaytarish")}
                             </button>
                           </form>
                         </>
@@ -348,18 +341,18 @@ export default async function IntakesPage({
                             name="price"
                             inputMode="numeric"
                             defaultValue={i.price || ""}
-                            placeholder="summa"
-                            aria-label="Konsultatsiya summasi"
+                            placeholder={t("summa")}
+                            aria-label={t("Konsultatsiya summasi")}
                             className="w-24 rounded-lg border border-slate-200 px-2 py-1 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-900"
                           />
                           <select
                             name="method"
-                            aria-label="To'lov usuli"
+                            aria-label={t("To'lov usuli")}
                             className="rounded-lg border border-slate-200 px-1.5 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
                           >
                             {PAYMENT_METHOD_KEYS.map((m) => (
                               <option key={m} value={m}>
-                                {PAYMENT_METHODS[m]}
+                                {t(PAYMENT_METHODS[m])}
                               </option>
                             ))}
                           </select>
@@ -367,14 +360,14 @@ export default async function IntakesPage({
                             type="submit"
                             className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-indigo-700"
                           >
-                            To&apos;landi
+                            {t("To'landi")}
                           </button>
                         </form>
                       )}
                     </td>
                     <td className={td}>
                       <Badge className={INTAKE_STATUS_STYLE[i.status as IntakeStatus]}>
-                        {INTAKE_STATUSES[i.status as IntakeStatus]}
+                        {t(INTAKE_STATUSES[i.status as IntakeStatus])}
                       </Badge>
                       {i.status === "PLANNED" ? (
                         <div className="mt-1 flex items-center gap-2 whitespace-nowrap">
@@ -386,7 +379,7 @@ export default async function IntakesPage({
                                 type="submit"
                                 className="text-xs text-slate-500 hover:text-indigo-600 dark:text-slate-400"
                               >
-                                {SHORT_STATUS[s]}
+                                {t(SHORT_STATUS[s])}
                               </button>
                             </form>
                           ))}
@@ -399,12 +392,12 @@ export default async function IntakesPage({
                           href={`/clients/${i.client.id}`}
                           className="text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-400"
                         >
-                          Mijoz bo&apos;ldi →
+                          {t("Mijoz bo'ldi")} →
                         </Link>
                       ) : (
                         <>
                           <Badge className={INTAKE_RESULT_STYLE[i.result as IntakeResult]}>
-                            {INTAKE_RESULTS[i.result as IntakeResult]}
+                            {t(INTAKE_RESULTS[i.result as IntakeResult])}
                           </Badge>
                           <div className="mt-1 flex flex-col items-start gap-0.5 whitespace-nowrap">
                             {i.status === "DONE" ? (
@@ -414,15 +407,14 @@ export default async function IntakesPage({
                                   type="submit"
                                   className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
                                 >
-                                  Mijozga o&apos;tkazish
+                                  {t("Mijozga o'tkazish")}
                                 </button>
                               </form>
                             ) : i.status === "PLANNED" ? (
                               // Kelmagan odamni mijoz qilib bo'lmaydi. Lekin tugma
                               // shunchaki yo'qolsa, uni qidirib ovora bo'ladi.
                               <span className="text-xs whitespace-normal text-slate-400">
-                                Mijozga o&apos;tkazish uchun avval{" "}
-                                <b className="font-semibold">o&apos;tdi</b> deb belgilang
+                                {t("Mijozga o'tkazish uchun avval «o'tdi» deb belgilang")}
                               </span>
                             ) : null}
                             {INTAKE_RESULT_KEYS.filter(
@@ -435,7 +427,7 @@ export default async function IntakesPage({
                                   type="submit"
                                   className="text-xs text-slate-500 hover:text-indigo-600 dark:text-slate-400"
                                 >
-                                  {INTAKE_RESULTS[r]}
+                                  {t(INTAKE_RESULTS[r])}
                                 </button>
                               </form>
                             ))}
@@ -445,7 +437,7 @@ export default async function IntakesPage({
                                 type="submit"
                                 className="text-xs text-slate-400 hover:text-rose-600"
                               >
-                                o&apos;chirish
+                                {t("o'chirish")}
                               </button>
                             </form>
                           </div>
@@ -457,7 +449,7 @@ export default async function IntakesPage({
                     <td colSpan={branchId ? 7 : 8} className="px-4 pb-2">
                       <details>
                         <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
-                          ✎ Tahrirlash
+                          ✎ {t("Tahrirlash")}
                         </summary>
                         <form
                           action={updateIntake}
@@ -465,11 +457,11 @@ export default async function IntakesPage({
                         >
                           <input type="hidden" name="intakeId" value={i.id} />
                           <div>
-                            <label className={label}>Bolaning F.I.Sh.</label>
+                            <label className={label}>{t("Bolaning F.I.Sh.")}</label>
                             <input name="childName" defaultValue={i.childName} className={input} required />
                           </div>
                           <div>
-                            <label className={label}>Tug&apos;ilgan sana</label>
+                            <label className={label}>{t("Tug'ilgan sana")}</label>
                             <input
                               name="birthDate"
                               type="date"
@@ -479,15 +471,15 @@ export default async function IntakesPage({
                             />
                           </div>
                           <div>
-                            <label className={label}>Ota-ona F.I.Sh.</label>
+                            <label className={label}>{t("Ota-ona F.I.Sh.")}</label>
                             <input name="parentName" defaultValue={i.parentName} className={input} required />
                           </div>
                           <div>
-                            <label className={label}>Telefon</label>
+                            <label className={label}>{t("Telefon")}</label>
                             <input name="parentPhone" defaultValue={i.parentPhone} className={input} required />
                           </div>
                           <div>
-                            <label className={label}>Qabul vaqti</label>
+                            <label className={label}>{t("Qabul vaqti")}</label>
                             <input
                               name="scheduledAt"
                               type="datetime-local"
@@ -497,25 +489,25 @@ export default async function IntakesPage({
                             />
                           </div>
                           <div>
-                            <label className={label}>Kim ko&apos;radi</label>
+                            <label className={label}>{t("Kim ko'radi")}</label>
                             <select
                               name="specialistId"
                               defaultValue={i.specialistId ?? ""}
                               className={input}
                             >
-                              <option value="">Hali aniq emas</option>
+                              <option value="">{t("Hali aniq emas")}</option>
                               {specialists
                                 .filter((x) => x.branchId === i.branchId)
                                 .map((x) => (
                                   <option key={x.id} value={x.id}>
                                     {x.user.fullName} ·{" "}
-                                    {SPECIALIZATIONS[x.specialization as Specialization]}
+                                    {t(SPECIALIZATIONS[x.specialization as Specialization])}
                                   </option>
                                 ))}
                             </select>
                           </div>
                           <div>
-                            <label className={label}>Konsultatsiya narxi</label>
+                            <label className={label}>{t("Konsultatsiya narxi")}</label>
                             <input
                               name="price"
                               inputMode="numeric"
@@ -525,18 +517,17 @@ export default async function IntakesPage({
                             />
                             {i.paidAt ? (
                               <p className="mt-1 text-xs text-slate-400">
-                                To&apos;langan — summani o&apos;zgartirish uchun avval
-                                to&apos;lovni qaytaring.
+                                {t("To'langan — summani o'zgartirish uchun avval to'lovni qaytaring.")}
                               </p>
                             ) : null}
                           </div>
                           <div>
-                            <label className={label}>Izoh</label>
+                            <label className={label}>{t("Izoh")}</label>
                             <input name="note" defaultValue={i.note ?? ""} className={input} />
                           </div>
                           <div className="flex items-end">
                             <button type="submit" className={`${btnPrimary} w-full`}>
-                              Saqlash
+                              {t("Saqlash")}
                             </button>
                           </div>
                         </form>

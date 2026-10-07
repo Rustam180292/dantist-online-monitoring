@@ -9,7 +9,8 @@ import {
   type Specialization,
 } from "@/lib/constants";
 import { addDays, weekRange } from "@/lib/stats";
-import { dateShort, money, timeUz, weekdayUz } from "@/lib/format";
+import { dateShort, timeUz } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
 import {
   Badge,
   Card,
@@ -32,6 +33,8 @@ export default async function SchedulePage({
 }) {
   const user = await requireUser();
   const sp = await searchParams;
+  const t = await getT();
+  const money = t.money;
 
   const offset = Number.parseInt(sp.w ?? "0", 10) || 0;
   const base = addDays(new Date(), offset * 7);
@@ -80,10 +83,10 @@ export default async function SchedulePage({
   // Mutaxassis o'ziga seans qo'shishi uchun ro'yxat
   const specialistOptions =
     user.role === "SPECIALIST"
-      ? [{ id: user.specialistId!, name: `${user.fullName} (men)`, branchName: "" }]
+      ? [{ id: user.specialistId!, name: `${user.fullName} (${t("men")})`, branchName: "" }]
       : specialists.map((s) => ({
           id: s.id,
-          name: `${s.user.fullName} — ${SPECIALIZATIONS[s.specialization as Specialization]}`,
+          name: `${s.user.fullName} — ${t(SPECIALIZATIONS[s.specialization as Specialization])}`,
           branchName: s.branch.name,
         }));
 
@@ -130,20 +133,20 @@ export default async function SchedulePage({
   return (
     <>
       <PageHeader
-        title="Jadval"
-        subtitle={`${dateShort(from)} — ${dateShort(addDays(from, 6))} · ${sessions.length} ta seans (${done} o'tdi, ${planned} rejada)`}
+        title={t("Jadval")}
+        subtitle={`${dateShort(from)} — ${dateShort(addDays(from, 6))} · ${t("{n} ta seans ({done} o'tdi, {planned} rejada)", { n: sessions.length, done, planned })}`}
         action={
           <div className="flex items-center gap-2">
             <Link href={qs(offset - 1)} className={btn}>
-              ← O&apos;tgan hafta
+              ← {t("O'tgan hafta")}
             </Link>
             {offset !== 0 ? (
               <Link href={qs(0)} className={btn}>
-                Bu hafta
+                {t("Bu hafta")}
               </Link>
             ) : null}
             <Link href={qs(offset + 1)} className={btn}>
-              Keyingi hafta →
+              {t("Keyingi hafta")} →
             </Link>
           </div>
         }
@@ -155,10 +158,10 @@ export default async function SchedulePage({
           {branches.length > 0 ? (
             <div className="min-w-[180px]">
               <label className={label} htmlFor="b">
-                Filial
+                {t("Filial")}
               </label>
               <select id="b" name="b" defaultValue={sp.b ?? ""} className={input}>
-                <option value="">Barcha filiallar</option>
+                <option value="">{t("Barcha filiallar")}</option>
                 {branches.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -170,20 +173,20 @@ export default async function SchedulePage({
           {user.role !== "SPECIALIST" && specialists.length > 0 ? (
             <div className="min-w-[220px]">
               <label className={label} htmlFor="s">
-                Mutaxassis
+                {t("Mutaxassis")}
               </label>
               <select id="s" name="s" defaultValue={sp.s ?? ""} className={input}>
-                <option value="">Barchasi</option>
+                <option value="">{t("Barchasi")}</option>
                 {specialists.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.user.fullName} — {SPECIALIZATIONS[s.specialization as Specialization]}
+                    {s.user.fullName} — {t(SPECIALIZATIONS[s.specialization as Specialization])}
                   </option>
                 ))}
               </select>
             </div>
           ) : null}
           <button type="submit" className={btnPrimary}>
-            Filtrlash
+            {t("Filtrlash")}
           </button>
         </form>
       ) : null}
@@ -191,12 +194,12 @@ export default async function SchedulePage({
       {canEdit && clients.length > 0 ? (
         <details id="yangi" open={Boolean(sp.yangi)} className={`${card} mb-5 p-4`}>
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-            + Yangi seans qo&apos;shish
+            + {t("Yangi seans qo'shish")}
           </summary>
           <form action={createSession} className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <div className="lg:col-span-2">
               <label className={label} htmlFor="clientId">
-                Mijoz
+                {t("Mijoz")}
               </label>
               <select
                 id="clientId"
@@ -224,7 +227,7 @@ export default async function SchedulePage({
             </div>
             <div className="lg:col-span-2">
               <label className={label} htmlFor="specialistId">
-                Mutaxassis
+                {t("Mutaxassis")}
               </label>
               <select id="specialistId" name="specialistId" className={input} required>
                 {showGroups
@@ -246,7 +249,7 @@ export default async function SchedulePage({
             </div>
             <div>
               <label className={label} htmlFor="startsAt">
-                Sana va vaqt
+                {t("Sana va vaqt")}
               </label>
               <input
                 id="startsAt"
@@ -258,7 +261,7 @@ export default async function SchedulePage({
             </div>
             <div>
               <label className={label} htmlFor="durationMin">
-                Davomiyligi (daqiqa)
+                {t("Davomiyligi (daqiqa)")}
               </label>
               <input
                 id="durationMin"
@@ -273,13 +276,13 @@ export default async function SchedulePage({
             </div>
             <div className="lg:col-span-3">
               <label className={label} htmlFor="note">
-                Izoh (ixtiyoriy)
+                {t("Izoh (ixtiyoriy)")}
               </label>
-              <input id="note" name="note" className={input} placeholder="masalan: ota-ona bilan" />
+              <input id="note" name="note" className={input} placeholder={t("masalan: ota-ona bilan")} />
             </div>
             <div className="flex items-end">
               <button type="submit" className={`${btnPrimary} w-full`}>
-                Qo&apos;shish
+                {t("Qo'shish")}
               </button>
             </div>
           </form>
@@ -294,12 +297,12 @@ export default async function SchedulePage({
           return (
             <Card
               key={key}
-              title={`${weekdayUz(day)}, ${key}`}
-              subtitle={isToday ? "bugun" : undefined}
+              title={`${t.weekday(day)}, ${key}`}
+              subtitle={isToday ? t("bugun") : undefined}
               className={isToday ? "ring-2 ring-indigo-500/30" : ""}
             >
               {list.length === 0 ? (
-                <Empty>Seans yo&apos;q.</Empty>
+                <Empty>{t("Seans yo'q.")}</Empty>
               ) : (
                 <ul className="divide-y divide-slate-100 dark:divide-slate-800">
                   {list.map((s) => (
@@ -316,8 +319,8 @@ export default async function SchedulePage({
                         </Link>
                         <p className="text-xs text-slate-500 dark:text-slate-400">
                           {s.specialist.user.fullName} ·{" "}
-                          {SPECIALIZATIONS[s.specialist.specialization as Specialization]}
-                          {!branchFilter ? ` · ${s.branch.name}` : ""} · {s.durationMin} daq.
+                          {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
+                          {!branchFilter ? ` · ${s.branch.name}` : ""} · {t("{n} daq.", { n: s.durationMin })}
                         </p>
                         {s.note ? (
                           <p className="text-xs text-slate-400">{s.note}</p>
@@ -325,7 +328,7 @@ export default async function SchedulePage({
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={SESSION_STATUS_STYLE[s.status as SessionStatus]}>
-                          {SESSION_STATUSES[s.status as SessionStatus]}
+                          {t(SESSION_STATUSES[s.status as SessionStatus])}
                         </Badge>
                         {s.price > 0 ? (
                           <span className="text-xs text-slate-400">{money(s.price)}</span>
@@ -336,12 +339,12 @@ export default async function SchedulePage({
                         <div className="flex flex-wrap items-center gap-1.5">
                           {s.status === "PLANNED" ? (
                             <>
-                              <StatusButton id={s.id} status="DONE" title="O'tdi" tone="good" />
-                              <StatusButton id={s.id} status="NO_SHOW" title="Kelmadi" tone="bad" />
+                              <StatusButton id={s.id} status="DONE" title={t("O'tdi")} tone="good" />
+                              <StatusButton id={s.id} status="NO_SHOW" title={t("Kelmadi")} tone="bad" />
                               <StatusButton
                                 id={s.id}
                                 status="CANCELLED_CLIENT"
-                                title="Bekor"
+                                title={t("Bekor")}
                                 tone="warn"
                               />
                               <form action={deleteSession}>
@@ -349,14 +352,14 @@ export default async function SchedulePage({
                                 <button
                                   type="submit"
                                   className="rounded-md px-2 py-1 text-xs text-slate-400 hover:text-rose-600"
-                                  title="O'chirish"
+                                  title={t("O'chirish")}
                                 >
                                   ✕
                                 </button>
                               </form>
                             </>
                           ) : (
-                            <StatusButton id={s.id} status="PLANNED" title="Qaytarish" tone="plain" />
+                            <StatusButton id={s.id} status="PLANNED" title={t("Qaytarish")} tone="plain" />
                           )}
                         </div>
                       ) : null}

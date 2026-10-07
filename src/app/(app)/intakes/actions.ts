@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
-import { dateTimeUz, money } from "@/lib/format";
+import { getT } from "@/lib/i18n/server";
+import { dateTimeUz } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
 import { requireUser, type CurrentUser } from "@/lib/auth";
 import {
@@ -92,7 +93,7 @@ async function createIntakeImpl(formData: FormData) {
   });
 
   refresh();
-  await setFlash(`Qabul yozildi: ${childName} · ${dateTimeUz(scheduledAt)}`, "ok");
+  await setFlash("Qabul yozildi: {name} · {when}", "ok", { name: childName, when: dateTimeUz(scheduledAt) });
 }
 
 /**
@@ -160,7 +161,7 @@ async function updateIntakeImpl(formData: FormData) {
   // Tahrirlash formasi yopiladi va qator joyiga qaytadi — tashqaridan hech
   // narsa o'zgarmagandek ko'rinadi. Sanani ham yozamiz: boshqa oyga
   // ko'chirilgan bo'lsa, qator shu oydagi ro'yxatdan chiqib ketadi.
-  await setFlash(`Saqlandi: ${childName} · ${dateTimeUz(scheduledAt)}`, "ok");
+  await setFlash("Saqlandi: {name} · {when}", "ok", { name: childName, when: dateTimeUz(scheduledAt) });
 }
 
 /** Qabul holati: bo'lib o'tdi / kelmadi / bekor qilindi */
@@ -209,7 +210,7 @@ async function payIntakeImpl(formData: FormData) {
     data: { price, method, paidAt: new Date() },
   });
   refresh();
-  await setFlash(`Konsultatsiya puli qabul qilindi: ${money(price)}`, "ok");
+  await setFlash("Konsultatsiya puli qabul qilindi: {sum}", "ok", { sum: (await getT()).money(price) });
 }
 
 /**
@@ -266,7 +267,7 @@ async function convertIntakeImpl(formData: FormData) {
 
   refresh();
   revalidatePath("/clients");
-  await setFlash(`${intake.childName} mijozlar ro'yxatiga qo'shildi.`, "ok");
+  await setFlash("{name} mijozlar ro'yxatiga qo'shildi.", "ok", { name: intake.childName });
 }
 
 /** Xato yozilgan qabulni o'chirish */

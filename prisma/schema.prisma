@@ -193,6 +193,14 @@ model Settings {
   slotMinutes         Int      @default(60)
   /// Ish kunlari: 1=dushanba ... 7=yakshanba, vergul bilan ("1,2,3,4,5,6")
   workDays            String   @default("1,2,3,4,5,6")
+  /// Markaz logotipi (base64). Vercel'da diskka fayl yozib bo'lmaydi va u har
+  /// deploy'da tozalanadi, shuning uchun rasm bazada turadi. Hajmi kichik
+  /// (500 KB gacha) — bitta qator, alohida xizmat kerak emas.
+  logoData            String?
+  /// image/png | image/jpeg | image/webp
+  logoMime            String?
+  /// Rasm almashganda brauzer keshini yangilash uchun manzilga qo'shiladi
+  logoUpdatedAt       DateTime?
   updatedAt           DateTime @updatedAt
 }
 

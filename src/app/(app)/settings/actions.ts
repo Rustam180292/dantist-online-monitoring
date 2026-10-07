@@ -6,6 +6,7 @@ import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, requireUser, verifyPassword } from "@/lib/auth";
 import { sendBackupToOwners } from "@/lib/backup-send";
+import { LOGO_MAX_BYTES } from "@/lib/settings";
 
 /** Markaz sozlamalarini faqat egasi o'zgartiradi */
 async function requireOwner() {
@@ -165,12 +166,59 @@ async function backupNowImpl() {
     );
   }
 
-  await setFlash(
-    `Zaxira Telegram'ga yuborildi (${result.records} ta yozuv).`,
-    "ok",
-  );
+  await setFlash("Zaxira Telegram'ga yuborildi ({n} ta yozuv).", "ok", { n: result.records });
 }
 
+/**
+ * Rasm turini fayl nomi yoki brauzer aytgan turdan emas, faylning birinchi
+ * baytlaridan aniqlaymiz: nomi ".png" qilib qo'yilgan boshqa fayl o'tib
+ * ketmasin.
+ */
+function sniffImage(b: Buffer): "image/png" | "image/jpeg" | "image/webp" | null {
+  if (b.length > 8 && b[0] === 0x89 && b.toString("ascii", 1, 4) === "PNG") return "image/png";
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "image/jpeg";
+  if (b.length > 12 && b.toString("ascii", 0, 4) === "RIFF" && b.toString("ascii", 8, 12) === "WEBP") {
+    return "image/webp";
+  }
+  return null;
+}
+
+/** Markaz logotipini yuklash (menyuda va kirish sahifasida ko'rinadi) */
+async function uploadLogoImpl(formData: FormData) {
+  await requireOwner();
+
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) throw new Error("Rasm faylini tanlang.");
+  if (file.size > LOGO_MAX_BYTES) throw new Error("Rasm hajmi 500 KB dan oshmasin.");
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const mime = sniffImage(bytes);
+  if (!mime) throw new Error("Faqat PNG, JPG yoki WEBP rasm yuklash mumkin.");
+
+  const data = { logoData: bytes.toString("base64"), logoMime: mime, logoUpdatedAt: new Date() };
+  await prisma.settings.upsert({
+    where: { id: "main" },
+    create: { id: "main", ...data },
+    update: data,
+  });
+
+  // Logotip menyuda turadi — hamma sahifa yangilanishi kerak
+  revalidatePath("/", "layout");
+  await setFlash("Logotip saqlandi.", "ok");
+}
+
+async function removeLogoImpl() {
+  await requireOwner();
+  await prisma.settings.updateMany({
+    where: { id: "main" },
+    data: { logoData: null, logoMime: null, logoUpdatedAt: null },
+  });
+  revalidatePath("/", "layout");
+  await setFlash("Logotip olib tashlandi.", "ok");
+}
+
+export const uploadLogo = withFlash(uploadLogoImpl);
+export const removeLogo = withFlash(removeLogoImpl);
 export const backupNow = withFlash(backupNowImpl);
 export const updateCenter = withFlash(updateCenterImpl);
 export const updatePricing = withFlash(updatePricingImpl);

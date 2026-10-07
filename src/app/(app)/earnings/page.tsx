@@ -8,11 +8,13 @@ import {
   type SessionStatus,
 } from "@/lib/constants";
 import { getSpecialistEarnings, monthRange } from "@/lib/stats";
-import { dateShort, money, monthYearUz, timeUz } from "@/lib/format";
+import { dateShort, timeUz } from "@/lib/format";
 import { Badge, Card, Empty, PageHeader, StatCard, td, th } from "@/components/ui";
+import { getT } from "@/lib/i18n/server";
 
 export default async function EarningsPage() {
   const user = await requireRole("SPECIALIST");
+  const t = await getT();
   const specialistId = user.specialistId!;
   const month = monthRange();
 
@@ -41,44 +43,44 @@ export default async function EarningsPage() {
   return (
     <>
       <PageHeader
-        title="Pulim"
-        subtitle={`Ish haqi ulushim: ${specialist?.salaryPercent ?? 0}% · ${monthYearUz(new Date())}`}
+        title={t("Pulim")}
+        subtitle={`${t("Ish haqi ulushim: {pct}%", { pct: specialist?.salaryPercent ?? 0 })} · ${t.monthYear(new Date())}`}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Qolgan (olishim kerak)"
-          value={money(earnings.balance)}
-          hint="hisoblangan − to'langan"
+          label={t("Qolgan (olishim kerak)")}
+          value={t.money(earnings.balance)}
+          hint={t("hisoblangan − to'langan")}
           tone={earnings.balance > 0 ? "warn" : "good"}
         />
         <StatCard
-          label="Shu oyda hisoblangan"
-          value={money(earnings.accruedMonth)}
-          hint={`${earnings.doneMonth} seans o'tdi`}
+          label={t("Shu oyda hisoblangan")}
+          value={t.money(earnings.accruedMonth)}
+          hint={t("{n} seans o'tdi", { n: earnings.doneMonth })}
           tone="good"
         />
-        <StatCard label="Jami hisoblangan" value={money(earnings.accruedTotal)} hint="boshidan beri" />
-        <StatCard label="Jami to'langan" value={money(earnings.paidTotal)} hint="qo'lga tekkan" />
+        <StatCard label={t("Jami hisoblangan")} value={t.money(earnings.accruedTotal)} hint={t("boshidan beri")} />
+        <StatCard label={t("Jami to'langan")} value={t.money(earnings.paidTotal)} hint={t("qo'lga tekkan")} />
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <Card
-          title={`${monthYearUz(new Date())} seanslari`}
-          subtitle={`${sessions.length} ta hisobga kirgan seans`}
+          title={t("{month} seanslari", { month: t.monthYear(new Date()) })}
+          subtitle={t("{n} ta hisobga kirgan seans", { n: sessions.length })}
         >
           {sessions.length === 0 ? (
-            <Empty>Bu oyda hisobga kirgan seans yo&apos;q.</Empty>
+            <Empty>{t("Bu oyda hisobga kirgan seans yo'q.")}</Empty>
           ) : (
             <div className="scroll-x">
               <table className="w-full min-w-[560px]">
                 <thead className="border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className={th}>Sana</th>
-                    <th className={th}>Mijoz</th>
-                    <th className={th}>Holat</th>
-                    <th className={th}>Seans narxi</th>
-                    <th className={th}>Menga</th>
+                    <th className={th}>{t("Sana")}</th>
+                    <th className={th}>{t("Mijoz")}</th>
+                    <th className={th}>{t("Holat")}</th>
+                    <th className={th}>{t("Seans narxi")}</th>
+                    <th className={th}>{t("Menga")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -93,22 +95,22 @@ export default async function EarningsPage() {
                         <td className={td}>{s.client.fullName}</td>
                         <td className={td}>
                           <Badge className={SESSION_STATUS_STYLE[s.status as SessionStatus]}>
-                            {SESSION_STATUSES[s.status as SessionStatus]}
+                            {t(SESSION_STATUSES[s.status as SessionStatus])}
                           </Badge>
                         </td>
                         <td className={`${td} tabular-nums`}>
                           {s.price > 0 ? (
-                            money(s.price)
+                            t.money(s.price)
                           ) : (
                             // Narx abonementdan olinadi — faol abonement bo'lmasa
                             // 0 bo'lib qoladi va ulush ham 0 chiqadi
                             <span className="text-amber-600 dark:text-amber-400">
-                              belgilanmagan
+                              {t("belgilanmagan")}
                             </span>
                           )}
                         </td>
                         <td className={`${td} font-semibold tabular-nums`}>
-                          {money(Math.round((s.price * percent) / 100))}
+                          {t.money(Math.round((s.price * percent) / 100))}
                           <span className="block text-xs font-normal text-slate-400">{percent}%</span>
                         </td>
                       </tr>
@@ -120,27 +122,27 @@ export default async function EarningsPage() {
           )}
         </Card>
 
-        <Card title="Qo'lga tekkan to'lovlar" subtitle="markaz menga to'lab bergan summalar">
+        <Card title={t("Qo'lga tekkan to'lovlar")} subtitle={t("markaz menga to'lab bergan summalar")}>
           {payouts.length === 0 ? (
-            <Empty>Hali to&apos;lov yozilmagan.</Empty>
+            <Empty>{t("Hali to'lov yozilmagan.")}</Empty>
           ) : (
             <div className="scroll-x">
               <table className="w-full min-w-[420px]">
                 <thead className="border-b border-slate-200 dark:border-slate-800">
                   <tr>
-                    <th className={th}>Sana</th>
-                    <th className={th}>Summa</th>
-                    <th className={th}>Usul</th>
-                    <th className={th}>Izoh</th>
+                    <th className={th}>{t("Sana")}</th>
+                    <th className={th}>{t("Summa")}</th>
+                    <th className={th}>{t("Usul")}</th>
+                    <th className={th}>{t("Izoh")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {payouts.map((p) => (
                     <tr key={p.id}>
                       <td className={`${td} tabular-nums`}>{dateShort(p.paidAt)}</td>
-                      <td className={`${td} font-semibold tabular-nums`}>{money(p.amount)}</td>
+                      <td className={`${td} font-semibold tabular-nums`}>{t.money(p.amount)}</td>
                       <td className={td}>
-                        <Badge>{PAYMENT_METHODS[p.method as PaymentMethod]}</Badge>
+                        <Badge>{t(PAYMENT_METHODS[p.method as PaymentMethod])}</Badge>
                       </td>
                       <td className={td}>{p.note ?? "—"}</td>
                     </tr>
