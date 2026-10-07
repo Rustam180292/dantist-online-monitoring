@@ -338,6 +338,24 @@ if (await payRow.count()) {
     check(`PWA fayli ${path}`, res.status === 200, `status ${res.status}`);
   }
 
+  // Android ilovasi (APK) uchun assetlinks: sozlanmagan bo'lsa yo'q,
+  // sozlangan bo'lsa .env dagi Package ID va kalit izini qaytaradi
+  {
+    const res = await fetch(`${BASE}/.well-known/assetlinks.json`);
+    const pkg = process.env.ANDROID_PACKAGE_NAME?.trim();
+    if (pkg && process.env.ANDROID_SHA256_FINGERPRINTS?.trim()) {
+      const body = await res.json().catch(() => []);
+      check(
+        "assetlinks.json Android ilovasini tasdiqlaydi",
+        res.status === 200 && body[0]?.target?.package_name === pkg &&
+          body[0]?.target?.sha256_cert_fingerprints?.length > 0,
+        `status ${res.status}`,
+      );
+    } else {
+      check("assetlinks.json sozlanmaganda berilmaydi", res.status === 404, `status ${res.status}`);
+    }
+  }
+
   // Xizmat ishchisi brauzerda haqiqatan ro'yxatdan o'tadimi
   await page.goto(`${BASE}/install`);
   await page.waitForLoadState("networkidle");

@@ -234,6 +234,36 @@ o'zingiz ham nusxa oling:
 pg_dump "<DATABASE_URL>" > zaxira-$(date +%F).sql
 ```
 
+## Android ilovasi (APK)
+
+Mutaxassislar kabinetni telefonga oddiy ilova qilib o'rnatishi uchun. APK
+ichida sayt ochiladi (TWA), shuning uchun saytdagi har bir o'zgarish ilovada
+ham darhol ko'rinadi — APK'ni qayta yasash shart emas.
+
+1. [pwabuilder.com](https://www.pwabuilder.com) ga sayt manzilini kiriting →
+   **Package for stores** → **Android** → **Generate Package**
+2. **Package ID**: masalan `uz.logoped.crm`, **Signing key**: *Create new*
+3. Yuklangan zip ichida: `.apk` (telefonga o'rnatish uchun), `.aab` (Google
+   Play uchun), imzo kaliti va `assetlinks.json`
+
+**Imzo kaliti va parolini xavfsiz joyda saqlang.** U yo'qolsa, ilovani
+yangilab bo'lmaydi — yangi ilova sifatida qaytadan tarqatishga to'g'ri keladi.
+
+4. Vercel → **Settings → Environment Variables** ga `assetlinks.json` dagi
+   qiymatlarni yozing va qayta deploy qiling:
+
+| Nomi | Qiymati |
+|---|---|
+| `ANDROID_PACKAGE_NAME` | `package_name` (masalan `uz.logoped.crm`) |
+| `ANDROID_SHA256_FINGERPRINTS` | `sha256_cert_fingerprints` ichidagi iz (`AA:BB:...`). Google Play'ga qo'yilsa, Play Console'dagi "App signing" izini ham vergul bilan qo'shing |
+
+5. Tekshirish: `https://<sayt>/.well-known/assetlinks.json` ochilib, shu
+   qiymatlarni ko'rsatishi kerak. Shundan keyin ilova tepasida brauzer satri
+   ko'rinmaydi.
+
+APK'ni mutaxassislarga Telegram orqali yuborasiz; o'rnatishda Android
+"noma'lum manbadan o'rnatish"ga ruxsat so'raydi.
+
 ## Keyin kod o'zgarsa
 
 ```bash
