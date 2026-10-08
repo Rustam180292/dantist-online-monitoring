@@ -46,7 +46,7 @@ async function setSessionStatusImpl(formData: FormData) {
     where: { id: sessionId },
     include: {
       package: { select: { pricePerSession: true } },
-      specialist: { select: { salaryPercent: true } },
+      specialist: { select: { salaryPercent: true, defaultPrice: true } },
     },
   });
 
@@ -58,8 +58,14 @@ async function setSessionStatusImpl(formData: FormData) {
   // abonementi yo'q — narx markazning standart narxidan olinadi. Aks holda
   // narx 0 bo'lib qolardi va mutaxassis o'sha seansdan hech narsa olmasdi.
   const billable = status === "DONE" || status === "NO_SHOW";
+  // Narx: seansda yozilgani -> abonement narxi -> mutaxassisning o'z narxi ->
+  // markazning standart narxi. Yakka mutaxassisning narxi markaznikiga bog'liq
+  // emas, shuning uchun u markaz narxidan oldin keladi.
   const price = billable
-    ? session.price || session.package?.pricePerSession || (await getSettings()).defaultPrice
+    ? session.price ||
+      session.package?.pricePerSession ||
+      session.specialist.defaultPrice ||
+      (await getSettings()).defaultPrice
     : 0;
 
   await prisma.session.update({

@@ -112,12 +112,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 214 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 230 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, PWA (145)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA (161)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
@@ -135,6 +135,18 @@ Kod o'zgartirgandan keyin shu to'rttasini ishga tushiring. Yangi imkoniyat qo'sh
 | `RECEPTION` | o'z filiali: jadval, qabullar, mijozlar, to'lovlar |
 | `SPECIALIST` | faqat o'z mijozlari va o'z puli |
 | `PARENT` | faqat o'z farzandi |
+
+`SPECIALIST` ikki xil bo'ladi. Markazdagisi — oddiy xodim. **Yakka
+mutaxassis** (`isSolo`, `src/lib/auth.ts`) esa markazga tegishli emas: u
+`/royxat` dan taklif kodi bilan o'zi ro'yxatdan o'tadi, o'ziga alohida filial
+ochiladi (`Branch.isSolo`), ulushi 100%, mijozini o'zi qo'shadi va to'lovini
+o'zi yozadi.
+
+**Yakka mutaxassisning ishi markaznikiga aralashmasligi kerak.** Doira bitta
+joyda — `NOT_SOLO` va `branchWhere()` da. Filial bo'yicha so'rov yozsangiz,
+`branchId ? { branchId } : {}` deb yozmang: bo'sh obyekt begona yakka
+mutaxassisning mijozlari va pulini ham qamrab oladi. Doim `branchWhere()`
+ishlating, filiallar ro'yxatiga esa `NOT_SOLO`.
 
 **Doira har bir so'rovda serverda qo'llanadi** (`src/lib/auth.ts` dagi `clientScope`,
 `sessionScope`). Hech qachon faqat interfeysda yashirish bilan cheklanmang —

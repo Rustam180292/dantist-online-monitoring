@@ -1,3 +1,4 @@
+import { branchWhere, NOT_SOLO } from "@/lib/auth";
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { BILLABLE_STATUSES, type SessionStatus } from "@/lib/constants";
@@ -61,7 +62,7 @@ export async function getOverview(opts: {
 
   const where = {
     startsAt: { gte: from, lt: to },
-    ...(branchId ? { branchId } : {}),
+    ...branchWhere(branchId),
     ...(specialistId ? { specialistId } : {}),
   };
 
@@ -74,7 +75,7 @@ export async function getOverview(opts: {
     prisma.payment.aggregate({
       where: {
         paidAt: { gte: from, lt: to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
       },
       _sum: { amount: true },
     }),
@@ -84,7 +85,7 @@ export async function getOverview(opts: {
     prisma.intake.aggregate({
       where: {
         paidAt: { gte: from, lt: to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
       },
       _sum: { price: true },
     }),
@@ -150,7 +151,7 @@ export async function getBranchReport(opts: {
   from: Date;
   to: Date;
 }): Promise<BranchReportRow[]> {
-  const branches = await prisma.branch.findMany({ orderBy: { name: "asc" } });
+  const branches = await prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } });
 
   return Promise.all(
     branches.map(async (b) => {
@@ -192,7 +193,7 @@ export async function getSpecialistRows(opts: {
   const { branchId, from, to } = opts;
 
   const specialists = await prisma.specialist.findMany({
-    where: { ...(branchId ? { branchId } : {}), isActive: true },
+    where: { ...branchWhere(branchId), isActive: true },
     include: {
       user: { select: { fullName: true } },
       branch: { select: { name: true } },
@@ -305,7 +306,7 @@ export async function getClientAlerts(opts: { branchId?: string | null }) {
       isActive: true,
       client: {
         status: "ACTIVE",
-        ...(opts.branchId ? { branchId: opts.branchId } : {}),
+        ...branchWhere(opts.branchId),
       },
     },
     include: {
@@ -448,7 +449,7 @@ export async function getSpecialistBalances(opts: {
   branchId?: string | null;
 }): Promise<SpecialistBalance[]> {
   const specialists = await prisma.specialist.findMany({
-    where: { ...(opts.branchId ? { branchId: opts.branchId } : {}) },
+    where: { ...branchWhere(opts.branchId) },
     include: {
       user: { select: { fullName: true } },
       branch: { select: { name: true } },

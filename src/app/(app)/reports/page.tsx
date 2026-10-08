@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
 import {
   BILLABLE_STATUSES,
   SPECIALIZATIONS,
@@ -34,11 +34,11 @@ export default async function ReportsPage({
   const [overview, specialistRows, branches, sessions] = await Promise.all([
     getOverview({ branchId, from, to }),
     getSpecialistRows({ branchId, from, to }),
-    user.role === "OWNER" ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    user.role === "OWNER" ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } }) : Promise.resolve([]),
     prisma.session.findMany({
       where: {
         startsAt: { gte: from, lt: to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
       },
       select: {
         status: true,
@@ -54,7 +54,7 @@ export default async function ReportsPage({
   const intakeAgg = await prisma.intake.aggregate({
     where: {
       paidAt: { gte: from, lt: to },
-      ...(branchId ? { branchId } : {}),
+      ...branchWhere(branchId),
     },
     _sum: { price: true },
     _count: true,

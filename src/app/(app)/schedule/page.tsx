@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireUser, sessionScope, clientScope } from "@/lib/auth";
+import { requireUser, sessionScope, clientScope, NOT_SOLO } from "@/lib/auth";
 import {
   SESSION_STATUSES,
   SESSION_STATUS_STYLE,
@@ -62,7 +62,7 @@ export default async function SchedulePage({
       },
     }),
     user.role === "OWNER"
-      ? prisma.branch.findMany({ orderBy: { name: "asc" } })
+      ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     user.role === "PARENT" || user.role === "SPECIALIST"
       ? Promise.resolve([])

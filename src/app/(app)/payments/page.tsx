@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_KEYS,
@@ -56,7 +56,7 @@ export default async function PaymentsPage({
     prisma.payment.findMany({
       where: {
         paidAt: { gte: from, lt: to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
         ...(methodFilter ? { method: methodFilter } : {}),
         ...(nameFilter
           ? { client: { fullName: { contains: nameFilter, mode: "insensitive" as const } } }
@@ -69,10 +69,10 @@ export default async function PaymentsPage({
         package: { select: { specialization: true } },
       },
     }),
-    user.role === "OWNER" ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    user.role === "OWNER" ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } }) : Promise.resolve([]),
     getClientAlerts({ branchId }),
     prisma.client.findMany({
-      where: { status: "ACTIVE", ...(branchId ? { branchId } : {}) },
+      where: { status: "ACTIVE", ...branchWhere(branchId) },
       select: { id: true, fullName: true, branch: { select: { name: true } } },
       orderBy: [{ branch: { name: "asc" } }, { fullName: "asc" }],
     }),
@@ -80,7 +80,7 @@ export default async function PaymentsPage({
     prisma.intake.findMany({
       where: {
         paidAt: { gte: from, lt: to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
         ...(methodFilter ? { method: methodFilter } : {}),
         ...(nameFilter
           ? { childName: { contains: nameFilter, mode: "insensitive" as const } }

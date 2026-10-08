@@ -34,7 +34,7 @@ const IDENTIFIERS = [
   "createdAt", "startsAt", "clientId", "branchId", "fullName", "isActive",
   "scheduledAt", "createdById", "childName", "parentName", "billingType",
   "defaultSalaryPercent", "workStartHour", "workEndHour", "slotMinutes",
-  "defaultPrice", "workDays", "centerName", "timezoneShiftedAt", "logoMime", "logoData", "logoUpdatedAt",
+  "defaultPrice", "workDays", "centerName", "timezoneShiftedAt", "soloInviteCode", "isSolo", "logoMime", "logoData", "logoUpdatedAt",
   "userId", "paidAt", "sentAt",
 ].sort((a, b) => b.length - a.length);
 

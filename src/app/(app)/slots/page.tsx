@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
 import { SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { daySlots, getSettings, isWorkDay } from "@/lib/settings";
 import { addDays, startOfDay } from "@/lib/stats";
@@ -38,7 +38,7 @@ export default async function SlotsPage({
 
   const [specialists, sessions, branches] = await Promise.all([
     prisma.specialist.findMany({
-      where: { isActive: true, ...(branchId ? { branchId } : {}) },
+      where: { isActive: true, ...branchWhere(branchId) },
       include: { user: { select: { fullName: true } }, branch: { select: { name: true } } },
       orderBy: [{ branch: { name: "asc" } }, { user: { fullName: "asc" } }],
     }),
@@ -46,12 +46,12 @@ export default async function SlotsPage({
       where: {
         startsAt: { gte: from, lt: to },
         status: { in: ["PLANNED", "DONE"] },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
       },
       select: { specialistId: true, startsAt: true, durationMin: true },
     }),
     user.role === "OWNER"
-      ? prisma.branch.findMany({ orderBy: { name: "asc" } })
+      ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } })
       : Promise.resolve([]),
   ]);
 

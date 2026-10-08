@@ -16,6 +16,10 @@ model Branch {
   name      String   @unique
   address   String?
   phone     String?
+  /// Yakka ishlaydigan mutaxassisning o'z "filiali". Markazning hisobotlari,
+  /// jadvali va mijozlar ro'yxati bunday filialni ko'rmaydi — ikkovi bitta
+  /// bazada tursa ham bir-biriga aralashmaydi.
+  isSolo    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   users       User[]
@@ -69,6 +73,10 @@ model Specialist {
   userId         String  @unique
   branchId       String
   specialization String
+  /// Shu mutaxassisning bitta seansi qancha turadi. Bo'sh bo'lsa markazning
+  /// Sozlamalardagi standart narxi olinadi. Yakka ishlaydiganga kerak: uning
+  /// narxi markaznikiga bog'liq emas.
+  defaultPrice   Int?
   /// Seans narxidan mutaxassisga tegadigan foiz
   salaryPercent  Int     @default(40)
   isActive       Boolean @default(true)
@@ -204,6 +212,9 @@ model Settings {
   /// `npm run db:timezone` bir marta ishlaganini belgilaydi. Skript vaqtlarni
   /// siljitadi, ikki marta ishlasa jadval ikki barobar siljib ketardi.
   timezoneShiftedAt   DateTime?
+  /// Yakka mutaxassis ro'yxatdan o'tishi uchun taklif kodi. Bo'sh bo'lsa
+  /// ro'yxatdan o'tish yopiq — begona odam akkaunt ocha olmaydi.
+  soloInviteCode      String?
   updatedAt           DateTime @updatedAt
 }
 

@@ -217,6 +217,28 @@ async function removeLogoImpl() {
   await setFlash("Logotip olib tashlandi.", "ok");
 }
 
+/**
+ * Yakka mutaxassislar uchun taklif kodi.
+ *
+ * Sayt manzili ommaga ochiq — kodsiz bo'lsa istalgan odam o'ziga akkaunt
+ * ochib, bazada joy egallab yurardi. Kod bo'sh qoldirilsa ro'yxatdan o'tish
+ * butunlay yopiladi.
+ */
+async function updateSoloInviteImpl(formData: FormData) {
+  await requireOwner();
+  const code = String(formData.get("soloInviteCode") ?? "").trim();
+  if (code && code.length < 4) throw new Error("Kod kamida 4 belgidan bo'lsin.");
+
+  await prisma.settings.upsert({
+    where: { id: "main" },
+    create: { id: "main", soloInviteCode: code || null },
+    update: { soloInviteCode: code || null },
+  });
+  revalidatePath("/settings");
+  await setFlash(code ? "Taklif kodi saqlandi." : "Ro'yxatdan o'tish yopildi.", "ok");
+}
+
+export const updateSoloInvite = withFlash(updateSoloInviteImpl);
 export const uploadLogo = withFlash(uploadLogoImpl);
 export const removeLogo = withFlash(removeLogoImpl);
 export const backupNow = withFlash(backupNowImpl);

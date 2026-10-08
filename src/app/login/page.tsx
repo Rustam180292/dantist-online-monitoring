@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { btnPrimary, card, input, label } from "@/components/ui";
@@ -32,7 +33,9 @@ export default async function LoginPage({
 
   const { error } = await searchParams;
   const t = await getT();
-  const { logoUrl } = await getSettings();
+  const { logoUrl, soloInviteCode } = await getSettings();
+  // Kod sozlanmagan bo'lsa ro'yxatdan o'tish havolasi ham ko'rinmaydi
+  const inviteOpen = Boolean(soloInviteCode?.trim());
   const message = error ? t(ERRORS[error] ?? "Kirishda xatolik.") : null;
 
   /**
@@ -108,6 +111,20 @@ export default async function LoginPage({
             {t("Kirish")}
           </button>
         </form>
+
+        {/* Yakka ishlaydigan mutaxassisga markaz akkaunt bermaydi — o'zi
+            ro'yxatdan o'tadi. Taklif kodi bo'lmasa bu yo'l yopiq. */}
+        {inviteOpen ? (
+          <p className="mt-4 text-center text-sm text-slate-500 dark:text-slate-400">
+            {t("Markazda emas, yakka ishlaysizmi?")}{" "}
+            <Link
+              href="/royxat"
+              className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              {t("Ro'yxatdan o'ting")}
+            </Link>
+          </p>
+        ) : null}
 
         {showDemo ? (
         <div className={`${card} mt-4 p-4 text-xs leading-relaxed text-slate-600 dark:text-slate-400`}>

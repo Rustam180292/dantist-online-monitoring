@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireUser, branchWhere } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   SESSION_STATUSES,
@@ -49,7 +49,7 @@ export default async function DashboardPage() {
     prisma.session.findMany({
       where: {
         startsAt: { gte: today.from, lt: today.to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
       },
       orderBy: { startsAt: "asc" },
       include: {
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
     prisma.client.count({
       where: {
         status: "ACTIVE",
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
       },
     }),
     getSpecialistRows({ branchId, ...month }),
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
     prisma.client.count({
       where: {
         status: "ACTIVE",
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
         OR: [{ parentUserId: null }, { parent: { is: { telegramId: null } } }],
       },
     }),

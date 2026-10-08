@@ -1,5 +1,5 @@
 import { Fragment } from "react";
-import { requireRole } from "@/lib/auth";
+import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/prisma";
 import { SPECIALIZATIONS, SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
@@ -44,19 +44,19 @@ export default async function SpecialistsPage() {
     await Promise.all([
     getSpecialistRows({ branchId, ...month }),
     prisma.specialist.findMany({
-      where: { isActive: false, ...(branchId ? { branchId } : {}) },
+      where: { isActive: false, ...branchWhere(branchId) },
       include: { user: { select: { fullName: true } }, branch: { select: { name: true } } },
     }),
-    user.role === "OWNER" ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    user.role === "OWNER" ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } }) : Promise.resolve([]),
     getSpecialistBalances({ branchId }),
     prisma.salaryPayout.findMany({
-      where: { ...(branchId ? { branchId } : {}) },
+      where: { ...branchWhere(branchId) },
       orderBy: { paidAt: "desc" },
       take: 15,
       include: { specialist: { include: { user: { select: { fullName: true } } } } },
     }),
     prisma.user.findMany({
-      where: { role: "RECEPTION", ...(branchId ? { branchId } : {}) },
+      where: { role: "RECEPTION", ...branchWhere(branchId) },
       include: { branch: { select: { name: true } } },
       orderBy: { fullName: "asc" },
     }),
@@ -66,7 +66,7 @@ export default async function SpecialistsPage() {
       : Promise.resolve([]),
     // Tahrirlash formasi uchun telefon raqamlar (hisobot qatorlarida yo'q)
     prisma.specialist.findMany({
-      where: { ...(branchId ? { branchId } : {}) },
+      where: { ...branchWhere(branchId) },
       select: { id: true, user: { select: { phone: true, telegramId: true } } },
     }),
   ]);

@@ -13,6 +13,8 @@ export type CenterSettings = {
   workDays: number[];
   /** Logotip yuklangan bo'lsa — uning manzili (versiya bilan), aks holda null */
   logoUrl: string | null;
+  /** Yakka mutaxassis ro'yxatdan o'tishi uchun kod. Bo'sh bo'lsa — yopiq */
+  soloInviteCode: string | null;
 };
 
 const DEFAULTS: CenterSettings = {
@@ -25,6 +27,7 @@ const DEFAULTS: CenterSettings = {
   slotMinutes: 60,
   workDays: [1, 2, 3, 4, 5, 6],
   logoUrl: null,
+  soloInviteCode: null,
 };
 
 export const WEEKDAYS: { value: number; label: string }[] = [
@@ -68,6 +71,7 @@ export async function getSettings(): Promise<CenterSettings> {
     slotMinutes: row.slotMinutes,
     workDays: workDays.length > 0 ? workDays : DEFAULTS.workDays,
     logoUrl: row.logoUpdatedAt && row.logoMime ? `/api/logo?v=${row.logoUpdatedAt.getTime()}` : null,
+    soloInviteCode: row.soloInviteCode,
   };
 }
 

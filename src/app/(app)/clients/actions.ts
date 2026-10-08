@@ -5,7 +5,7 @@ import { withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, requireUser, type CurrentUser } from "@/lib/auth";
+import { hashPassword, requireUser, type CurrentUser, isFrontDesk, isSolo } from "@/lib/auth";
 import {
   BILLING_TYPE_KEYS,
   CLIENT_STATUS_KEYS,
@@ -23,7 +23,9 @@ import {
  */
 async function requireFrontDesk(): Promise<CurrentUser> {
   const user = await requireUser();
-  if (user.role !== "OWNER" && user.role !== "BRANCH_ADMIN" && user.role !== "RECEPTION") {
+  // Yakka mutaxassis o'ziga qabulxona ham: mijozini o'zi qo'shadi, to'lovini
+  // o'zi yozadi. Ko'rish doirasi baribir o'z mijozlari bilan chegaralangan.
+  if (!isFrontDesk(user)) {
     throw new Error("Sizda bu amal uchun ruxsat yo'q.");
   }
   return user;
@@ -127,6 +129,14 @@ async function createClientImpl(formData: FormData) {
       billingType: readBillingType(formData),
     },
   });
+
+  // Yakka mutaxassis o'z mijozini qo'shdi — darhol o'ziga biriktiramiz,
+  // aks holda mijoz uning ro'yxatida ko'rinmaydi (doira biriktirishga tayanadi)
+  if (isSolo(user) && user.specialistId) {
+    await prisma.assignment.create({
+      data: { clientId: client.id, specialistId: user.specialistId },
+    });
+  }
 
   revalidatePath("/clients");
   revalidatePath("/");

@@ -12,6 +12,7 @@ import {
   changePassword,
   removeLogo,
   updateCenter,
+  updateSoloInvite,
   updatePricing,
   updateWorkHours,
   uploadLogo,
@@ -233,6 +234,42 @@ export default async function SettingsPage() {
                 </button>
               </div>
             </form>
+          </Card>
+
+          <Card
+            title={t("Yakka mutaxassislar")}
+            subtitle={t("markazda ishlamaydiganlar uchun taklif kodi")}
+            className="mt-5"
+          >
+            <div className="space-y-3 p-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                {t(
+                  "Yakka ishlaydigan mutaxassis shu kod bilan o'ziga akkaunt ochadi. Uning mijozlari, jadvali va puli sizga ko'rinmaydi, sizniki unga ko'rinmaydi.",
+                )}
+              </p>
+              <form action={updateSoloInvite} className="flex flex-wrap items-end gap-2">
+                <div className="min-w-[200px] flex-1">
+                  <label className={label} htmlFor="soloInviteCode">
+                    {t("Taklif kodi")}
+                  </label>
+                  <input
+                    id="soloInviteCode"
+                    name="soloInviteCode"
+                    defaultValue={s.soloInviteCode ?? ""}
+                    placeholder={t("bo'sh qoldirsangiz ro'yxatdan o'tish yopiladi")}
+                    className={input}
+                  />
+                </div>
+                <button type="submit" className={btnPrimary}>
+                  {t("Saqlash")}
+                </button>
+              </form>
+              {s.soloInviteCode ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {t("Havola")}: <code className="font-mono break-all">{`${appUrl()}/royxat`}</code>
+                </p>
+              ) : null}
+            </div>
           </Card>
 
           <Card

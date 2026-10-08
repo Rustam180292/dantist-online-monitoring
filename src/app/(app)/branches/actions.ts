@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ActionError, withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { requireUser, NOT_SOLO } from "@/lib/auth";
 
 /** Filiallar bilan faqat markaz egasi ishlaydi */
 async function requireOwner() {
@@ -102,7 +102,8 @@ async function deleteBranchImpl(formData: FormData) {
     );
   }
 
-  const total = await prisma.branch.count();
+  // Yakka mutaxassislarning filiali markazga tegishli emas — sanalmaydi
+  const total = await prisma.branch.count({ where: NOT_SOLO });
   if (total <= 1) throw new Error("Oxirgi filialni o'chirib bo'lmaydi.");
 
   await prisma.branch.delete({ where: { id } });

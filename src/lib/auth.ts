@@ -93,6 +93,8 @@ export type CurrentUser = {
   branchName: string | null;
   specialistId: string | null;
   specialization: string | null;
+  /** Yakka ishlaydigan mutaxassis: markazga tegishli emas, o'ziga xo'jayin */
+  isSolo: boolean;
 };
 
 type UserRow = {
@@ -104,6 +106,7 @@ type UserRow = {
   branchName: string | null;
   specialistId: string | null;
   specialization: string | null;
+  isSolo: boolean;
 };
 
 /**
@@ -125,7 +128,7 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Cur
 
   const rows = await prisma.$queryRaw<UserRow[]>`
     SELECT u."id", u."fullName", u."phone", u."role", u."branchId",
-           b."name" AS "branchName",
+           b."name" AS "branchName", COALESCE(b."isSolo", false) AS "isSolo",
            s."id" AS "specialistId", s."specialization"
       FROM "User" u
       LEFT JOIN "Branch" b ON b."id" = u."branchId"
@@ -145,6 +148,9 @@ export async function requireUser(): Promise<CurrentUser> {
 /** Faqat berilgan rollarga ruxsat. Aks holda bosh sahifaga qaytaradi. */
 export async function requireRole(...roles: Role[]): Promise<CurrentUser> {
   const user = await requireUser();
+  // Yakka mutaxassis o'ziga qabulxona ham — qabulxonaga ochiq sahifalar unga
+  // ham ochiq. Ko'rish doirasi alohida, so'rov darajasida chegaralanadi.
+  if (isSolo(user) && roles.includes("RECEPTION")) return user;
   if (!roles.includes(user.role)) redirect("/");
   return user;
 }
@@ -159,13 +165,47 @@ export const isAdmin = (u: CurrentUser) => u.role === "OWNER" || u.role === "BRA
  * Maosh, hisobot va xodimlar bo'limi bularga ochilmaydi.
  */
 export const isFrontDesk = (u: CurrentUser) =>
-  u.role === "OWNER" || u.role === "BRANCH_ADMIN" || u.role === "RECEPTION";
+  u.role === "OWNER" || u.role === "BRANCH_ADMIN" || u.role === "RECEPTION" || isSolo(u);
+/**
+ * Yakka mutaxassis — o'ziga ham xodim, ham xo'jayin: mijozini o'zi qo'shadi,
+ * to'lovini o'zi yozadi. Shuning uchun unga qabulxona huquqi ham beriladi,
+ * lekin ko'rish doirasi baribir o'z mijozlari bilan chegaralangan.
+ */
+export const isSolo = (u: CurrentUser) => u.role === "SPECIALIST" && u.isSolo;
 export const isSpecialist = (u: CurrentUser) => u.role === "SPECIALIST";
 export const isParent = (u: CurrentUser) => u.role === "PARENT";
 
 /**
+ * Markaz egasi uchun filtr: yakka mutaxassislarning filiali ko'rinmasin.
+ *
+ * Yakka mutaxassis bitta bazada tursa ham markazga tegishli emas — uning
+ * mijozi, puli va jadvali markazning hisobotiga qo'shilmasligi kerak.
+ * Shuning uchun doira bitta joyda, shu yerda belgilanadi: har bir so'rovda
+ * alohida yozilsa, bittasi unutilib qolishi va ma'lumot oqib ketishi aniq.
+ */
+export const NOT_SOLO = { isSolo: false } as const;
+
+/**
+ * "Filial tanlangan bo'lsa o'sha, bo'lmasa butun markaz" degan filtr.
+ *
+ * Muhimi — "butun markaz" yakka mutaxassislarni o'z ichiga olmaydi. Shu
+ * sababli har bir so'rovda `branchId ? { branchId } : {}` deb yozish mumkin
+ * emas: bo'sh obyekt hamma narsani, jumladan begona yakka mutaxassisning
+ * mijozlari va pulini ham qamrab olardi.
+ */
+export function branchWhere(branchId?: string | null) {
+  return branchId ? { branchId } : { branch: { is: NOT_SOLO } };
+}
+
+/** Filiallar ro'yxatiga rolga mos filtr */
+export function branchScope(user: CurrentUser) {
+  if (user.role === "OWNER") return NOT_SOLO;
+  return { id: user.branchId ?? "__yoq__" };
+}
+
+/**
  * Mijozlar ro'yxatiga rolga mos Prisma filtri:
- * - OWNER: hammasi
+ * - OWNER: markazning hamma filiali (yakka mutaxassisniki emas)
  * - BRANCH_ADMIN va RECEPTION: o'z filiali
  * - SPECIALIST: faqat o'ziga biriktirilgan mijozlar
  * - PARENT: faqat o'z farzandlari
@@ -173,7 +213,7 @@ export const isParent = (u: CurrentUser) => u.role === "PARENT";
 export function clientScope(user: CurrentUser) {
   switch (user.role) {
     case "OWNER":
-      return {};
+      return { branch: { is: NOT_SOLO } };
     case "BRANCH_ADMIN":
     case "RECEPTION":
       return { branchId: user.branchId ?? "__yoq__" };
@@ -188,7 +228,7 @@ export function clientScope(user: CurrentUser) {
 export function sessionScope(user: CurrentUser) {
   switch (user.role) {
     case "OWNER":
-      return {};
+      return { branch: { is: NOT_SOLO } };
     case "BRANCH_ADMIN":
     case "RECEPTION":
       return { branchId: user.branchId ?? "__yoq__" };

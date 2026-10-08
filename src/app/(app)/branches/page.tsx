@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireRole, NOT_SOLO } from "@/lib/auth";
 import { num } from "@/lib/format";
 import { monthRange } from "@/lib/stats";
 import {
@@ -22,6 +22,7 @@ export default async function BranchesPage() {
   const { from, to } = monthRange();
 
   const branches = await prisma.branch.findMany({
+    where: NOT_SOLO,
     orderBy: { name: "asc" },
     include: {
       _count: { select: { clients: true, specialists: true, intakes: true } },

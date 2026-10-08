@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { clientScope, requireUser } from "@/lib/auth";
+import { clientScope, requireUser, NOT_SOLO, isFrontDesk } from "@/lib/auth";
 import {
   BILLABLE_STATUSES,
   BILLING_TYPES,
@@ -75,7 +75,7 @@ export default async function ClientsPage({
   const t = await getT();
   const sp = await searchParams;
   const canManage =
-    user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
+    isFrontDesk(user);
 
   const nameFilter = (sp.n ?? "").trim();
   const phoneFilter = (sp.p ?? "").trim();
@@ -152,7 +152,7 @@ export default async function ClientsPage({
         },
       },
     }),
-    user.role === "OWNER" ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    user.role === "OWNER" ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } }) : Promise.resolve([]),
     // Filtr ro'yxati uchun: mutaxassis o'ziniki bilan cheklanadi
     prisma.specialist.findMany({
       where: {

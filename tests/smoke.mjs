@@ -993,6 +993,163 @@ if (await payRow.count()) {
   }
 }
 
+/* 9v. Yakka mutaxassis: markaz bilan aralashmaydi */
+{
+  const tag = Date.now().toString().slice(-6);
+  const CODE = `SINOV-${tag}`;
+  const soloPhone = `+99890444${tag.slice(-4)}`;
+  const soloName = `Yakka Mutaxassis ${tag}`;
+  const soloClient = `Yakka Bola ${tag}`;
+
+  // Kod sozlanmaguncha ro'yxatdan o'tish yopiq bo'lishi kerak.
+  // Kirgan foydalanuvchi baribir bosh sahifaga ketadi, shuning uchun
+  // sessiyasiz tekshiramiz.
+  await all("UPDATE Settings SET soloInviteCode = NULL WHERE id = 'main'");
+  await ctx.clearCookies();
+  await page.goto(`${BASE}/royxat`);
+  await page.waitForLoadState("networkidle");
+  check("Kodsiz ro'yxatdan o'tish yopiq", page.url().includes("/login"), page.url());
+
+  // Ega kodni sozlaydi
+  await login(owner.phone);
+  await page.goto(`${BASE}/settings`);
+  await page.waitForSelector("#soloInviteCode", { timeout: 15000 });
+  await page.fill("#soloInviteCode", CODE);
+  await page.locator('form:has(#soloInviteCode) button[type="submit"]').click();
+  const codeSaved = await waitUntil(async () => {
+    const r = await one("SELECT soloInviteCode FROM Settings WHERE id = 'main'");
+    return r?.soloInviteCode === CODE;
+  });
+  check("Taklif kodi saqlanadi", codeSaved);
+
+  // Markazdagi mijozlar soni — keyin solishtiramiz
+  // Har bir mijoz ikki qator chizadi (ikkinchisida tahrirlash formasi), shuning
+  // uchun qatorni emas, mijoz havolasini sanaymiz
+  const clientLinks = () => page.locator('tbody a[href^="/clients/"]').count();
+  await page.goto(`${BASE}/clients`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  const ownerClientsBefore = await clientLinks();
+  const someCenterClient = (await one("SELECT fullName FROM Client ORDER BY fullName LIMIT 1")).fullName;
+
+  /* --- Yakka mutaxassis ro'yxatdan o'tadi --- */
+  await ctx.clearCookies();
+  await page.goto(`${BASE}/royxat`);
+  await page.waitForSelector("#inviteCode", { timeout: 15000 });
+
+  // Noto'g'ri kod o'tmasligi kerak
+  await page.fill("#inviteCode", "boshqa-kod");
+  await page.fill("#fullName", soloName);
+  await page.fill("#phone", soloPhone);
+  await page.fill("#password", PASSWORD);
+  await page.click('form button[type="submit"]');
+  await page.waitForTimeout(1500);
+  check(
+    "Noto'g'ri kod bilan akkaunt ochilmaydi",
+    (await count("SELECT COUNT(*) AS n FROM User WHERE phone = ?", soloPhone)) === 0,
+  );
+
+  await page.goto(`${BASE}/royxat`);
+  await page.waitForSelector("#inviteCode", { timeout: 15000 });
+  await page.fill("#inviteCode", CODE);
+  await page.fill("#fullName", soloName);
+  await page.fill("#phone", soloPhone);
+  await page.fill("#password", PASSWORD);
+  await page.fill("#price", "200000");
+  await page.click('form button[type="submit"]');
+  const registered = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM User WHERE phone = ?", soloPhone)) === 1,
+  );
+  check("Yakka mutaxassis ro'yxatdan o'tadi", registered);
+
+  const solo = await one(
+    `SELECT u.id AS userId, u.branchId, b.isSolo, s.id AS specialistId, s.salaryPercent, s.defaultPrice
+       FROM User u JOIN Branch b ON b.id = u.branchId
+       JOIN Specialist s ON s.userId = u.id WHERE u.phone = ?`,
+    soloPhone,
+  );
+  check(
+    "O'ziga alohida filial ochiladi, puli 100%",
+    solo?.isSolo === true && Number(solo.salaryPercent) === 100 && Number(solo.defaultPrice) === 200000,
+    JSON.stringify(solo),
+  );
+
+  // Ro'yxatdan o'tgach darhol kabinetiga tushadi
+  await page.waitForURL(/\/m\b/, { timeout: 15000 }).catch(() => {});
+  check("Ro'yxatdan keyin kabinetga tushadi", page.url().includes("/m"), page.url());
+
+  /* --- O'zi mijoz qo'shadi va to'lov yozadi --- */
+  await page.goto(`${BASE}/clients`);
+  await page.waitForLoadState("networkidle");
+  await page.click('summary:has-text("Yangi mijoz")');
+  await page.fill("#fullName", soloClient);
+  await page.fill("#birthDate", "2019-06-06");
+  await page.fill("#parentName", "Yakka Ota");
+  await page.fill("#parentPhone", `+99890333${tag.slice(-4)}`);
+  await page.click('form button:has-text("Saqlash")');
+  const added = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE fullName = ?", soloClient)) === 1,
+  );
+  check("Yakka mutaxassis o'zi mijoz qo'sha oladi", added);
+
+  const kid = await one("SELECT id, branchId FROM Client WHERE fullName = ?", soloClient);
+  check("Mijoz uning filialiga tushadi", kid?.branchId === solo.branchId);
+  check(
+    "Mijoz o'ziga biriktiriladi",
+    (await count(
+      "SELECT COUNT(*) AS n FROM Assignment WHERE clientId = ? AND specialistId = ?",
+      kid.id, solo.specialistId,
+    )) === 1,
+  );
+
+  // O'z mijozini ro'yxatda ko'radi
+  await page.goto(`${BASE}/clients`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  const soloSees = await page.locator("main").innerText();
+  check("O'z mijozini ko'radi", soloSees.includes(soloClient));
+  check(
+    "Markazning mijozlarini ko'rmaydi",
+    (await clientLinks()) === 1 && !soloSees.includes(someCenterClient),
+    `${await clientLinks()} ta mijoz`,
+  );
+
+  // To'lov yoza oladi
+  await page.goto(`${BASE}/payments`);
+  await page.waitForLoadState("networkidle");
+  check("To'lovlar sahifasi ochiladi", !page.url().includes("/login") && page.url().includes("/payments"), page.url());
+
+  /* --- Eng muhimi: ega yakka mutaxassisni ko'rmaydi --- */
+  await login(owner.phone);
+  await page.goto(`${BASE}/clients`);
+  await page.waitForSelector("tbody tr", { timeout: 15000 });
+  const ownerSees = await page.locator("main").innerText();
+  check("Ega yakka mijozni ko'rmaydi", !ownerSees.includes(soloClient));
+  check(
+    "Egada mijozlar soni o'zgarmagan",
+    (await clientLinks()) === ownerClientsBefore,
+    `${await clientLinks()} / ${ownerClientsBefore}`,
+  );
+
+  await page.goto(`${BASE}/specialists`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Ega yakka mutaxassisni xodimlar ro'yxatida ko'rmaydi",
+    !(await page.locator("main").innerText()).includes(soloName),
+  );
+
+  await page.goto(`${BASE}/branches`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Ega yakka filialni ko'rmaydi",
+    !(await page.locator("main").innerText()).includes("(yakka)"),
+  );
+
+  // Tozalab qo'yamiz: keyingi tekshiruvlarga xalaqit bermasin
+  await all("DELETE FROM Client WHERE id = ?", kid.id);
+  await all("DELETE FROM User WHERE id = ?", solo.userId);
+  await all("DELETE FROM Branch WHERE id = ?", solo.branchId);
+  await all("UPDATE Settings SET soloInviteCode = NULL WHERE id = 'main'");
+}
+
 /* 9h. Bosh panelda filiallar kesimi */
 {
   await page.goto(`${BASE}/`);

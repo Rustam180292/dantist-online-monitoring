@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
 import {
   INTAKE_RESULTS,
   INTAKE_RESULT_KEYS,
@@ -74,7 +74,7 @@ export default async function IntakesPage({
     prisma.intake.findMany({
       where: {
         scheduledAt: { gte: from, lt: to },
-        ...(branchId ? { branchId } : {}),
+        ...branchWhere(branchId),
       },
       orderBy: { scheduledAt: "desc" },
       include: {
@@ -86,7 +86,7 @@ export default async function IntakesPage({
       },
     }),
     user.role === "OWNER"
-      ? prisma.branch.findMany({ orderBy: { name: "asc" } })
+      ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     prisma.specialist.findMany({
       where: { isActive: true, ...(user.role === "OWNER" ? {} : { branchId: user.branchId ?? "" }) },

@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth";
+import { requireUser, isSolo } from "@/lib/auth";
 import { ROLES, SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { MobileNav, SideNav, type NavItem } from "@/components/nav";
 import { Icon } from "@/components/icons";
@@ -29,8 +29,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items.push({ href: "/", label: t("Panel"), icon: "home" });
     }
     items.push({ href: "/schedule", label: t("Jadval"), icon: "calendar" });
-    // Bo'sh vaqtlar: qabulxona xodimi telefonda turib vaqt tanlashi uchun
-    if (user.role !== "SPECIALIST") {
+    // Bo'sh vaqtlar: qabulxona xodimi telefonda turib vaqt tanlashi uchun.
+    // Yakka mutaxassisga ham kerak — jadvalini o'zi to'ldiradi.
+    if (user.role !== "SPECIALIST" || isSolo(user)) {
       items.push({ href: "/slots", label: t("Bo'sh vaqtlar"), icon: "clock" });
     }
     // Qabul — markazga birinchi marta kelgan odam; mutaxassisga u ko'rinmaydi
@@ -39,6 +40,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
     items.push({ href: "/clients", label: t("Mijozlar"), icon: "users" });
     if (user.role === "SPECIALIST") {
+      // Yakka mutaxassis to'lovni o'zi qabul qiladi
+      if (isSolo(user)) {
+        items.push({ href: "/payments", label: t("To'lovlar"), icon: "wallet" });
+      }
       items.push({ href: "/earnings", label: t("Pulim"), icon: "wallet" });
     } else if (user.role === "RECEPTION") {
       // Qabulxona xodimiga maosh, xodimlar va hisobotlar ko'rinmaydi
@@ -72,7 +77,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="leading-tight">
             <p className="text-sm font-bold text-slate-900 dark:text-white">Logoped CRM</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              {user.branchName ?? t("Barcha filiallar")}
+              {isSolo(user) ? t("Yakka ishlayman") : (user.branchName ?? t("Barcha filiallar"))}
             </p>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { clientScope, requireUser } from "@/lib/auth";
+import { clientScope, requireUser, NOT_SOLO, isFrontDesk } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import {
   BILLING_TYPES,
@@ -70,7 +70,7 @@ export default async function ClientPage({
   const t = await getT();
   // Qabulxona xodimi mijoz bilan ishlaydi, lekin yozuvni o'chira olmaydi
   const canManage =
-    user.role === "OWNER" || user.role === "BRANCH_ADMIN" || user.role === "RECEPTION";
+    isFrontDesk(user);
   const canDelete = user.role === "OWNER" || user.role === "BRANCH_ADMIN";
 
   const settings = await getSettings();
@@ -124,7 +124,7 @@ export default async function ClientPage({
       : Promise.resolve([]),
     // Filialni faqat markaz egasi o'zgartira oladi
     user.role === "OWNER"
-      ? prisma.branch.findMany({ orderBy: { name: "asc" } })
+      ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     // Ro'yxat 30 ta bilan cheklangan, o'chirishda esa aniq son kerak
     prisma.session.count({ where: { clientId: client.id } }),

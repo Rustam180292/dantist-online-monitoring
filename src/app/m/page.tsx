@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, isSolo } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   BILLABLE_STATUSES,
@@ -75,7 +75,9 @@ export default async function MiniAppPage({
           <p className="truncate text-base font-bold">{user.fullName}</p>
           <p className="truncate text-xs app-muted">
             {t(SPECIALIZATIONS[user.specialization as Specialization])}
-            {user.branchName ? ` · ${user.branchName}` : ""}
+            {/* Yakka mutaxassisning "filiali" — o'zi uchun ochilgan ichki yozuv,
+                uni ekranda ko'rsatishning ma'nosi yo'q */}
+            {user.branchName && !isSolo(user) ? ` · ${user.branchName}` : ""}
           </p>
         </div>
         <div className="shrink-0 text-right">
