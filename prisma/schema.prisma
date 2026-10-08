@@ -214,6 +214,8 @@ model Settings {
   timezoneShiftedAt   DateTime?
   /// Yakka mutaxassis ro'yxatdan o'tishi uchun taklif kodi. Bo'sh bo'lsa
   /// ro'yxatdan o'tish yopiq — begona odam akkaunt ocha olmaydi.
+  /// Markaz panelida ko'rinmaydi (yakka mutaxassis markazga tegishli emas),
+  /// `npm run db:solo-code` bilan qo'yiladi.
   soloInviteCode      String?
   updatedAt           DateTime @updatedAt
 }

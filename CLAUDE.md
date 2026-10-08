@@ -62,6 +62,7 @@ npm run db:backup     # bazaning to'liq zaxirasi -> zaxira/*.json
 npm run db:restore -- zaxira/<fayl>.json    # zaxiradan tiklash
 npm run db:clean      # demo'ni tozalab, haqiqiy markazni ochish (savol berib boradi)
 npm run db:billing-type  # bir martalik: abonementi bor mijozlarni "Abonement" deb belgilaydi
+npm run db:solo-code     # yakka mutaxassis taklif kodini qo'yish / o'chirish
 npm run db:timezone   # bir martalik: eski vaqtlarni markaz zonasiga ko'chiradi
 npm run db:seed       # demo ma'lumot — DIQQAT, pastga qarang
 ```
@@ -141,6 +142,12 @@ mutaxassis** (`isSolo`, `src/lib/auth.ts`) esa markazga tegishli emas: u
 `/royxat` dan taklif kodi bilan o'zi ro'yxatdan o'tadi, o'ziga alohida filial
 ochiladi (`Branch.isSolo`), ulushi 100%, mijozini o'zi qo'shadi va to'lovini
 o'zi yozadi.
+
+Taklif kodi markaz panelida **ko'rinmaydi** — yakka mutaxassis markazga
+tegishli emas, uni markaz rahbari emas, ilovani sotayotgan odam qabul qiladi.
+Kod terminaldan qo'yiladi: `npm run db:solo-code -- <kod>` (ko'rish uchun
+argumentsiz, yopish uchun `-- --yop`). Kod bo'sh bo'lsa `/royxat` ochilmaydi
+va `/login` da ro'yxatdan o'tish havolasi ham ko'rinmaydi.
 
 **Yakka mutaxassisning ishi markaznikiga aralashmasligi kerak.** Doira bitta
 joyda — `NOT_SOLO` va `branchWhere()` da. Filial bo'yicha so'rov yozsangiz,

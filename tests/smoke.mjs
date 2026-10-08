@@ -1010,17 +1010,17 @@ if (await payRow.count()) {
   await page.waitForLoadState("networkidle");
   check("Kodsiz ro'yxatdan o'tish yopiq", page.url().includes("/login"), page.url());
 
-  // Ega kodni sozlaydi
+  // Kodni ilovani sotayotgan odam terminaldan qo'yadi (npm run db:solo-code) —
+  // markaz rahbarining panelida bunday sozlama bo'lmasligi kerak
+  await all("UPDATE Settings SET soloInviteCode = ? WHERE id = 'main'", CODE);
   await login(owner.phone);
   await page.goto(`${BASE}/settings`);
-  await page.waitForSelector("#soloInviteCode", { timeout: 15000 });
-  await page.fill("#soloInviteCode", CODE);
-  await page.locator('form:has(#soloInviteCode) button[type="submit"]').click();
-  const codeSaved = await waitUntil(async () => {
-    const r = await one("SELECT soloInviteCode FROM Settings WHERE id = 'main'");
-    return r?.soloInviteCode === CODE;
-  });
-  check("Taklif kodi saqlanadi", codeSaved);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Egada yakka mutaxassis sozlamasi yo'q",
+    !(await page.locator("main").innerText()).includes("Yakka mutaxassis")
+      && (await page.locator("#soloInviteCode").count()) === 0,
+  );
 
   // Markazdagi mijozlar soni — keyin solishtiramiz
   // Har bir mijoz ikki qator chizadi (ikkinchisida tahrirlash formasi), shuning

@@ -11,6 +11,7 @@
     "db:restore": "tsx prisma/restore.ts",
     "db:clean": "tsx prisma/clean.ts",
     "db:billing-type": "tsx prisma/billing-type.ts",
+    "db:solo-code": "tsx prisma/solo-code.ts",
     "db:timezone": "tsx prisma/timezone.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma db push && prisma generate && tsx prisma/seed.ts",
