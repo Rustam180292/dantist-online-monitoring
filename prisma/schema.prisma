@@ -201,6 +201,9 @@ model Settings {
   logoMime            String?
   /// Rasm almashganda brauzer keshini yangilash uchun manzilga qo'shiladi
   logoUpdatedAt       DateTime?
+  /// `npm run db:timezone` bir marta ishlaganini belgilaydi. Skript vaqtlarni
+  /// siljitadi, ikki marta ishlasa jadval ikki barobar siljib ketardi.
+  timezoneShiftedAt   DateTime?
   updatedAt           DateTime @updatedAt
 }
 

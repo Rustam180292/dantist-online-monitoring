@@ -62,6 +62,7 @@ npm run db:backup     # bazaning to'liq zaxirasi -> zaxira/*.json
 npm run db:restore -- zaxira/<fayl>.json    # zaxiradan tiklash
 npm run db:clean      # demo'ni tozalab, haqiqiy markazni ochish (savol berib boradi)
 npm run db:billing-type  # bir martalik: abonementi bor mijozlarni "Abonement" deb belgilaydi
+npm run db:timezone   # bir martalik: eski vaqtlarni markaz zonasiga ko'chiradi
 npm run db:seed       # demo ma'lumot — DIQQAT, pastga qarang
 ```
 
@@ -89,14 +90,34 @@ to'xtaydi va nima yo'qolishini ko'rsatadi. To'siqni `SEED_CONFIRM` / `RESTORE_CO
 bilan ataylab ochish mumkin — buni faqat zaxira olgandan keyin qiling. To'siqni
 kodidan olib tashlamang.
 
+## Vaqt zonasi
+
+Markaz **Asia/Tashkent** da, Vercel'dagi server esa UTC da turadi. Zona
+`src/instrumentation.ts` da, kodda belgilanadi (muhit o'zgaruvchisiga
+tashlanmagan: bir marta yozilmay qolsa butun jadval jimgina 5 soatga siljib
+ketardi). Terminaldagi skriptlar va tekshiruvlar uchun `.env` da ham
+`TZ="Asia/Tashkent"` turishi kerak.
+
+Shuning uchun:
+
+- Odam kiritgan vaqt (`datetime-local`) markaz vaqti deb tushuniladi.
+  `new Date("...T09:00")`, `setHours`, `getHours` — hammasi shu zonada.
+- `Session.startsAt` va `Intake.scheduledAt` — odam kiritgan vaqtlar.
+  `createdAt`, `sentAt` kabi maydonlar haqiqiy lahza, ularga zona ta'sir
+  qilmaydi. Sana-kunlik maydonlar (`birthDate`, `paidAt`) yarim tunda UTC
+  bo'lib turadi va ikkala zonada ham o'sha kunni ko'rsatadi.
+- Prisma `DateTime` ni PostgreSQL'da zonasiz (`timestamp`) saqlaydi va doim
+  UTC deb o'qiydi. Bazaga to'g'ridan-to'g'ri `pg` bilan ulangan kod ham
+  shunday o'qishi kerak — `tests/db.mjs` dagi type parser shu uchun.
+
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 212 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 214 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, PWA (143)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, PWA (145)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)

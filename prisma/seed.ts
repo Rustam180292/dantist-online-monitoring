@@ -512,6 +512,14 @@ async function main() {
     prisma.payment.count(),
   ]);
 
+  // Demo vaqtlari allaqachon markaz zonasida yozildi — `db:timezone` ularni
+  // qaytadan surib yubormasligi uchun belgilab qo'yamiz
+  await prisma.settings.upsert({
+    where: { id: "main" },
+    create: { id: "main", timezoneShiftedAt: new Date() },
+    update: { timezoneShiftedAt: new Date() },
+  });
+
   console.log(`
 Demo ma'lumotlar tayyor:
   filial:        ${branches}

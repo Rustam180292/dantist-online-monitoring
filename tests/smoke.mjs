@@ -61,6 +61,14 @@ async function waitUntil(fn, timeoutMs = 8000) {
   }
 }
 
+// Sinovlar bazadagi vaqtni soat bilan solishtiradi — jarayon markaz zonasida
+// ishlamasa, natija noto'g'ri bo'ladi. .env dagi TZ shuning uchun kerak.
+const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+if (tz !== "Asia/Tashkent") {
+  console.error(`Vaqt zonasi "${tz}" — .env ga TZ="Asia/Tashkent" qo'shing.`);
+  process.exit(1);
+}
+
 const ok = [];
 const fails = [];
 const check = (name, cond, extra = "") =>
@@ -779,7 +787,23 @@ if (await payRow.count()) {
     added ? "" : (await page.locator("main").innerText()).split("\n").slice(0, 3).join(" | "),
   );
 
-  const sess = added ? await one("SELECT id FROM Session WHERE clientId = ? LIMIT 1", kid.id) : null;
+  const sess = added
+    ? await one("SELECT id, startsAt FROM Session WHERE clientId = ? LIMIT 1", kid.id)
+    : null;
+
+  // Vaqt zonasi: "06:05" deb kiritilgani markaz vaqti bo'yicha tushunilishi
+  // kerak, server zonasi bo'yicha emas. Server UTC da qolib ketsa, bazadagi
+  // soat kiritilgani bilan bir xil bo'ladi va bu shart yiqiladi.
+  if (sess) {
+    const at = new Date(sess.startsAt);
+    const shift = (at.getHours() - at.getUTCHours() + 24) % 24;
+    check(
+      "Kiritilgan vaqt markaz zonasida saqlanadi",
+      at.getHours() === 6 && at.getMinutes() === 5 && shift === 5,
+      `${at.toISOString()} -> ${at.getHours()}:${String(at.getMinutes()).padStart(2, "0")}, farq ${shift} soat`,
+    );
+  }
+
   if (!sess) {
     check("Kunlik seansning narxi standart narxdan olinadi", false, "seans yozilmadi");
   } else {

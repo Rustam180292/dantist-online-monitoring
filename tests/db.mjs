@@ -14,6 +14,15 @@
 import "dotenv/config";
 import pg from "pg";
 
+/**
+ * Prisma `DateTime` ni PostgreSQL'da "timestamp without time zone" qilib
+ * saqlaydi va uni doim UTC deb o'qiydi. `pg` esa zonasiz vaqtni jarayonning
+ * o'z zonasi deb tushunadi — server Toshkent vaqtida ishlagani uchun bu yerda
+ * 5 soatlik farq chiqib qolardi va tekshiruvlar ilovani bekorga ayblardi.
+ * Shuning uchun biz ham UTC deb o'qiymiz.
+ */
+pg.types.setTypeParser(1114, (value) => new Date(`${value.replace(" ", "T")}Z`));
+
 const IDENTIFIERS = [
   // jadvallar
   "SalaryPayout", "Notification", "Assignment", "Specialist", "Payment",
@@ -25,7 +34,7 @@ const IDENTIFIERS = [
   "createdAt", "startsAt", "clientId", "branchId", "fullName", "isActive",
   "scheduledAt", "createdById", "childName", "parentName", "billingType",
   "defaultSalaryPercent", "workStartHour", "workEndHour", "slotMinutes",
-  "defaultPrice", "workDays", "centerName", "logoMime", "logoData", "logoUpdatedAt",
+  "defaultPrice", "workDays", "centerName", "timezoneShiftedAt", "logoMime", "logoData", "logoUpdatedAt",
   "userId", "paidAt", "sentAt",
 ].sort((a, b) => b.length - a.length);
 

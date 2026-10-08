@@ -264,6 +264,27 @@ yangilab bo'lmaydi — yangi ilova sifatida qaytadan tarqatishga to'g'ri keladi.
 APK'ni mutaxassislarga Telegram orqali yuborasiz; o'rnatishda Android
 "noma'lum manbadan o'rnatish"ga ruxsat so'raydi.
 
+## Vaqt zonasi (bir martalik)
+
+Markaz Toshkent vaqtida, Vercel'dagi server esa UTC da ishlaydi. Dastur
+zonani kodning o'zidan oladi (`src/instrumentation.ts`), shuning uchun
+Vercel'ga hech narsa qo'shish shart emas.
+
+Lekin shu o'zgarish chiqqanidan keyin **eski yozuvlarni bir marta ko'chirish
+kerak**: ular UTC vaqtida yozilgan va yangi kodda 5 soat keyin ko'rinadi.
+
+```bash
+npm run db:backup     # avval zaxira
+npm run db:push       # yangi ustun uchun
+npm run db:timezone   # vaqtlarni ko'chiradi, tasdiq so'raydi
+```
+
+Skript ikki marta ishlamaydi — bir marta bajargandan keyin o'zi to'xtaydi.
+Ko'chirish faqat seans va qabul vaqtlariga tegadi; to'lov sanalari,
+tug'ilgan sana va yozuvlarning yaratilgan vaqti o'z joyida qoladi.
+
+Keyin jadvalni ochib, vaqtlar avvalgidek turganini tekshiring.
+
 ## Keyin kod o'zgarsa
 
 ```bash
