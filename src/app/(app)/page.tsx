@@ -19,7 +19,8 @@ import {
 } from "@/lib/stats";
 import { num, timeUz } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
-import { Badge, Card, Empty, PageHeader, StatCard, td, th } from "@/components/ui";
+import { Badge, Card, PageHeader, StatCard } from "@/components/ui";
+import { DataTable } from "@/components/data-table";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -166,49 +167,35 @@ export default async function DashboardPage() {
             </Link>
           }
         >
-          <div className="scroll-x">
-            <table className="w-full min-w-[620px]">
-              <thead className="border-b border-slate-200 dark:border-slate-800">
-                <tr>
-                  <th className={th}>{t("Filial")}</th>
-                  <th className={th}>{t("Faol mijoz")}</th>
-                  <th className={th}>{t("O'tgan seans")}</th>
-                  <th className={th}>{t("Xizmat qiymati")}</th>
-                  <th className={th}>{t("Kassaga tushgan")}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {branchReport.map((b) => (
-                  <tr key={b.id}>
-                    <td className={`${td} font-medium text-slate-800 dark:text-slate-200`}>
-                      {b.name}
-                    </td>
-                    <td className={`${td} tabular-nums`}>{num(b.clients)}</td>
-                    <td className={`${td} tabular-nums`}>{num(b.done)}</td>
-                    <td className={`${td} tabular-nums`}>{money(b.earned)}</td>
-                    <td className={`${td} font-semibold tabular-nums`}>{money(b.collected)}</td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="border-t border-slate-200 dark:border-slate-800">
-                <tr className="font-semibold text-slate-800 dark:text-slate-200">
-                  <td className={td}>{t("Jami")}</td>
-                  <td className={`${td} tabular-nums`}>
-                    {num(branchReport.reduce((n, b) => n + b.clients, 0))}
-                  </td>
-                  <td className={`${td} tabular-nums`}>
-                    {num(branchReport.reduce((n, b) => n + b.done, 0))}
-                  </td>
-                  <td className={`${td} tabular-nums`}>
-                    {money(branchReport.reduce((n, b) => n + b.earned, 0))}
-                  </td>
-                  <td className={`${td} tabular-nums`}>
-                    {money(branchReport.reduce((n, b) => n + b.collected, 0))}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+          <DataTable
+            testId="dash-branches"
+            columns={[
+              { label: t("Filial") },
+              { label: t("Faol mijoz"), className: "tabular-nums" },
+              { label: t("O'tgan seans"), className: "tabular-nums" },
+              { label: t("Xizmat qiymati"), className: "tabular-nums" },
+              { label: t("Kassaga tushgan"), className: "tabular-nums" },
+            ]}
+            rows={branchReport.map((b) => ({
+              key: b.id,
+              search: b.name,
+              sort: [b.name, b.clients, b.done, b.earned, b.collected],
+              cells: [
+                <span key="n" className="font-medium text-slate-800 dark:text-slate-200">{b.name}</span>,
+                num(b.clients),
+                num(b.done),
+                money(b.earned),
+                <span key="c" className="font-semibold">{money(b.collected)}</span>,
+              ],
+            }))}
+            footer={[
+              t("Jami"),
+              num(branchReport.reduce((n, b) => n + b.clients, 0)),
+              num(branchReport.reduce((n, b) => n + b.done, 0)),
+              money(branchReport.reduce((n, b) => n + b.earned, 0)),
+              money(branchReport.reduce((n, b) => n + b.collected, 0)),
+            ]}
+          />
         </Card>
       ) : null}
 
@@ -223,112 +210,137 @@ export default async function DashboardPage() {
             </Link>
           }
         >
-          {todaySessions.length === 0 ? (
-            <Empty>{t("Bugunga seans belgilanmagan.")}</Empty>
-          ) : (
-            <div className="scroll-x">
-              <table className="w-full min-w-[640px]">
-                <thead className="border-b border-slate-200 dark:border-slate-800">
-                  <tr>
-                    <th className={th}>{t("Vaqt")}</th>
-                    <th className={th}>{t("Mijoz")}</th>
-                    <th className={th}>{t("Mutaxassis")}</th>
-                    {!branchId ? <th className={th}>{t("Filial")}</th> : null}
-                    <th className={th}>{t("Holat")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {todaySessions.map((s) => (
-                    <tr key={s.id}>
-                      <td className={`${td} font-semibold tabular-nums`}>{timeUz(s.startsAt)}</td>
-                      <td className={td}>
-                        <Link
-                          href={`/clients/${s.client.id}`}
-                          className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
-                        >
-                          {s.client.fullName}
-                        </Link>
-                      </td>
-                      <td className={td}>
-                        {s.specialist.user.fullName}
-                        <span className="block text-xs text-slate-400">
-                          {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
-                        </span>
-                      </td>
-                      {!branchId ? <td className={td}>{s.branch.name}</td> : null}
-                      <td className={td}>
-                        <Badge className={SESSION_STATUS_STYLE[s.status as SessionStatus]}>
-                          {t(SESSION_STATUSES[s.status as SessionStatus])}
-                        </Badge>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            testId="dash-today"
+            minWidth="min-w-[640px]"
+            empty={t("Bugunga seans belgilanmagan.")}
+            columns={[
+              { label: t("Vaqt"), className: "font-semibold tabular-nums" },
+              { label: t("Mijoz") },
+              { label: t("Mutaxassis") },
+              ...(!branchId ? [{ label: t("Filial") }] : []),
+              { label: t("Holat") },
+            ]}
+            rows={todaySessions.map((s) => {
+              const spec = t(SPECIALIZATIONS[s.specialist.specialization as Specialization]);
+              const status = t(SESSION_STATUSES[s.status as SessionStatus]);
+              return {
+                key: s.id,
+                search: [s.client.fullName, s.specialist.user.fullName, spec, s.branch.name, status].join(" "),
+                sort: [
+                  s.startsAt.getTime(),
+                  s.client.fullName,
+                  s.specialist.user.fullName,
+                  ...(!branchId ? [s.branch.name] : []),
+                  status,
+                ],
+                cells: [
+                  timeUz(s.startsAt),
+                  <Link
+                    key="c"
+                    href={`/clients/${s.client.id}`}
+                    className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                  >
+                    {s.client.fullName}
+                  </Link>,
+                  <span key="s">
+                    {s.specialist.user.fullName}
+                    <span className="block text-xs text-slate-400">{spec}</span>
+                  </span>,
+                  ...(!branchId ? [s.branch.name] : []),
+                  <Badge key="b" className={SESSION_STATUS_STYLE[s.status as SessionStatus]}>
+                    {status}
+                  </Badge>,
+                ],
+              };
+            })}
+          />
         </Card>
 
         <div className="space-y-5">
           <Card title={t("Abonementi tugayotganlar")} subtitle={t("2 va kamroq seans qolgan")}>
-              {alerts.ending.length === 0 ? (
-                <Empty>{t("Hammasining abonementi yetarli.")}</Empty>
-              ) : (
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {alerts.ending.slice(0, 6).map((a) => (
-                    <li key={a.packageId} className="flex items-center justify-between gap-2 px-4 py-2.5">
-                      <div className="min-w-0">
-                        <Link
-                          href={`/clients/${a.clientId}`}
-                          className="block truncate text-sm font-medium text-slate-800 hover:underline dark:text-slate-200"
-                        >
-                          {a.clientName}
-                        </Link>
-                        <p className="truncate text-xs text-slate-400">
-                          {t(SPECIALIZATIONS[a.specialization as Specialization])}
-                        </p>
-                      </div>
-                      <Badge
-                        className={
-                          a.remaining === 0
-                            ? "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900"
-                            : "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900"
-                        }
+            <DataTable
+              testId="dash-ending"
+              minWidth=""
+              empty={t("Hammasining abonementi yetarli.")}
+              columns={[{ label: t("Mijoz") }, { label: t("Qolgan") }]}
+              rows={alerts.ending.map((a) => {
+                const spec = t(SPECIALIZATIONS[a.specialization as Specialization]);
+                return {
+                  key: a.packageId,
+                  search: `${a.clientName} ${spec}`,
+                  sort: [a.clientName, a.remaining],
+                  cells: [
+                    <span key="c" className="block min-w-0">
+                      <Link
+                        href={`/clients/${a.clientId}`}
+                        className="block truncate text-sm font-medium text-slate-800 hover:underline dark:text-slate-200"
                       >
-                        {t("{n} seans", { n: a.remaining })}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              )}
+                        {a.clientName}
+                      </Link>
+                      <span className="block truncate text-xs text-slate-400">{spec}</span>
+                    </span>,
+                    <Badge
+                      key="r"
+                      className={
+                        a.remaining === 0
+                          ? "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900"
+                          : "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900"
+                      }
+                    >
+                      {t("{n} seans", { n: a.remaining })}
+                    </Badge>,
+                  ],
+                };
+              })}
+            />
           </Card>
 
-          <Card title={t("Mutaxassislar")} subtitle={t("{month} natijalari", { month: t.monthYear(new Date()) })}>
-              {specialistRows.length === 0 ? (
-                <Empty>{t("Mutaxassis qo'shilmagan.")}</Empty>
-              ) : (
-                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {specialistRows.map((sp) => (
-                    <li key={sp.id} className="px-4 py-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
-                          {sp.fullName}
-                        </p>
-                        <span className="shrink-0 text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-300">
-                          {t("{n} seans", { n: sp.done })}
-                        </span>
-                      </div>
-                      <p className="truncate text-xs text-slate-400">
-                        {t(SPECIALIZATIONS[sp.specialization as Specialization])} · {t("{n} mijoz", { n: sp.clients })} ·{" "}
-                        {money(sp.salary)}
-                      </p>
-                    </li>
-                  ))}
-              </ul>
-            )}
-          </Card>
         </div>
       </div>
+
+      {/* To'liq kenglikda: tor ustunda ish haqi ustuni sig'may, kesilib qolardi */}
+      <Card
+        title={t("Mutaxassislar")}
+        subtitle={t("{month} natijalari", { month: t.monthYear(new Date()) })}
+        className="mt-5"
+      >
+        <DataTable
+          testId="dash-specialists"
+          empty={t("Mutaxassis qo'shilmagan.")}
+          columns={[
+            { label: t("Mutaxassis") },
+            { label: t("Yo'nalish") },
+            ...(!branchId ? [{ label: t("Filial") }] : []),
+            { label: t("Mijoz"), className: "tabular-nums" },
+            { label: t("O'tdi"), className: "tabular-nums" },
+            { label: t("Ish haqi"), className: "tabular-nums" },
+          ]}
+          rows={specialistRows.map((sp) => {
+            const spec = t(SPECIALIZATIONS[sp.specialization as Specialization]);
+            return {
+              key: sp.id,
+              search: `${sp.fullName} ${spec} ${sp.branchName}`,
+              sort: [
+                sp.fullName,
+                spec,
+                ...(!branchId ? [sp.branchName] : []),
+                sp.clients,
+                sp.done,
+                sp.salary,
+              ],
+              cells: [
+                <span key="n" className="font-medium text-slate-800 dark:text-slate-200">{sp.fullName}</span>,
+                spec,
+                ...(!branchId ? [sp.branchName] : []),
+                sp.clients,
+                sp.done,
+                <span key="s" className="font-semibold">{money(sp.salary)}</span>,
+              ],
+            };
+          })}
+        />
+      </Card>
     </>
   );
 }

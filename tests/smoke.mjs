@@ -516,64 +516,81 @@ if (await payRow.count()) {
   );
 }
 
-/* 9q. Mijoz qatoridan tez amallar */
+/* 9q. Mijozlar ro'yxati: "Amallar" ustuni yo'q, tahrirlash shu yerda */
 {
   await page.goto(`${BASE}/clients`);
   await page.waitForLoadState("networkidle");
-  const row = page.locator("tbody tr").first();
-  const clientName = (await row.locator("td").first().innerText()).split("\n")[0].trim();
+  const headers = await page.locator("thead tr").first().innerText();
+  check("Mijozlar jadvalida \"Amallar\" ustuni yo'q", !headers.includes("Amallar"), headers.replace(/\s+/g, " "));
 
-  check(
-    "Mijoz qatorida tez amal tugmalari bor",
-    (await row.locator('a:has-text("Seans")').count()) === 1 &&
-      (await row.locator('a:has-text("To\'lov")').count()) === 1,
-    clientName,
+  // Ro'yxatning o'zida tahrirlash: ismni o'zgartirib, keyin qaytaramiz
+  const target = await one("SELECT id, fullName FROM Client WHERE status = 'ACTIVE' ORDER BY fullName LIMIT 1");
+  const renamed = `${target.fullName} T${String(Date.now()).slice(-4)}`;
+  const form = page.locator(`form[data-testid="client-edit-form"]:has(input[name="clientId"][value="${target.id}"])`);
+  await form.locator("xpath=ancestor::details[1]").locator("summary").click();
+  await form.locator('input[name="fullName"]').fill(renamed);
+  await form.locator('button[type="submit"]').click();
+  const saved = await waitUntil(
+    async () => (await one("SELECT fullName FROM Client WHERE id = ?", target.id))?.fullName === renamed,
   );
+  check("Mijozni ro'yxatning o'zidan tahrirlash mumkin", saved, renamed);
+  await all("UPDATE Client SET fullName = ? WHERE id = ?", target.fullName, target.id);
 
-  // "To'lov" — mijoz kartasini to'lov formasi ochiq holda ochishi kerak
-  await row.locator('a:has-text("To\'lov")').click();
-  await page.waitForURL(/ochiq=tolov/, { timeout: 15000 }).catch(() => {});
+  // Ro'yxatdagi "Seans" tugmasi o'rniga mijoz kartasida "Seans yozish" bor —
+  // u jadvalga o'tib, mijozni oldindan tanlab beradi
+  await page.goto(`${BASE}/clients/${target.id}`);
   await page.waitForLoadState("networkidle");
-  check(
-    "To'lov tugmasi formani ochiq holda ochadi",
-    page.url().includes("ochiq=tolov") &&
-      (await page.locator("#tolov").evaluate((el) => el.open)),
-    page.url(),
-  );
-
-  // "Abonement" tugmasi faqat abonementchi mijozda bo'ladi
-  await page.goto(`${BASE}/clients?bt=PACKAGE`);
-  await page.waitForSelector("tbody tr", { timeout: 15000 });
-  await page.locator("tbody tr").first().locator('a:has-text("Abonement")').click();
-  await page.waitForURL(/ochiq=abonement/, { timeout: 15000 }).catch(() => {});
-  await page.waitForLoadState("networkidle");
-  check(
-    "Abonement tugmasi formani ochiq holda ochadi",
-    await page.locator("#abonement").evaluate((el) => el.open),
-    page.url(),
-  );
-  await page.goto(`${BASE}/clients?bt=DAILY`);
-  await page.waitForSelector("tbody tr", { timeout: 15000 });
-  check(
-    "Kunlik mijoz qatorida abonement tugmasi yo'q",
-    (await page.locator("tbody tr").first().locator('a:has-text("Abonement")').count()) === 0,
-  );
-
-  // "Seans" — jadvalga o'tib, mijozni oldindan tanlab beradi
-  await page.goto(`${BASE}/clients`);
-  await page.waitForLoadState("networkidle");
-  await page.locator("tbody tr").first().locator('a:has-text("Seans")').click();
+  await page.locator('a:has-text("Seans yozish")').click();
   await page.waitForURL(/schedule\?yangi=/, { timeout: 15000 }).catch(() => {});
   await page.waitForLoadState("networkidle");
-  const picked = await page.locator('select[name="clientId"]').evaluate(
-    (el) => el.options[el.selectedIndex]?.textContent?.trim() ?? "",
-  );
+  const picked = await page.locator('select[name="clientId"]').evaluate((el) => el.value);
   check(
-    "Seans tugmasi jadvalda mijozni tanlab beradi",
-    page.url().includes("/schedule?yangi=") &&
-      (await page.locator("#yangi").evaluate((el) => el.open)) &&
-      picked.includes(clientName),
-    `${picked} | ${page.url()}`,
+    "Mijoz kartasidagi \"Seans yozish\" jadvalda mijozni tanlab beradi",
+    picked === target.id && (await page.locator("#yangi").evaluate((el) => el.open)),
+    page.url(),
+  );
+
+  // Oddiy ochilganda esa hech kim tanlanmagan bo'ladi
+  await page.goto(`${BASE}/schedule`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Jadvalda yangi seans formasida mijoz oldindan tanlanmagan",
+    (await page.locator('select[name="clientId"]').evaluate((el) => el.value)) === "",
+  );
+}
+
+/* 9q2. Bosh panel jadvallarida qidiruv va tartiblash */
+{
+  await page.goto(`${BASE}/`);
+  await page.waitForLoadState("networkidle");
+  const table = page.locator('[data-testid="dash-specialists"]');
+  const names = async () =>
+    (await table.locator("tbody tr td:first-child").allInnerTexts()).map((x) => x.split("\n")[0].trim());
+  const before = await names();
+  check("Panelda mutaxassislar jadvali bor", before.length > 1, `${before.length} ta`);
+
+  await table.locator('thead button:has-text("Mutaxassis")').click();
+  const asc = await names();
+  await table.locator('thead button:has-text("Mutaxassis")').click();
+  const desc = await names();
+  const sorted = [...asc].sort((x, y) => x.localeCompare(y, "uz", { numeric: true }));
+  check(
+    "Ustun sarlavhasini bosib tartiblash (o'sish / kamayish)",
+    JSON.stringify(asc) === JSON.stringify(sorted) && JSON.stringify(desc) === JSON.stringify([...sorted].reverse()),
+    `${asc[0]} … / ${desc[0]} …`,
+  );
+
+  await table.locator('input[type="search"]').fill(before[0]);
+  const filtered = await names();
+  check(
+    "Jadval ichida qidirish ishlaydi",
+    filtered.length >= 1 && filtered.length < before.length && filtered.every((n) => n.includes(before[0])),
+    `${before[0]}: ${filtered.length} ta`,
+  );
+  await table.locator('input[type="search"]').fill("zzzz-yoq");
+  check(
+    "Topilmasa xabar chiqadi",
+    (await table.locator("tbody").innerText()).includes("Hech narsa topilmadi"),
   );
 }
 
@@ -892,6 +909,63 @@ if (await payRow.count()) {
   check("O'chirgandan keyin ro'yxatga qaytaradi", page.url().endsWith("/clients"), page.url());
 }
 
+/* 9v. Noto'g'ri kiritilgan to'lovni tuzatish */
+{
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const pay = await one(
+    `SELECT p.id, p.amount, p.clientId, p.branchId FROM Payment p
+      WHERE p.paidAt >= ? AND p.packageId IS NULL ORDER BY p.paidAt DESC LIMIT 1`,
+    monthStart,
+  );
+  const other = pay
+    ? await one(
+        "SELECT id FROM Client WHERE branchId = ? AND id <> ? AND status = 'ACTIVE' ORDER BY fullName LIMIT 1",
+        pay.branchId,
+        pay.clientId,
+      )
+    : null;
+  check("Tuzatish uchun shu oydagi to'lov bor", Boolean(pay && other));
+
+  if (pay && other) {
+    const editForm = () =>
+      page.locator(`form[data-testid="payment-edit-form"]:has(input[name="paymentId"][value="${pay.id}"])`);
+    await page.goto(`${BASE}/payments`);
+    await page.waitForLoadState("networkidle");
+    check(
+      "To'lovlar jadvalida \"Yo'nalish\" o'rniga \"Abonement\" ustuni",
+      !(await page.locator("thead").first().innerText()).includes("YO'NALISH"),
+    );
+
+    // Summani tuzatish
+    await editForm().locator("xpath=ancestor::details[1]").locator("summary").click();
+    await editForm().locator('input[name="amount"]').fill(String(pay.amount + 1000));
+    await editForm().locator('button[type="submit"]').click();
+    const amountFixed = await waitUntil(
+      async () => (await one("SELECT amount FROM Payment WHERE id = ?", pay.id))?.amount === pay.amount + 1000,
+    );
+    check("To'lov summasini tuzatish mumkin", amountFixed);
+
+    // Boshqa mijozga yozilib qolgan to'lovni to'g'ri mijozga o'tkazish
+    const sumOf = async (id) =>
+      Number((await one("SELECT COALESCE(SUM(amount), 0) AS n FROM Payment WHERE clientId = ?", id)).n);
+    const [fromBefore, toBefore] = [await sumOf(pay.clientId), await sumOf(other.id)];
+    await page.goto(`${BASE}/payments`);
+    await page.waitForLoadState("networkidle");
+    await editForm().locator("xpath=ancestor::details[1]").locator("summary").click();
+    await editForm().locator('select[name="clientId"]').selectOption(other.id);
+    await editForm().locator('button[type="submit"]').click();
+    const moved = await waitUntil(async () => !(await one("SELECT id FROM Payment WHERE id = ?", pay.id)));
+    const [fromAfter, toAfter] = [await sumOf(pay.clientId), await sumOf(other.id)];
+    check(
+      "To'lovni boshqa mijozga o'tkazish mumkin (summa to'liq ko'chadi)",
+      moved && fromBefore - fromAfter === pay.amount + 1000 && toAfter - toBefore === pay.amount + 1000,
+      `${fromBefore}->${fromAfter}, ${toBefore}->${toAfter}`,
+    );
+  }
+}
+
 /* 9h. Bosh panelda filiallar kesimi */
 {
   await page.goto(`${BASE}/`);
@@ -923,6 +997,25 @@ if (await payRow.count()) {
   await page.fill("#parentName", "Sinov Ota-onayev");
   await page.fill("#parentPhone", parentPhone);
   await page.fill("#price", "150000");
+
+  // Filial oldindan tanlanmaydi; tanlangach "Kim ko'radi" faqat o'sha filial
+  // mutaxassislarini ko'rsatadi
+  const intakeBranch = await one(
+    "SELECT b.id FROM Branch b JOIN Specialist s ON s.branchId = b.id WHERE s.isActive = true GROUP BY b.id ORDER BY b.id LIMIT 1",
+  );
+  check(
+    "Qabulda filial tanlanmaguncha mutaxassis tanlab bo'lmaydi",
+    (await page.locator("#branchId").evaluate((el) => el.value)) === "" &&
+      (await page.locator("#specialistId").isDisabled()),
+  );
+  await page.selectOption("#branchId", intakeBranch.id);
+  const offered = await page.locator("#specialistId option:not([value=''])").evaluateAll((els) => els.map((e) => e.value));
+  const ofBranch = (await all("SELECT id FROM Specialist WHERE branchId = ? AND isActive = true", intakeBranch.id)).map((r) => r.id);
+  check(
+    "Qabulda faqat tanlangan filial mutaxassislari chiqadi",
+    offered.length > 0 && offered.length === ofBranch.length && offered.every((id) => ofBranch.includes(id)),
+    `${offered.length} / ${ofBranch.length}`,
+  );
   await page.locator('form button:has-text("Saqlash")').first().click();
 
   const created = await waitUntil(
@@ -1482,6 +1575,11 @@ if (!reception) {
   check("Qabulxona to'lovlar sahifasini ko'radi", (await page.content()).includes("Jami tushum"));
 
   await page.click('summary:has-text("To\'lov qabul qilish")');
+  check(
+    "To'lov formasida mijoz oldindan tanlanmagan",
+    (await page.locator("#clientId").evaluate((el) => el.value)) === "",
+  );
+  await page.locator("#clientId").selectOption({ index: 1 });
   await page.fill("#amount", "150000");
   await page.click('form button:has-text("Qabul qilish")');
   const recPaid = await waitUntil(

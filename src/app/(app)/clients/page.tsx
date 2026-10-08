@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser } from "@/lib/auth";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui";
 import { createClient } from "./actions";
 import { ClientFilters } from "./filters";
+import { ClientEditForm } from "./edit-form";
 import { getT } from "@/lib/i18n/server";
 
 type Search = {
@@ -54,18 +56,6 @@ function birthRangeForAge(age: number): { gt: Date; lte: Date } {
   gt.setFullYear(now.getFullYear() - age - 1);
   return { gt, lte };
 }
-
-/**
- * Jadval ichidagi kichik tugma — qator balandligini oshirib yubormasligi kerak,
- * shuning uchun `btn` emas, o'z o'lchami.
- */
-const stickyCell =
-  "sticky right-0 z-10 border-l border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900";
-
-const btnTiny =
-  "inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-1 " +
-  "text-xs font-medium text-slate-700 transition hover:bg-slate-50 " +
-  "dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800";
 
 /** Filtrda tanlanadigan yoshlar — logopedik markazga keladigan yosh oralig'i */
 const AGE_OPTIONS = Array.from({ length: 16 }, (_, i) => i + 2);
@@ -207,6 +197,9 @@ export default async function ClientsPage({
       )
     : rows;
 
+  // Bola, yoshi, mutaxassis, ota-ona, qolgan seans, qarz, holat (+ filial egada)
+  const colCount = user.role === "OWNER" ? 8 : 7;
+
   return (
     <>
       <PageHeader
@@ -330,7 +323,7 @@ export default async function ClientsPage({
           <Empty>{t("Hali mijoz qo'shilmagan.")}</Empty>
         ) : (
           <div className="scroll-x">
-            <table className="w-full min-w-[1240px]">
+            <table className="w-full min-w-[1080px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className={th}>{t("Bola")}</th>
@@ -341,21 +334,18 @@ export default async function ClientsPage({
                   <th className={th}>{t("Qolgan seans")}</th>
                   <th className={th}>{t("Qarz")}</th>
                   <th className={th}>{t("Holat")}</th>
-                  {canManage ? (
-                    <th className={`${th} ${stickyCell} text-right`}>{t("Amallar")}</th>
-                  ) : null}
                 </tr>
                 <ClientFilters
                   branches={user.role === "OWNER" ? branches.map((b) => ({ id: b.id, name: b.name })) : []}
                   specialists={specialists.map((x) => ({ id: x.id, name: x.user.fullName }))}
                   statuses={CLIENT_STATUS_KEYS.map((k) => ({ id: k, name: t(CLIENT_STATUSES[k]) }))}
                   ages={AGE_OPTIONS}
-                  hasActions={canManage}
                 />
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {visible.map((c) => (
-                  <tr key={c.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <Fragment key={c.id}>
+                  <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className={td}>
                       <Link
                         href={`/clients/${c.id}`}
@@ -440,31 +430,30 @@ export default async function ClientsPage({
                         {t(CLIENT_STATUSES[c.status as ClientStatus])}
                       </Badge>
                     </td>
-                    {canManage ? (
-                      <td
-                        className={`${td} ${stickyCell} group-hover:bg-slate-50 dark:group-hover:bg-slate-800/50`}
-                      >
-                        <div className="flex justify-end gap-1.5 whitespace-nowrap">
-                          <Link href={`/schedule?yangi=${c.id}#yangi`} className={btnTiny}>
-                            {t("Seans")}
-                          </Link>
-                          <Link href={`/clients/${c.id}?ochiq=tolov#tolov`} className={btnTiny}>
-                            {t("To'lov")}
-                          </Link>
-                          {/* Kunlik to'laydigan mijozga abonement taklif
-                              qilinmaydi — unda bunaqa tushuncha yo'q */}
-                          {c.billingType === "PACKAGE" ? (
-                            <Link
-                              href={`/clients/${c.id}?ochiq=abonement#abonement`}
-                              className={btnTiny}
-                            >
-                              {t("Abonement")}
-                            </Link>
-                          ) : null}
-                        </div>
-                      </td>
-                    ) : null}
                   </tr>
+                  {/* Tahrirlash Xodimlar bo'limidagidek shu yerning o'zida ochiladi —
+                      har safar mijoz kartasiga o'tib qaytish shart emas */}
+                  {canManage ? (
+                    <tr>
+                      <td colSpan={colCount} className="px-4 pb-2">
+                        <details>
+                          <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+                            ✎ {t("Tahrirlash")}
+                          </summary>
+                          {/* Jadval ekrandan keng — forma esa ko'rinib turgan qismga sig'sin
+                              (chap tomonga yopishadi, kengligi cheklangan) */}
+                          <div className="sticky left-4 mt-2 max-w-4xl rounded-lg bg-slate-50 p-3 dark:bg-slate-900/60">
+                            <ClientEditForm
+                              client={c}
+                              branches={user.role === "OWNER" ? branches : []}
+                              columns="sm:grid-cols-2 lg:grid-cols-3"
+                            />
+                          </div>
+                        </details>
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
