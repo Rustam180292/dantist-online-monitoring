@@ -898,6 +898,9 @@ if (await payRow.count()) {
     async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE id = ?", doomed.id)) === 0,
   );
   check("Mijoz butunlay o'chadi", gone);
+  // O'chirish tugagach sahifa ro'yxatga qaytadi — baza yozuvi yo'qolishi bilan
+  // brauzer darhol ko'chib ulgurmaydi, shuning uchun manzilni alohida kutamiz
+  await page.waitForURL((u) => u.pathname === "/clients", { timeout: 15000 }).catch(() => {});
   check(
     "To'lovi ham o'chadi",
     (await count("SELECT COUNT(*) AS n FROM Payment WHERE clientId = ?", doomed.id)) === 0,

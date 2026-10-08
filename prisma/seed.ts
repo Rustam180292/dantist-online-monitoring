@@ -283,7 +283,10 @@ async function main() {
           parentName: parentUser.fullName,
           parentPhone,
           diagnosis: pick(DIAGNOSES),
-          status: chance(0.9) ? "ACTIVE" : "PAUSED",
+          // Abonementchi doim faol: qarzdorlar va "abonement tugayapti"
+          // ro'yxatlari faqat faol mijozdan yig'iladi, demo'da ular bo'sh
+          // qolmasin. To'xtatilganlar kunliklardan olinadi.
+          status: isPackage || i % 5 !== 4 ? "ACTIVE" : "PAUSED",
           billingType: isPackage ? "PACKAGE" : "DAILY",
           note: chance(0.3) ? "Mashg'ulotga ota-ona bilan kiradi." : null,
         },
