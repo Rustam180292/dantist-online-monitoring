@@ -5,7 +5,6 @@ import { clientScope, requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import {
   BILLING_TYPES,
-  BILLING_TYPE_KEYS,
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   PAYMENT_METHODS,
@@ -45,8 +44,8 @@ import {
   deletePayment,
   setClientStatus,
   unassignSpecialist,
-  updateClient,
 } from "../actions";
+import { ClientEditForm } from "../edit-form";
 import { getT } from "@/lib/i18n/server";
 
 const NOTIFICATION_KINDS: Record<string, string> = {
@@ -301,7 +300,22 @@ export default async function ClientPage({
             ) : null}
           </Card>
 
-          <Card title={t("Seanslar tarixi")} subtitle={t("oxirgi 30 ta")}>
+          <Card
+            title={t("Seanslar tarixi")}
+            subtitle={t("oxirgi 30 ta")}
+            action={
+              // Mijozlar ro'yxatidagi "Seans" tugmasi olib tashlangani uchun
+              // yangi seans yozish shu yerdan, mijoz tanlangan holda ochiladi
+              canManage && client.status === "ACTIVE" ? (
+                <Link
+                  href={`/schedule?yangi=${client.id}#yangi`}
+                  className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+                >
+                  + {t("Seans yozish")}
+                </Link>
+              ) : undefined
+            }
+          >
             {client.sessions.length === 0 ? (
               <Empty>{t("Seans yo'q.")}</Empty>
             ) : (
@@ -468,95 +482,9 @@ export default async function ClientPage({
           ) : null}
           {canManage ? (
             <Card title={t("Mijoz ma'lumoti")} subtitle={t("xato yozilgan bo'lsa shu yerdan tuzating")}>
-              <form
-                action={updateClient}
-                className="grid gap-3 p-4 sm:grid-cols-2"
-              >
-                <input type="hidden" name="clientId" value={client.id} />
-                <div>
-                  <label className={label}>{t("Bolaning F.I.Sh.")} *</label>
-                  <input name="fullName" defaultValue={client.fullName} className={input} required />
-                </div>
-                <div>
-                  <label className={label}>{t("Tug'ilgan sana")} *</label>
-                  <input
-                    name="birthDate"
-                    type="date"
-                    defaultValue={toDateInput(client.birthDate)}
-                    className={input}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={label}>{t("Jinsi")}</label>
-                  <select name="gender" defaultValue={client.gender ?? ""} className={input}>
-                    <option value="">{t("Ko'rsatilmagan")}</option>
-                    <option value="M">{t("O'g'il bola")}</option>
-                    <option value="F">{t("Qiz bola")}</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={label}>{t("To'lov turi")}</label>
-                  <select
-                    name="billingType"
-                    defaultValue={client.billingType ?? "DAILY"}
-                    className={input}
-                  >
-                    {BILLING_TYPE_KEYS.map((k) => (
-                      <option key={k} value={k}>
-                        {t(BILLING_TYPES[k])}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {branches.length > 0 ? (
-                  <div>
-                    <label className={label}>{t("Filial")}</label>
-                    <select name="branchId" defaultValue={client.branchId} className={input}>
-                      {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : null}
-                <div>
-                  <label className={label}>{t("Ota-ona F.I.Sh.")} *</label>
-                  <input
-                    name="parentName"
-                    defaultValue={client.parentName}
-                    className={input}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={label}>{t("Ota-ona telefoni")} *</label>
-                  <input
-                    name="parentPhone"
-                    type="tel"
-                    defaultValue={client.parentPhone}
-                    className={input}
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={label}>{t("Tashxis / shikoyat")}</label>
-                  <input name="diagnosis" defaultValue={client.diagnosis ?? ""} className={input} />
-                </div>
-                <div>
-                  <label className={label}>{t("Izoh")}</label>
-                  <input name="note" defaultValue={client.note ?? ""} className={input} />
-                </div>
-                <div className="sm:col-span-2">
-                  <button type="submit" className={btnPrimary}>
-                    {t("Saqlash")}
-                  </button>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    {t("Telefon raqamni o'zgartirsangiz, eslatmalar yangi raqamga boradi. Ota-ona Telegram'ga qaytadan ulanishi kerak bo'ladi.")}
-                  </p>
-                </div>
-              </form>
+              <div className="p-4">
+                <ClientEditForm client={client} branches={branches} />
+              </div>
             </Card>
           ) : null}
         </div>

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
@@ -24,7 +25,7 @@ import {
   td,
   th,
 } from "@/components/ui";
-import { addPayment } from "@/app/(app)/clients/actions";
+import { addPayment, updatePayment } from "@/app/(app)/clients/actions";
 import { getT } from "@/lib/i18n/server";
 
 type Search = { m?: string; b?: string; pm?: string; q?: string };
@@ -63,7 +64,7 @@ export default async function PaymentsPage({
       },
       orderBy: { paidAt: "desc" },
       include: {
-        client: { select: { id: true, fullName: true } },
+        client: { select: { id: true, fullName: true, status: true } },
         branch: { select: { name: true } },
         package: { select: { specialization: true } },
       },
@@ -119,6 +120,29 @@ export default async function PaymentsPage({
     const debt = debtByClient.get(c.id) ?? 0;
     return debt > 0 ? `${c.fullName} — ${t("qarz {sum}", { sum: t.money(debt) })}` : c.fullName;
   };
+
+  /** Mijoz ro'yxati: egasi hamma filialni ko'rsa — filial bo'yicha guruhlangan */
+  const clientOptions = () =>
+    user.role === "OWNER" && !branchId
+      ? [...clientGroups.entries()].map(([branchName, items]) => (
+          <optgroup key={branchName} label={branchName}>
+            {items.map((c) => (
+              <option key={c.id} value={c.id}>
+                {clientLabel(c)}
+              </option>
+            ))}
+          </optgroup>
+        ))
+      : clients.map((c) => (
+          <option key={c.id} value={c.id}>
+            {clientLabel(c)}
+          </option>
+        ));
+
+  // Qabulxona xodimi faqat bugun kiritilgan to'lovni tuzata oladi (serverda ham tekshiriladi)
+  const todayKey = new Date().toDateString();
+  const canEditPayment = (p: (typeof payments)[number]) =>
+    user.role !== "RECEPTION" || p.createdAt.toDateString() === todayKey;
 
   const qs = (o: number) => {
     const p = new URLSearchParams();
@@ -239,22 +263,13 @@ export default async function PaymentsPage({
                 <label className={label} htmlFor="clientId">
                   {t("Mijoz")} *
                 </label>
-                <select id="clientId" name="clientId" className={input} required>
-                  {user.role === "OWNER" && !branchId
-                    ? [...clientGroups.entries()].map(([branchName, items]) => (
-                        <optgroup key={branchName} label={branchName}>
-                          {items.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {clientLabel(c)}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))
-                    : clients.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {clientLabel(c)}
-                        </option>
-                      ))}
+                {/* Bo'sh tanlov bilan boshlanadi: oldindan birinchi mijoz tanlanib tursa,
+                    e'tibor berilmasa pul o'shanga yozilib ketardi */}
+                <select id="clientId" name="clientId" className={input} required defaultValue="">
+                  <option value="" disabled>
+                    {t("Mijozni tanlang")}
+                  </option>
+                  {clientOptions()}
                 </select>
               </div>
               <div>
@@ -325,14 +340,18 @@ export default async function PaymentsPage({
                     <th className={th}>{t("Sana")}</th>
                     <th className={th}>{t("Mijoz")}</th>
                     {!branchId ? <th className={th}>{t("Filial")}</th> : null}
-                    <th className={th}>{t("Yo'nalish")}</th>
+                    {/* Pul qaysi abonementga yozilgani. Abonement tanlanmasa, summa
+                        mijozning qarzi bor abonementiga o'zi taqsimlanadi; "—" —
+                        abonementsiz (kunlik yoki oldindan) to'lov */}
+                    <th className={th} title={t("Pul qaysi abonementga yozilgani")}>{t("Abonement")}</th>
                     <th className={th}>{t("Usul")}</th>
                     <th className={th}>{t("Summa")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {payments.map((p) => (
-                    <tr key={p.id}>
+                    <Fragment key={p.id}>
+                    <tr>
                       <td className={`${td} tabular-nums`}>{dateTimeUz(p.paidAt)}</td>
                       <td className={td}>
                         <Link
@@ -341,18 +360,88 @@ export default async function PaymentsPage({
                         >
                           {p.client.fullName}
                         </Link>
+                        {p.note ? (
+                          <span className="block max-w-[240px] truncate text-xs text-slate-400">{p.note}</span>
+                        ) : null}
                       </td>
                       {!branchId ? <td className={td}>{p.branch.name}</td> : null}
                       <td className={td}>
                         {p.package
                           ? t(SPECIALIZATIONS[p.package.specialization as Specialization])
-                          : "—"}
+                          : <span className="text-slate-400">—</span>}
                       </td>
                       <td className={td}>
                         <Badge>{t(PAYMENT_METHODS[p.method as PaymentMethod])}</Badge>
                       </td>
                       <td className={`${td} font-semibold tabular-nums`}>{t.money(p.amount)}</td>
                     </tr>
+                    {canEditPayment(p) ? (
+                      <tr>
+                        <td colSpan={branchId ? 5 : 6} className="px-4 pb-2">
+                          <details>
+                            <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+                              ✎ {t("Tahrirlash")}
+                            </summary>
+                            <form
+                              action={updatePayment}
+                              data-testid="payment-edit-form"
+                              className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-5 dark:bg-slate-900/60"
+                            >
+                              <input type="hidden" name="paymentId" value={p.id} />
+                              <div className="lg:col-span-2">
+                                <label className={label}>{t("Mijoz")}</label>
+                                <select name="clientId" defaultValue={p.client.id} className={input} required>
+                                  {/* Faol bo'lmagan mijoz ro'yxatda yo'q — uni ham tanlangan holda ko'rsatamiz */}
+                                  {clients.some((c) => c.id === p.client.id) ? null : (
+                                    <option value={p.client.id}>{p.client.fullName}</option>
+                                  )}
+                                  {clientOptions()}
+                                </select>
+                              </div>
+                              <div>
+                                <label className={label}>{t("Summa ({currency})", { currency: t.currency })}</label>
+                                <input
+                                  name="amount"
+                                  inputMode="numeric"
+                                  defaultValue={p.amount}
+                                  className={input}
+                                  required
+                                />
+                              </div>
+                              <div>
+                                <label className={label}>{t("Usul")}</label>
+                                <select name="method" defaultValue={p.method} className={input}>
+                                  {PAYMENT_METHOD_KEYS.map((m) => (
+                                    <option key={m} value={m}>
+                                      {t(PAYMENT_METHODS[m])}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label className={label}>{t("Sana")}</label>
+                                <input
+                                  name="paidAt"
+                                  type="date"
+                                  defaultValue={toDateInput(p.paidAt)}
+                                  className={input}
+                                />
+                              </div>
+                              <div className="sm:col-span-2 lg:col-span-4">
+                                <label className={label}>{t("Izoh")}</label>
+                                <input name="note" defaultValue={p.note ?? ""} className={input} />
+                              </div>
+                              <div className="flex items-end">
+                                <button type="submit" className={`${btnPrimary} w-full`}>
+                                  {t("Saqlash")}
+                                </button>
+                              </div>
+                            </form>
+                          </details>
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

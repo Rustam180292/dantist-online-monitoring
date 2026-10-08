@@ -437,9 +437,50 @@ async function addPackageImpl(formData: FormData) {
 }
 
 /** To'lov qabul qilish */
+/**
+ * Summani mijozning qarzi bor abonementlariga eng eskisidan boshlab bo'ladi.
+ * Ortgan qismi abonementsiz (oldindan to'lov) bo'lib qoladi.
+ *
+ * `excludePaymentId` — tahrirlanayotgan to'lovning o'zi qarzni hisoblashda
+ * "to'langan" bo'lib sanalmasin.
+ */
+async function splitOverPackages(
+  clientId: string,
+  amount: number,
+  excludePaymentId?: string,
+): Promise<{ packageId: string | null; amount: number }[]> {
+  const packages = await prisma.package.findMany({
+    where: { clientId, isActive: true },
+    orderBy: { purchasedAt: "asc" },
+    include: {
+      payments: {
+        where: excludePaymentId ? { id: { not: excludePaymentId } } : undefined,
+        select: { amount: true },
+      },
+    },
+  });
+
+  let left = amount;
+  const rows: { packageId: string | null; amount: number }[] = [];
+  for (const p of packages) {
+    if (left <= 0) break;
+    const paid = p.payments.reduce((sum, x) => sum + x.amount, 0);
+    const debt = p.totalSessions * p.pricePerSession - paid;
+    if (debt <= 0) continue;
+    const part = Math.min(debt, left);
+    rows.push({ packageId: p.id, amount: part });
+    left -= part;
+  }
+  if (left > 0) rows.push({ packageId: null, amount: left });
+  return rows;
+}
+
 async function addPaymentImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
+  // Ro'yxatda oldindan hech kim tanlanmaydi — pul tasodifan birinchi turgan
+  // mijozga yozilib ketmasligi uchun. Tanlanmagan bo'lsa aniq aytamiz.
+  if (!clientId) throw new Error("Mijozni tanlang.");
   const amount = parseAmount(formData.get("amount"), "Summa to'g'ri kiritilmagan.");
   const method = String(formData.get("method") ?? "CASH") as PaymentMethod;
   if (!PAYMENT_METHOD_KEYS.includes(method)) throw new Error("To'lov usuli noto'g'ri.");
@@ -466,26 +507,7 @@ async function addPaymentImpl(formData: FormData) {
   } else {
     // Abonement tanlanmagan: summa qarzi bor abonementlarga eng eskisidan
     // boshlab taqsimlanadi, ortgani esa oldindan to'lov sifatida yoziladi.
-    const packages = await prisma.package.findMany({
-      where: { clientId, isActive: true },
-      orderBy: { purchasedAt: "asc" },
-      include: { payments: { select: { amount: true } } },
-    });
-
-    let left = amount;
-    const rows: { packageId: string | null; amount: number }[] = [];
-
-    for (const p of packages) {
-      if (left <= 0) break;
-      const paid = p.payments.reduce((sum, x) => sum + x.amount, 0);
-      const debt = p.totalSessions * p.pricePerSession - paid;
-      if (debt <= 0) continue;
-      const part = Math.min(debt, left);
-      rows.push({ packageId: p.id, amount: part });
-      left -= part;
-    }
-    if (left > 0) rows.push({ packageId: null, amount: left });
-
+    const rows = await splitOverPackages(clientId, amount);
     await prisma.$transaction(
       rows.map((r) => prisma.payment.create({ data: { ...base, ...r } })),
     );
@@ -517,6 +539,74 @@ async function deletePaymentImpl(formData: FormData) {
   revalidatePath("/reports");
 }
 
+
+/**
+ * Noto'g'ri kiritilgan to'lovni tuzatish.
+ *
+ * Kim: qo'shgan kishi (qabulxona ham) — faqat o'sha kuni, xato odatda darhol
+ * ko'rinadi. Eski to'lovni keyin o'zgartirish esa kassa hisobotini orqaga
+ * qarab o'zgartiradi, shuning uchun u faqat ega va filial adminiga ochiq.
+ *
+ * Mijoz almashtirilsa, to'lov eski abonementda qolib ketmasligi kerak:
+ * yangi mijozning qarzi bor abonementlariga xuddi yangi to'lovdek
+ * taqsimlanadi. Mijoz o'sha bo'lsa, abonement bog'lanishi o'zgarmaydi.
+ */
+async function updatePaymentImpl(formData: FormData) {
+  const user = await requireFrontDesk();
+  const paymentId = String(formData.get("paymentId") ?? "");
+  const payment = await prisma.payment.findUnique({ where: { id: paymentId } });
+  if (!payment) throw new Error("To'lov topilmadi.");
+  if (user.role !== "OWNER" && payment.branchId !== user.branchId) {
+    throw new Error("Bu to'lov sizning filialingizga tegishli emas.");
+  }
+  if (user.role === "RECEPTION" && !sameDay(payment.createdAt, new Date())) {
+    throw new Error("Oldingi kunlardagi to'lovni faqat markaz egasi yoki filial admini tuzata oladi.");
+  }
+
+  const amount = parseAmount(formData.get("amount"), "Summa to'g'ri kiritilmagan.");
+  const method = String(formData.get("method") ?? payment.method) as PaymentMethod;
+  if (!PAYMENT_METHOD_KEYS.includes(method)) throw new Error("To'lov usuli noto'g'ri.");
+  const paidAtRaw = String(formData.get("paidAt") ?? "");
+  const paidAtParsed = paidAtRaw ? new Date(paidAtRaw) : payment.paidAt;
+  if (Number.isNaN(paidAtParsed.getTime())) throw new Error("Sana noto'g'ri.");
+  // Faqat sana kiritiladi — asl vaqtni saqlaymiz, aks holda ro'yxat tartibi buziladi
+  const paidAt = new Date(paidAtParsed);
+  paidAt.setHours(payment.paidAt.getHours(), payment.paidAt.getMinutes(), payment.paidAt.getSeconds());
+  const note = String(formData.get("note") ?? "").trim() || null;
+  const clientId = String(formData.get("clientId") ?? "") || payment.clientId;
+
+  if (clientId === payment.clientId) {
+    await prisma.payment.update({
+      where: { id: paymentId },
+      data: { amount, method, paidAt, note },
+    });
+  } else {
+    const client = await assertClientAccess(user, clientId);
+    const rows = await splitOverPackages(clientId, amount);
+    await prisma.$transaction([
+      prisma.payment.delete({ where: { id: paymentId } }),
+      ...rows.map((r) =>
+        prisma.payment.create({
+          data: { clientId, branchId: client.branchId, method, paidAt, note, ...r },
+        }),
+      ),
+    ]);
+    revalidatePath(`/clients/${clientId}`);
+  }
+
+  revalidatePath(`/clients/${payment.clientId}`);
+  revalidatePath("/payments");
+  revalidatePath("/reports");
+  revalidatePath("/");
+  await setFlash("To'lov tuzatildi.", "ok");
+}
+
+function sameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+  );
+}
+
 /* Tekshiruv xatolari foydalanuvchiga xabar bo'lib ko'rinishi uchun */
 export const createClient = withFlash(createClientImpl);
 export const updateClient = withFlash(updateClientImpl);
@@ -528,3 +618,4 @@ export const unassignSpecialist = withFlash(unassignSpecialistImpl);
 export const addPackage = withFlash(addPackageImpl);
 export const addPayment = withFlash(addPaymentImpl);
 export const deletePayment = withFlash(deletePaymentImpl);
+export const updatePayment = withFlash(updatePaymentImpl);

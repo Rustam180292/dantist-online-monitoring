@@ -201,13 +201,19 @@ export default async function SchedulePage({
               <label className={label} htmlFor="clientId">
                 {t("Mijoz")}
               </label>
+              {/* Mijoz oldindan tanlanmaydi (mijoz kartasidagi "Seans yozish"dan
+                  kelgandagina o'sha mijoz tanlangan bo'ladi) — aks holda seans
+                  e'tiborsiz birinchi turgan mijozga yozilib ketardi */}
               <select
                 id="clientId"
                 name="clientId"
-                defaultValue={sp.yangi || undefined}
+                defaultValue={sp.yangi || ""}
                 className={input}
                 required
               >
+                <option value="" disabled>
+                  {t("Mijozni tanlang")}
+                </option>
                 {showGroups
                   ? groupByBranch(clientOptions).map(([branchName, items]) => (
                       <optgroup key={branchName} label={branchName}>
@@ -229,7 +235,18 @@ export default async function SchedulePage({
               <label className={label} htmlFor="specialistId">
                 {t("Mutaxassis")}
               </label>
-              <select id="specialistId" name="specialistId" className={input} required>
+              <select
+                id="specialistId"
+                name="specialistId"
+                className={input}
+                required
+                defaultValue={specialistOptions.length === 1 ? specialistOptions[0].id : ""}
+              >
+                {specialistOptions.length > 1 ? (
+                  <option value="" disabled>
+                    {t("Mutaxassisni tanlang")}
+                  </option>
+                ) : null}
                 {showGroups
                   ? groupByBranch(specialistOptions).map(([branchName, items]) => (
                       <optgroup key={branchName} label={branchName}>

@@ -40,6 +40,7 @@ import {
   setIntakeStatus,
   updateIntake,
 } from "./actions";
+import { BranchSpecialistFields } from "./branch-specialist";
 import { getT } from "@/lib/i18n/server";
 
 /** Jadvaldagi tugmalar uchun qisqa yozuv — to'liq nomi ustunga sig'maydi */
@@ -197,43 +198,14 @@ export default async function IntakesPage({
               required
             />
           </div>
-          {branches.length > 0 ? (
-            <div>
-              <label className={label} htmlFor="branchId">
-                {t("Filial")} *
-              </label>
-              <select id="branchId" name="branchId" className={input} required>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          <div>
-            <label className={label} htmlFor="specialistId">
-              {t("Kim ko'radi")}
-            </label>
-            <select id="specialistId" name="specialistId" className={input}>
-              <option value="">{t("Hali aniq emas")}</option>
-              {specialists.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.user.fullName} · {t(SPECIALIZATIONS[s.specialization as Specialization])}
-                  {branches.length > 0 ? ` · ${s.branch.name}` : ""}
-                </option>
-              ))}
-            </select>
-            {specialists.length === 0 ? (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                {t("Mutaxassis ro'yxati bo'sh.")}{" "}
-                <Link href="/specialists" className="font-semibold underline">
-                  {t("Xodimlar")}
-                </Link>{" "}
-                {t("bo'limidan qo'shing.")}
-              </p>
-            ) : null}
-          </div>
+          <BranchSpecialistFields
+            branches={branches.map((b) => ({ id: b.id, name: b.name }))}
+            specialists={specialists.map((x) => ({
+              id: x.id,
+              branchId: x.branchId,
+              label: `${x.user.fullName} · ${t(SPECIALIZATIONS[x.specialization as Specialization])}`,
+            }))}
+          />
           <div>
             <label className={label} htmlFor="price">
               {t("Konsultatsiya narxi")}
