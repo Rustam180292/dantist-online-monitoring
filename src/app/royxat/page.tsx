@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { btnPrimary, card, input, label } from "@/components/ui";
+import { PasswordInput } from "@/components/password-input";
 import { BrandMark } from "@/components/brand";
 import { Flash } from "@/components/flash";
 import { I18nProvider } from "@/components/i18n";
@@ -109,12 +110,10 @@ export default async function RegisterPage() {
               <label className={label} htmlFor="password">
                 {t("Parol (kamida 5 belgi)")} *
               </label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="new-password"
-                className={input}
                 required
               />
             </div>

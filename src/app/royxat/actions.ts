@@ -88,7 +88,8 @@ async function registerSoloImpl(formData: FormData) {
 
   await startSession(user.id);
   await setFlash("Xush kelibsiz! Mijozlaringizni qo'sha boshlang.", "ok");
-  redirect("/m");
+  // O'ziga rahbar — markaz egasinikidek panelga tushadi
+  redirect("/");
 }
 
 export const registerSolo = withFlash(registerSoloImpl);

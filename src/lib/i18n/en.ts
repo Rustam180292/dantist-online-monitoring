@@ -619,4 +619,9 @@ export const en: Record<string, string> = {
   "«Ilovani o'rnatish» yoki «Bosh ekranga qo'shish» ni tanlang": "Choose «Install app» or «Add to Home screen»",
   "«O'rnatish» ni bosing": "Tap «Install»",
   "«O'rnatish» ni tasdiqlang": "Confirm «Install»",
+  "shu oy": "this month",
+  "Seans narxi saqlandi.": "Session price saved.",
+  "yangi seans va abonementga shu narx qo'yiladi": "new sessions and packages get this price",
+  "Parolni yashirish": "Hide password",
+  "Parolni ko'rsatish": "Show password",
 };

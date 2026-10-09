@@ -21,6 +21,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (user.role === "PARENT") {
     items.push({ href: "/m", label: t("Kabinet"), icon: "phone" });
     items.push({ href: "/my", label: t("Farzandim"), icon: "child" });
+  } else if (isSolo(user)) {
+    // Yakka logoped — o'ziga rahbar: markaz egasining paneli, faqat Xodimlar
+    // va Filiallarsiz (unda boshqa xodim ham, boshqa filial ham yo'q).
+    // "Pulim" ham kerak emas: pulning hammasi o'ziniki, Hisobotlarda turadi.
+    items.push({ href: "/", label: t("Panel"), icon: "home" });
+    items.push({ href: "/schedule", label: t("Jadval"), icon: "calendar" });
+    items.push({ href: "/slots", label: t("Bo'sh vaqtlar"), icon: "clock" });
+    items.push({ href: "/intakes", label: t("Qabullar"), icon: "door" });
+    items.push({ href: "/clients", label: t("Mijozlar"), icon: "users" });
+    items.push({ href: "/payments", label: t("To'lovlar"), icon: "wallet" });
+    items.push({ href: "/reports", label: t("Hisobotlar"), icon: "chart" });
   } else {
     // Mutaxassisning uy sahifasi — telefon kabineti
     if (user.role === "SPECIALIST") {
@@ -29,9 +40,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       items.push({ href: "/", label: t("Panel"), icon: "home" });
     }
     items.push({ href: "/schedule", label: t("Jadval"), icon: "calendar" });
-    // Bo'sh vaqtlar: qabulxona xodimi telefonda turib vaqt tanlashi uchun.
-    // Yakka mutaxassisga ham kerak — jadvalini o'zi to'ldiradi.
-    if (user.role !== "SPECIALIST" || isSolo(user)) {
+    // Bo'sh vaqtlar: qabulxona xodimi telefonda turib vaqt tanlashi uchun
+    if (user.role !== "SPECIALIST") {
       items.push({ href: "/slots", label: t("Bo'sh vaqtlar"), icon: "clock" });
     }
     // Qabul — markazga birinchi marta kelgan odam; mutaxassisga u ko'rinmaydi
@@ -40,10 +50,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }
     items.push({ href: "/clients", label: t("Mijozlar"), icon: "users" });
     if (user.role === "SPECIALIST") {
-      // Yakka mutaxassis to'lovni o'zi qabul qiladi
-      if (isSolo(user)) {
-        items.push({ href: "/payments", label: t("To'lovlar"), icon: "wallet" });
-      }
       items.push({ href: "/earnings", label: t("Pulim"), icon: "wallet" });
     } else if (user.role === "RECEPTION") {
       // Qabulxona xodimiga maosh, xodimlar va hisobotlar ko'rinmaydi

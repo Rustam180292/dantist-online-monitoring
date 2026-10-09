@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Script from "next/script";
-import { requireUser } from "@/lib/auth";
+import { isSolo, requireUser } from "@/lib/auth";
 import { logout } from "@/app/login/actions";
 import { Flash } from "@/components/flash";
 import { Install } from "@/components/install";
@@ -19,7 +19,8 @@ export const metadata = {
  */
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const fullViewHref = user.role === "PARENT" ? "/my" : "/schedule";
+  // Yakka logopedning to'liq ko'rinishi — rahbar paneli
+  const fullViewHref = user.role === "PARENT" ? "/my" : isSolo(user) ? "/" : "/schedule";
   const t = await getT();
 
   return (

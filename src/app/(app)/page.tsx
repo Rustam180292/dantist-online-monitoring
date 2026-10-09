@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { requireUser, branchWhere } from "@/lib/auth";
+import { requireManager, branchWhere, isSolo } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
   SESSION_STATUSES,
@@ -23,12 +22,12 @@ import { Badge, Card, PageHeader, StatCard } from "@/components/ui";
 import { DataTable } from "@/components/data-table";
 
 export default async function DashboardPage() {
-  const user = await requireUser();
-  // Mutaxassis va ota-ona uchun telefon kabineti qulayroq — katta jadvallar
-  // ularga kerak emas. "To'liq ko'rinish" havolasi orqali bu yerga qaytishadi.
-  if (user.role === "SPECIALIST" || user.role === "PARENT") redirect("/m");
-  // Qabulxona xodimiga foyda va maosh ko'rsatkichlari kerak emas — uning ishi jadvalda
-  if (user.role === "RECEPTION") redirect("/schedule");
+  // Panel rahbarlarniki: ega, filial admini va yakka mutaxassis (o'ziga
+  // rahbar). Markazdagi mutaxassis/ota-ona kabinetga, qabulxona jadvalga ketadi.
+  const user = await requireManager();
+  // Yakka mutaxassisda xodim yo'q — maosh, markaz ulushi va "kim ko'rdi"
+  // ustunlari unga ma'nosiz (pulning hammasi o'ziniki)
+  const solo = isSolo(user);
 
   const t = await getT();
   const money = t.money;
@@ -135,18 +134,24 @@ export default async function DashboardPage() {
 
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
           <StatCard label={t("Xizmat qiymati")} value={money(overview.earned)} hint={t("o'tgan seanslar")} />
-          <StatCard
-            label={t("Mutaxassis haqi")}
-            value={money(overview.salary)}
-            hint={t("hisoblangan")}
-            tone="warn"
-          />
-          <StatCard
-            label={t("Markaz ulushi")}
-            value={money(overview.earned - overview.salary)}
-            hint={t("xizmat qiymati − ish haqi")}
-            tone="good"
-          />
+          {solo ? (
+            <StatCard label={t("Rejadagi seanslar")} value={num(overview.planned)} hint={t("shu oy")} />
+          ) : (
+            <>
+              <StatCard
+                label={t("Mutaxassis haqi")}
+                value={money(overview.salary)}
+                hint={t("hisoblangan")}
+                tone="warn"
+              />
+              <StatCard
+                label={t("Markaz ulushi")}
+                value={money(overview.earned - overview.salary)}
+                hint={t("xizmat qiymati − ish haqi")}
+                tone="good"
+              />
+            </>
+          )}
           <StatCard
             label={t("Qarzdorlik")}
             value={money(alerts.debtors.reduce((s, d) => s + d.debt, 0))}
@@ -217,7 +222,7 @@ export default async function DashboardPage() {
             columns={[
               { label: t("Vaqt"), className: "font-semibold tabular-nums" },
               { label: t("Mijoz") },
-              { label: t("Mutaxassis") },
+              ...(!solo ? [{ label: t("Mutaxassis") }] : []),
               ...(!branchId ? [{ label: t("Filial") }] : []),
               { label: t("Holat") },
             ]}
@@ -230,7 +235,7 @@ export default async function DashboardPage() {
                 sort: [
                   s.startsAt.getTime(),
                   s.client.fullName,
-                  s.specialist.user.fullName,
+                  ...(!solo ? [s.specialist.user.fullName] : []),
                   ...(!branchId ? [s.branch.name] : []),
                   status,
                 ],
@@ -243,10 +248,14 @@ export default async function DashboardPage() {
                   >
                     {s.client.fullName}
                   </Link>,
-                  <span key="s">
-                    {s.specialist.user.fullName}
-                    <span className="block text-xs text-slate-400">{spec}</span>
-                  </span>,
+                  ...(!solo
+                    ? [
+                        <span key="s">
+                          {s.specialist.user.fullName}
+                          <span className="block text-xs text-slate-400">{spec}</span>
+                        </span>,
+                      ]
+                    : []),
                   ...(!branchId ? [s.branch.name] : []),
                   <Badge key="b" className={SESSION_STATUS_STYLE[s.status as SessionStatus]}>
                     {status}
@@ -299,7 +308,9 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* To'liq kenglikda: tor ustunda ish haqi ustuni sig'may, kesilib qolardi */}
+      {/* To'liq kenglikda: tor ustunda ish haqi ustuni sig'may, kesilib qolardi.
+          Yakka mutaxassisda bu jadval faqat o'zidan iborat bo'lardi — ko'rsatilmaydi */}
+      {solo ? null : (
       <Card
         title={t("Mutaxassislar")}
         subtitle={t("{month} natijalari", { month: t.monthYear(new Date()) })}
@@ -341,6 +352,7 @@ export default async function DashboardPage() {
           })}
         />
       </Card>
+      )}
     </>
   );
 }

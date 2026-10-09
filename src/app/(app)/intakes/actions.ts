@@ -6,7 +6,7 @@ import { setFlash } from "@/lib/flash";
 import { getT } from "@/lib/i18n/server";
 import { dateTimeUz } from "@/lib/format";
 import { prisma } from "@/lib/prisma";
-import { requireUser, type CurrentUser } from "@/lib/auth";
+import { requireUser, isSolo, type CurrentUser } from "@/lib/auth";
 import {
   INTAKE_RESULT_KEYS,
   INTAKE_STATUS_KEYS,
@@ -16,10 +16,12 @@ import {
   type PaymentMethod,
 } from "@/lib/constants";
 
-/** Qabullar bilan egasi, filial admini va qabulxona xodimi ishlaydi */
+/** Qabullar bilan egasi, filial admini, qabulxona xodimi va yakka mutaxassis ishlaydi */
 async function requireFrontDesk(): Promise<CurrentUser> {
   const user = await requireUser();
-  if (user.role !== "OWNER" && user.role !== "BRANCH_ADMIN" && user.role !== "RECEPTION") {
+  if (
+    user.role !== "OWNER" && user.role !== "BRANCH_ADMIN" && user.role !== "RECEPTION" && !isSolo(user)
+  ) {
     throw new Error("Sizda bu amal uchun ruxsat yo'q.");
   }
   return user;
@@ -56,7 +58,12 @@ async function createIntakeImpl(formData: FormData) {
   const scheduledRaw = String(formData.get("scheduledAt") ?? "");
   const branchId =
     user.role === "OWNER" ? String(formData.get("branchId") ?? "") : (user.branchId ?? "");
-  const specialistId = String(formData.get("specialistId") ?? "") || null;
+  // Yakka mutaxassisda qabulni boshqa hech kim ko'rmaydi — doim o'zi. Bu
+  // muhim: mijozga o'tkazilganda u o'ziga biriktiriladi, aks holda o'z
+  // ro'yxatida ko'rinmay qolardi (doirasi biriktirishga tayanadi).
+  const specialistId = isSolo(user)
+    ? user.specialistId
+    : String(formData.get("specialistId") ?? "") || null;
   const price = Math.round(Number(String(formData.get("price") ?? "0").replace(/[^\d]/g, "")));
 
   if (!childName || !parentName || !parentPhone || !branchId) {
@@ -111,7 +118,12 @@ async function updateIntakeImpl(formData: FormData) {
   const parentPhone = String(formData.get("parentPhone") ?? "").trim();
   const birthDateRaw = String(formData.get("birthDate") ?? "");
   const scheduledRaw = String(formData.get("scheduledAt") ?? "");
-  const specialistId = String(formData.get("specialistId") ?? "") || null;
+  // Yakka mutaxassisda qabulni boshqa hech kim ko'rmaydi — doim o'zi. Bu
+  // muhim: mijozga o'tkazilganda u o'ziga biriktiriladi, aks holda o'z
+  // ro'yxatida ko'rinmay qolardi (doirasi biriktirishga tayanadi).
+  const specialistId = isSolo(user)
+    ? user.specialistId
+    : String(formData.get("specialistId") ?? "") || null;
   const price = Math.round(Number(String(formData.get("price") ?? "0").replace(/[^\d]/g, "")));
 
   if (!childName || !parentName || !parentPhone) {
@@ -221,7 +233,7 @@ async function payIntakeImpl(formData: FormData) {
  * eslatmalari o'shanga bog'lanadi (mijoz qo'shishdagi mantiq bilan bir xil).
  */
 async function convertIntakeImpl(formData: FormData) {
-  const { intake } = await assertOwnBranch(String(formData.get("intakeId") ?? ""));
+  const { user, intake } = await assertOwnBranch(String(formData.get("intakeId") ?? ""));
   if (intake.clientId) throw new Error("Bu qabul allaqachon mijozga o'tkazilgan.");
 
   let parentUserId: string | null = null;
@@ -253,10 +265,12 @@ async function convertIntakeImpl(formData: FormData) {
     },
   });
 
-  // Konsultatsiyani ko'rgan mutaxassis bo'lsa — o'sha mijozga biriktiriladi
-  if (intake.specialistId) {
+  // Konsultatsiyani ko'rgan mutaxassis bo'lsa — o'sha mijozga biriktiriladi.
+  // Yakka mutaxassisda esa doim o'zi (eski qabulda bo'sh qolgan bo'lsa ham).
+  const assignTo = intake.specialistId ?? (isSolo(user) ? user.specialistId : null);
+  if (assignTo) {
     await prisma.assignment.create({
-      data: { clientId: client.id, specialistId: intake.specialistId },
+      data: { clientId: client.id, specialistId: assignTo },
     });
   }
 

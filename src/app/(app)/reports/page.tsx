@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
+import { requireManager, NOT_SOLO, branchWhere, isSolo } from "@/lib/auth";
 import {
   BILLABLE_STATUSES,
   SPECIALIZATIONS,
@@ -19,7 +19,9 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<Search>;
 }) {
-  const user = await requireRole("OWNER", "BRANCH_ADMIN");
+  // Yakka mutaxassis ham o'z hisobotini ko'radi — doirasi o'z filiali
+  const user = await requireManager();
+  const solo = isSolo(user);
   const t = await getT();
   const sp = await searchParams;
 
@@ -91,7 +93,11 @@ export default async function ReportsPage({
     <>
       <PageHeader
         title={t("Hisobotlar")}
-        subtitle={`${t.monthYear(from)} · ${user.branchName ?? t("barcha filiallar")}`}
+        subtitle={
+          solo
+            ? t.monthYear(from)
+            : `${t.monthYear(from)} · ${user.branchName ?? t("barcha filiallar")}`
+        }
         action={
           <div className="flex gap-2">
             <Link href={qs(offset - 1)} className={btn}>
@@ -123,13 +129,18 @@ export default async function ReportsPage({
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard label={t("Mutaxassis haqi")} value={t.money(overview.salary)} tone="warn" />
-        <StatCard
-          label={t("Markaz ulushi")}
-          value={t.money(profit)}
-          hint={t("xizmat qiymati − ish haqi")}
-          tone="good"
-        />
+        {/* Yakka mutaxassisda maosh va markaz ulushi yo'q — pulning hammasi o'ziniki */}
+        {solo ? null : (
+          <>
+            <StatCard label={t("Mutaxassis haqi")} value={t.money(overview.salary)} tone="warn" />
+            <StatCard
+              label={t("Markaz ulushi")}
+              value={t.money(profit)}
+              hint={t("xizmat qiymati − ish haqi")}
+              tone="good"
+            />
+          </>
+        )}
         <StatCard label={t("Rejadagi seanslar")} value={num(overview.planned)} />
         <StatCard
           label={t("Konsultatsiyalardan")}
@@ -178,6 +189,8 @@ export default async function ReportsPage({
         </Card>
       ) : null}
 
+      {/* Mutaxassis va yo'nalish kesimi yakka ishlaganda bitta qatordan iborat bo'lardi */}
+      {solo ? null : (
       <div className="mt-5 grid gap-5 xl:grid-cols-2">
         <Card title={t("Mutaxassislar bo'yicha")}>
           {specialistRows.length === 0 ? (
@@ -245,6 +258,7 @@ export default async function ReportsPage({
           )}
         </Card>
       </div>
+      )}
     </>
   );
 }

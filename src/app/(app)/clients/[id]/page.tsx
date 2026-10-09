@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { clientScope, requireUser, NOT_SOLO, isFrontDesk } from "@/lib/auth";
+import { clientScope, requireUser, NOT_SOLO, isFrontDesk, isSolo } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import {
   BILLING_TYPES,
@@ -74,6 +74,14 @@ export default async function ClientPage({
   const canDelete = user.role === "OWNER" || user.role === "BRANCH_ADMIN";
 
   const settings = await getSettings();
+  // Yakka logopedning narxi o'ziniki — abonement formasida shu taklif qilinadi
+  const soloPrice =
+    isSolo(user) && user.specialistId
+      ? (await prisma.specialist.findUnique({
+          where: { id: user.specialistId },
+          select: { defaultPrice: true },
+        }))?.defaultPrice ?? null
+      : null;
 
   const client = await prisma.client.findFirst({
     where: { id, ...clientScope(user) },
@@ -273,7 +281,7 @@ export default async function ClientPage({
                       id="pricePerSession"
                       name="pricePerSession"
                       inputMode="numeric"
-                      defaultValue={settings.defaultPrice}
+                      defaultValue={soloPrice ?? settings.defaultPrice}
                       className={input}
                       required
                     />

@@ -619,4 +619,9 @@ export const ru: Record<string, string> = {
   "«Ilovani o'rnatish» yoki «Bosh ekranga qo'shish» ni tanlang": "Выберите «Установить приложение» или «Добавить на главный экран»",
   "«O'rnatish» ni bosing": "Нажмите «Установить»",
   "«O'rnatish» ni tasdiqlang": "Подтвердите «Установить»",
+  "shu oy": "в этом месяце",
+  "Seans narxi saqlandi.": "Цена сеанса сохранена.",
+  "yangi seans va abonementga shu narx qo'yiladi": "эта цена ставится новым сеансам и абонементам",
+  "Parolni yashirish": "Скрыть пароль",
+  "Parolni ko'rsatish": "Показать пароль",
 };
