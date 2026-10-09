@@ -1,3 +1,4 @@
+import type { Prisma } from "@/generated/prisma";
 import { branchWhere, NOT_SOLO } from "@/lib/auth";
 import "server-only";
 import { prisma } from "@/lib/prisma";
@@ -255,8 +256,24 @@ export type PackageProgress = {
 
 /** Mijozning abonementlari bo'yicha qolgan seans va qarzdorlik */
 export async function getClientPackages(clientId: string): Promise<PackageProgress[]> {
+  return getPackagesWhere({ clientId });
+}
+
+/**
+ * Ota-onaning hamma farzandlari abonementlari bitta so'rovda — kabinet
+ * bazaga necha marta borishi uning tezligini belgilaydi (baza uzoqda).
+ */
+export async function getParentPackages(
+  parentUserId: string,
+): Promise<(PackageProgress & { clientId: string })[]> {
+  return getPackagesWhere({ client: { parentUserId } });
+}
+
+async function getPackagesWhere(
+  where: Prisma.PackageWhereInput,
+): Promise<(PackageProgress & { clientId: string })[]> {
   const packages = await prisma.package.findMany({
-    where: { clientId },
+    where,
     orderBy: { purchasedAt: "desc" },
     include: {
       sessions: { select: { status: true } },
@@ -270,6 +287,7 @@ export async function getClientPackages(clientId: string): Promise<PackageProgre
     const cost = p.totalSessions * p.pricePerSession;
     return {
       id: p.id,
+      clientId: p.clientId,
       specialization: p.specialization,
       totalSessions: p.totalSessions,
       pricePerSession: p.pricePerSession,
