@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { withFlash } from "@/lib/action";
+import { ActionError, withFlash } from "@/lib/action";
+import { postToChannel } from "@/lib/telegram";
 import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, isSolo, requireUser, verifyPassword } from "@/lib/auth";
@@ -235,6 +236,62 @@ async function updateSoloPriceImpl(formData: FormData) {
   await setFlash("Seans narxi saqlandi.", "ok");
 }
 
+/**
+ * "@kanal", "kanal", "t.me/kanal" — hammasi "@kanal" ga keltiriladi.
+ * Yopiq kanalning username'i yo'q, uning raqami (-100...) o'zicha qoladi.
+ */
+function channelId(raw: string): string {
+  const v = raw.trim().replace(/^https?:\/\//, "").replace(/^t\.me\//, "").replace(/\/+$/, "");
+  if (/^-?\d+$/.test(v)) return v;
+  return `@${v.replace(/^@/, "")}`;
+}
+
+/** Ota-onalar kanaliga bot nomidan "Kabinetni ochish" tugmali e'lon */
+async function postChannelImpl(formData: FormData) {
+  const user = await requireUser();
+  // Kanal — markazning yuzi: uni ega yoki o'ziga o'zi rahbar yakka logoped boshqaradi
+  if (user.role !== "OWNER" && !isSolo(user)) {
+    throw new Error("Bu amalni faqat markaz egasi bajara oladi.");
+  }
+
+  const chat = String(formData.get("channel") ?? "").trim();
+  const text = String(formData.get("text") ?? "").trim();
+  const buttonText = String(formData.get("buttonText") ?? "").trim() || "📱 Kabinetni ochish";
+  if (!chat) throw new Error("Kanal nomini kiriting, masalan @markaz_kanali.");
+  if (!text) throw new Error("E'lon matni bo'sh.");
+  if (text.length > 4000) throw new Error("E'lon matni juda uzun (4000 belgigacha).");
+
+  const res = await postToChannel({
+    chat: channelId(chat),
+    text,
+    buttonText: buttonText.slice(0, 60),
+    pin: formData.get("pin") === "on",
+  });
+
+  if (!res.ok) {
+    const e = res.error.toLowerCase();
+    if (e.includes("token")) throw new Error("Telegram bot sozlanmagan — TELEGRAM_BOT_TOKEN qo'yilmagan.");
+    if (e.includes("chat not found")) {
+      throw new Error("Kanal topilmadi. Nomini va botning kanalga admin qilib qo'shilganini tekshiring.");
+    }
+    if (e.includes("rights") || e.includes("not a member") || e.includes("forbidden")) {
+      throw new Error("Bot kanalda admin emas yoki xabar joylash huquqi yo'q.");
+    }
+    if (e.includes("unauthorized") || e.includes("not found")) {
+      throw new Error("Telegram bot topilmadi — TELEGRAM_BOT_TOKEN noto'g'ri.");
+    }
+    throw new ActionError("Telegram e'lonni qabul qilmadi: {error}", { error: res.error });
+  }
+
+  await setFlash(
+    res.pinned || formData.get("pin") !== "on"
+      ? "E'lon kanalga joylandi."
+      : "E'lon joylandi, lekin qadab bo'lmadi — botga \"Xabarlarni qadash\" huquqini bering.",
+    "ok",
+  );
+}
+
+export const postChannel = withFlash(postChannelImpl);
 export const updateSoloPrice = withFlash(updateSoloPriceImpl);
 export const uploadLogo = withFlash(uploadLogoImpl);
 export const removeLogo = withFlash(removeLogoImpl);

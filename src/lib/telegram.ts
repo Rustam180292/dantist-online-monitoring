@@ -173,6 +173,84 @@ export async function sendDocument(
   }
 }
 
+type TgResult<T> = { ok: true; result: T } | { ok: false; error: string };
+
+/**
+ * Bot API chaqiruvi — xato sababini ham qaytaradi. `sendMessage` dan farqi:
+ * kanalga e'lon qo'yishda "nega o'tmadi" ni foydalanuvchiga aytish kerak
+ * (bot admin emas, kanal topilmadi va h.k.), shunchaki false yetmaydi.
+ */
+async function callApi<T>(method: string, body: Record<string, unknown>): Promise<TgResult<T>> {
+  const token = botToken();
+  if (!token) return { ok: false, error: "TELEGRAM_BOT_TOKEN sozlanmagan" };
+  try {
+    const res = await fetch(`${API}/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      result?: T;
+      description?: string;
+    };
+    if (data.ok && data.result !== undefined) return { ok: true, result: data.result };
+    return { ok: false, error: data.description ?? `HTTP ${res.status}` };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "tarmoq xatosi" };
+  }
+}
+
+/**
+ * Botning @username'i. Kodda yozib qo'yilmaydi — token qaysi botniki bo'lsa,
+ * havola ham o'shanga boradi (bot almashsa hech narsani o'zgartirish shart emas).
+ */
+export async function botUsername(): Promise<TgResult<string>> {
+  const me = await callApi<{ username?: string }>("getMe", {});
+  if (!me.ok) return me;
+  if (!me.result.username) return { ok: false, error: "bot username topilmadi" };
+  return { ok: true, result: me.result.username };
+}
+
+/**
+ * Kanalga e'lon: matn + "Kabinetni ochish" tugmasi.
+ *
+ * Kanalda `web_app` tugmasini Telegram qabul qilmaydi — faqat oddiy havola.
+ * Havola botning /start iga olib boradi: ota-ona avval raqamini ulashishi
+ * kerak, Mini App'ni to'g'ridan-to'g'ri ochish bog'lanmagan odamga
+ * "kabinet topilmadi" dan boshqa narsa ko'rsatmasdi.
+ */
+export async function postToChannel(opts: {
+  chat: string;
+  text: string;
+  buttonText: string;
+  pin: boolean;
+}): Promise<{ ok: true; pinned: boolean } | { ok: false; error: string }> {
+  const username = await botUsername();
+  if (!username.ok) return username;
+
+  const sent = await callApi<{ message_id: number }>("sendMessage", {
+    chat_id: opts.chat,
+    // Matnni odam yozadi — HTML deb o'qilsa "<" belgisi butun xabarni yiqitadi
+    text: opts.text,
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: opts.buttonText, url: `https://t.me/${username.result}?start=kanal` }],
+      ],
+    },
+  });
+  if (!sent.ok) return sent;
+
+  if (!opts.pin) return { ok: true, pinned: false };
+  const pinned = await callApi<boolean>("pinChatMessage", {
+    chat_id: opts.chat,
+    message_id: sent.result.message_id,
+    disable_notification: true,
+  });
+  return { ok: true, pinned: pinned.ok };
+}
+
 /** Mini App'ni ochadigan tugma */
 export function miniAppButton(text = "Kabinetni ochish") {
   return {

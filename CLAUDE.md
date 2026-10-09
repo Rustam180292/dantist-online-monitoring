@@ -113,12 +113,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 248 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 252 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA (171)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon (175)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, izoh, to'lovlar, mutaxassislar, bekor qilish (26)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
@@ -220,6 +220,11 @@ Davomat, To'lovlar, Abonement, Mutaxassislar.
   yechilmaydi), sabab `note` ga qo'shiladi, mutaxassis va filial xodimlariga
   Telegram xabar boradi. Mashg'ulotga `PARENT_CANCEL_MIN_HOURS` dan kam qolsa
   bekor qilib bo'lmaydi — markazga qo'ng'iroq qilinadi.
+- **Kanalga e'lon** — Sozlamalarda (ega va yakka logoped) bot nomidan
+  ota-onalar kanaliga "Kabinetni ochish" tugmali post qo'yiladi
+  (`postToChannel`, `src/lib/telegram.ts`). Kanalda `web_app` tugmasi
+  ishlamaydi, shuning uchun tugma `t.me/<bot>?start=kanal` havolasi — avval
+  raqam ulashiladi. Bot username kodda yozilmaydi, `getMe` dan olinadi.
 - Odam yozgan matnni Telegram xabariga qo'yganda `escapeHtml` dan o'tkazing
   (`src/lib/notify.ts`) — xabarlar HTML rejimida ketadi.
 
