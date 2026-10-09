@@ -1,21 +1,28 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
+  PARENT_CANCEL_MIN_HOURS,
+  PAYMENT_METHODS,
   SESSION_STATUSES,
   SPECIALIZATIONS,
+  type PaymentMethod,
   type SessionStatus,
   type Specialization,
 } from "@/lib/constants";
+import { cancelByParent } from "./parent-actions";
+import { TgLink } from "./tg-link";
 import { getClientPackages } from "@/lib/stats";
 import { dateShort, timeUz } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 
-type ParentTab = "schedule" | "history" | "billing";
+type ParentTab = "schedule" | "history" | "payments" | "billing" | "team";
 
 const TABS: { key: ParentTab; label: string }[] = [
   { key: "schedule", label: "Jadval" },
   { key: "history", label: "Davomat" },
+  { key: "payments", label: "To'lovlar" },
   { key: "billing", label: "Abonement" },
+  { key: "team", label: "Mutaxassislar" },
 ];
 
 export async function ParentApp({
@@ -53,7 +60,7 @@ export async function ParentApp({
   const child = children.find((c) => c.id === childRaw) ?? children[0];
   const now = new Date();
 
-  const [upcoming, history, packages] = await Promise.all([
+  const [upcoming, history, packages, payments, team] = await Promise.all([
     prisma.session.findMany({
       where: { clientId: child.id, startsAt: { gte: now }, status: "PLANNED" },
       orderBy: { startsAt: "asc" },
@@ -67,7 +74,29 @@ export async function ParentApp({
       include: { specialist: { include: { user: { select: { fullName: true } } } } },
     }),
     getClientPackages(child.id),
+    tab === "payments"
+      ? prisma.payment.findMany({
+          where: { clientId: child.id },
+          orderBy: { paidAt: "desc" },
+          take: 50,
+          include: { package: { select: { specialization: true } } },
+        })
+      : Promise.resolve([]),
+    tab === "team"
+      ? prisma.assignment.findMany({
+          where: { clientId: child.id, specialist: { isActive: true } },
+          orderBy: { createdAt: "asc" },
+          include: {
+            specialist: {
+              include: {
+                user: { select: { fullName: true, phone: true, telegramUsername: true } },
+              },
+            },
+          },
+        })
+      : Promise.resolve([]),
   ]);
+  const cancelDeadline = new Date(now.getTime() + PARENT_CANCEL_MIN_HOURS * 3_600_000);
 
   const remaining = packages.reduce((s, p) => s + (p.isActive ? p.remaining : 0), 0);
   const debt = packages.reduce((s, p) => s + p.debt, 0);
@@ -173,19 +202,48 @@ export async function ParentApp({
         ) : (
           <ul className="space-y-2">
             {upcoming.map((s) => (
-              <li key={s.id} className="app-card flex items-center gap-3 p-3">
-                <div className="w-16 shrink-0">
-                  <p className="text-sm font-bold tabular-nums">{timeUz(s.startsAt)}</p>
-                  <p className="text-xs app-muted">{dateShort(s.startsAt)}</p>
+              <li key={s.id} className="app-card p-3" data-testid="parent-session">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 shrink-0">
+                    <p className="text-sm font-bold tabular-nums">{timeUz(s.startsAt)}</p>
+                    <p className="text-xs app-muted">{dateShort(s.startsAt)}</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">
+                      {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
+                    </p>
+                    <p className="truncate text-xs app-muted">
+                      {s.specialist.user.fullName} · {t.weekday(s.startsAt)}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
-                    {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
+                {/* Ikki bosqichli: bitta tasodifiy bosish bilan mashg'ulot yo'qolmasin */}
+                {s.startsAt >= cancelDeadline ? (
+                  <details className="mt-2">
+                    <summary className="cursor-pointer select-none text-xs font-medium text-rose-600">
+                      {t("Kela olmaymiz — bekor qilish")}
+                    </summary>
+                    <form action={cancelByParent} className="mt-2 space-y-2">
+                      <input type="hidden" name="sessionId" value={s.id} />
+                      <input
+                        name="reason"
+                        maxLength={300}
+                        placeholder={t("Sababi (ixtiyoriy): kasal, safarda…")}
+                        className="w-full rounded-lg border border-black/10 bg-transparent px-3 py-2 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        className="w-full rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white"
+                      >
+                        {t("Ha, mashg'ulotni bekor qilish")}
+                      </button>
+                    </form>
+                  </details>
+                ) : (
+                  <p className="mt-2 text-[11px] app-muted">
+                    {t("Bekor qilish uchun markazga qo'ng'iroq qiling.")}
                   </p>
-                  <p className="truncate text-xs app-muted">
-                    {s.specialist.user.fullName} · {t.weekday(s.startsAt)}
-                  </p>
-                </div>
+                )}
               </li>
             ))}
           </ul>
@@ -200,7 +258,7 @@ export async function ParentApp({
         ) : (
           <ul className="space-y-2">
             {history.map((s) => (
-              <li key={s.id} className="app-card flex items-center justify-between gap-3 p-3">
+              <li key={s.id} className="app-card flex flex-wrap items-center justify-between gap-x-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
@@ -220,6 +278,14 @@ export async function ParentApp({
                 >
                   {t(SESSION_STATUSES[s.status as SessionStatus])}
                 </span>
+                {s.homework ? (
+                  <div className="mt-2 w-full rounded-lg bg-indigo-500/10 px-3 py-2" data-testid="parent-homework">
+                    <p className="text-[11px] font-semibold app-muted">
+                      📝 {t("Mutaxassis izohi / uyga vazifa")}
+                    </p>
+                    <p className="whitespace-pre-line text-sm">{s.homework}</p>
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -264,6 +330,77 @@ export async function ParentApp({
             ))
           )}
         </div>
+      ) : null}
+
+      {tab === "payments" ? (
+        payments.length === 0 ? (
+          <p className="app-card px-4 py-8 text-center text-sm app-muted">
+            {t("Hali to'lov qilinmagan.")}
+          </p>
+        ) : (
+          <>
+            <div className="app-card mb-2 flex items-center justify-between p-3">
+              <p className="text-xs app-muted">{t("Jami to'langan")}</p>
+              <p className="text-base font-bold tabular-nums">
+                {money(payments.reduce((sum, p) => sum + p.amount, 0))}
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {payments.map((p) => (
+                <li key={p.id} className="app-card flex items-center justify-between gap-3 p-3" data-testid="parent-payment">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{dateShort(p.paidAt)}</p>
+                    <p className="truncate text-xs app-muted">
+                      {t(PAYMENT_METHODS[p.method as PaymentMethod] ?? p.method)}
+                      {p.package
+                        ? ` · ${t(SPECIALIZATIONS[p.package.specialization as Specialization])}`
+                        : ""}
+                    </p>
+                  </div>
+                  <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-600">
+                    {money(p.amount)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      ) : null}
+
+      {tab === "team" ? (
+        team.length === 0 ? (
+          <p className="app-card px-4 py-8 text-center text-sm app-muted">
+            {t("Mutaxassis hali biriktirilmagan.")}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {team.map(({ specialist: sp }) => (
+              <li key={sp.id} className="app-card p-3" data-testid="parent-specialist">
+                <p className="text-sm font-semibold">{sp.user.fullName}</p>
+                <p className="text-xs app-muted">
+                  {t(SPECIALIZATIONS[sp.specialization as Specialization])}
+                </p>
+                <div className="mt-2.5 flex gap-2">
+                  <a
+                    href={`tel:${sp.user.phone}`}
+                    className="app-accent flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold"
+                  >
+                    📞 {t("Qo'ng'iroq qilish")}
+                  </a>
+                  {sp.user.telegramUsername ? (
+                    <TgLink
+                      href={`https://t.me/${sp.user.telegramUsername}`}
+                      className="app-card flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold"
+                    >
+                      ✈️ {t("Telegramda yozish")}
+                    </TgLink>
+                  ) : null}
+                </div>
+                <p className="mt-1.5 text-xs app-muted tabular-nums">{sp.user.phone}</p>
+              </li>
+            ))}
+          </ul>
+        )
       ) : null}
 
       <footer className="mt-4 app-card p-3 text-xs app-muted">

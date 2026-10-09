@@ -79,6 +79,13 @@ export const PAYMENT_METHODS = {
 export type PaymentMethod = keyof typeof PAYMENT_METHODS;
 export const PAYMENT_METHOD_KEYS = Object.keys(PAYMENT_METHODS) as PaymentMethod[];
 
+/**
+ * Ota-ona mashg'ulotni Mini App'dan necha soat oldin bekor qila oladi.
+ * Undan kechroq bo'lsa mutaxassis vaqtini boshqaga bera olmaydi — o'shanda
+ * ota-ona markazga qo'ng'iroq qiladi va kelmadi/bekor qarorini xodim qiladi.
+ */
+export const PARENT_CANCEL_MIN_HOURS = 2;
+
 /** Hisob-kitobda "o'tgan" deb sanaladigan holatlar (mutaxassis haqi shulardan) */
 export const BILLABLE_STATUSES: SessionStatus[] = ["DONE", "NO_SHOW"];
 

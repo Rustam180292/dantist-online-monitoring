@@ -169,7 +169,11 @@ model Session {
   /// Seans "o'tdi/kelmadi" deb belgilangan paytdagi mutaxassis foizi.
   /// Keyinchalik foiz o'zgarsa, o'tgan seanslarning hisobi o'zgarmasligi uchun saqlanadi.
   salaryPercent Int?
+  /// Xodimlar uchun ichki izoh — ota-onaga ko'rinmaydi
   note         String?
+  /// Mutaxassisning ota-onaga izohi / uyga vazifa. `note` dan ataylab alohida:
+  /// xodim ichki izohini ota-ona o'qib qolishidan qo'rqmay yozishi kerak.
+  homework     String?
   createdAt    DateTime @default(now())
 
   client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)

@@ -265,7 +265,7 @@ tests/
   db.mjs               testlar uchun bazaga kichik ulanish
   smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA (171 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (18 ta)
-  parent.mjs           ota-ona kabineti va eslatmalar (18 ta)
+  parent.mjs           ota-ona kabineti, eslatmalar, izoh, to'lovlar, mutaxassislar, bekor qilish (26 ta)
 ```
 
 ## Hisob-kitob mantig'i
@@ -293,7 +293,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 240 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 248 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
@@ -301,7 +301,7 @@ npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
 node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA (171)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (18)
-node tests/parent.mjs     # Ota-ona kabineti va eslatmalar (18)
+node tests/parent.mjs     # Ota-ona kabineti, eslatmalar, izoh, to'lovlar, mutaxassislar, bekor qilish (26)
 node tests/prefs.mjs      # Tun/kun rejimi, til (uz/en/ru), tarjima to'liqligi, logotip (33)
 ```
 

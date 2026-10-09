@@ -14,6 +14,7 @@ import { dateShort, timeUz } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 import { setSessionStatus } from "@/app/(app)/schedule/actions";
 import { ParentApp } from "./parent";
+import { HomeworkForm } from "@/app/(app)/schedule/homework-form";
 
 type Tab = "today" | "week" | "clients" | "money";
 const TABS: { key: Tab; label: string }[] = [
@@ -193,6 +194,11 @@ async function SessionList({
               <MarkButton id={s.id} status="PLANNED" label={t("Qaytarish")} tone="plain" />
             )}
           </div>
+          {s.status === "DONE" ? (
+            <div className="mt-2.5">
+              <HomeworkForm sessionId={s.id} homework={s.homework} />
+            </div>
+          ) : null}
         </li>
       ))}
     </ul>

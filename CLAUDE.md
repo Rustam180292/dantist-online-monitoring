@@ -113,14 +113,14 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 240 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 248 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
 node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA (171)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
-node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
+node tests/parent.mjs     # ota-ona kabineti, eslatmalar, izoh, to'lovlar, mutaxassislar, bekor qilish (26)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
 ```
 
@@ -206,6 +206,22 @@ yozib tasdiqlanadi):
 Yangi jadval qo'shsangiz, uni `prisma/tables.ts` ga ham qo'shing — aks holda
 `db:backup` uni zaxiraga olmaydi va `db:seed` tozalashda chet el kaliti xatosi
 beradi.
+
+## Ota-ona kabineti (Telegram Mini App)
+
+Ota-ona botga `/start` yuborib raqamini ulashadi, "Kabinetni ochish" tugmasi
+`/tg` orqali `/m` ga olib boradi (`src/app/m/parent.tsx`). Bo'limlar: Jadval,
+Davomat, To'lovlar, Abonement, Mutaxassislar.
+
+- **Izoh / uyga vazifa** — `Session.homework`. Ichki `Session.note` dan
+  ataylab alohida: `note` ota-onaga hech qachon ko'rsatilmaydi. Izoh faqat
+  "O'tdi" seansga yoziladi va ota-onaga Telegram'ga ham ketadi.
+- **Ota-ona bekor qilishi** — holat `CANCELLED_CLIENT` (abonementdan
+  yechilmaydi), sabab `note` ga qo'shiladi, mutaxassis va filial xodimlariga
+  Telegram xabar boradi. Mashg'ulotga `PARENT_CANCEL_MIN_HOURS` dan kam qolsa
+  bekor qilib bo'lmaydi — markazga qo'ng'iroq qilinadi.
+- Odam yozgan matnni Telegram xabariga qo'yganda `escapeHtml` dan o'tkazing
+  (`src/lib/notify.ts`) — xabarlar HTML rejimida ketadi.
 
 ## Diqqat qilinadigan joylar
 
