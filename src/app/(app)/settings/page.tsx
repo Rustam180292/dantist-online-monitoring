@@ -11,6 +11,7 @@ import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
 import {
   backupNow,
   changePassword,
+  postChannel,
   removeLogo,
   updateCenter,
   updatePricing,
@@ -312,10 +313,86 @@ export default async function SettingsPage() {
         </>
       ) : null}
 
+      {isOwner || isSolo(user) ? (
+        <Card
+          title={t("Telegram kanalga e'lon")}
+          subtitle={t("ota-onalar kanaliga \"Kabinetni ochish\" tugmali post")}
+          className="mt-5"
+        >
+          <div className="space-y-3 p-4">
+            <details className="text-sm text-slate-600 dark:text-slate-400">
+              <summary className="cursor-pointer font-semibold text-slate-800 dark:text-slate-200">
+                {t("Avval bir marta: botni kanalga admin qiling")}
+              </summary>
+              <ol className="mt-2 list-decimal space-y-1 pl-5">
+                <li>{t("Telegram'da kanalingizni oching → kanal nomini bosing")}</li>
+                <li>{t("Administratorlar → Admin qo'shish → markaz botining nomini qidiring")}</li>
+                <li>{t("\"Xabar joylash\" va \"Xabarlarni qadash\" huquqlarini yoqib, saqlang")}</li>
+              </ol>
+            </details>
+
+            <form action={postChannel} className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className={label} htmlFor="channel">
+                  {t("Kanal")} *
+                </label>
+                <input
+                  id="channel"
+                  name="channel"
+                  placeholder="@markaz_kanali"
+                  className={input}
+                  required
+                />
+                <p className="mt-1 text-xs text-slate-400">
+                  {t("Ochiq kanal — @nomi, yopiq kanal — -100 bilan boshlanadigan raqami")}
+                </p>
+              </div>
+              <div>
+                <label className={label} htmlFor="buttonText">
+                  {t("Tugma matni")}
+                </label>
+                <input
+                  id="buttonText"
+                  name="buttonText"
+                  defaultValue={t("📱 Kabinetni ochish")}
+                  maxLength={60}
+                  className={input}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className={label} htmlFor="channelText">
+                  {t("E'lon matni")} *
+                </label>
+                <textarea
+                  id="channelText"
+                  name="text"
+                  rows={11}
+                  maxLength={4000}
+                  required
+                  className={input}
+                  defaultValue={t(
+                    "📱 Farzandingiz kabineti endi Telegram'da!\n\nJadval, davomat, to'lovlar, mutaxassis izohlari va uyga vazifalar — hammasi bir joyda.\n\nQanday ochiladi:\n1. Pastdagi tugmani bosing\n2. Botda \"Start\" ni bosing\n3. \"📱 Raqamimni yuborish\" ni bosing — markazga bergan raqamingiz bo'lishi kerak\n4. \"Kabinetni ochish\" tugmasi chiqadi — tayyor!",
+                  )}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <input type="checkbox" name="pin" defaultChecked className="h-4 w-4" />
+                {t("Kanalda qadab qo'yish (pin)")}
+              </label>
+              <div className="sm:text-right">
+                <button type="submit" className={btnPrimary}>
+                  {t("Kanalga joylash")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </Card>
+      ) : null}
+
       <Card
         title={t("Parolni o'zgartirish")}
         subtitle={t("o'z parolingizni o'zingiz almashtirasiz")}
-        className={isOwner ? "mt-5" : ""}
+        className={isOwner || isSolo(user) ? "mt-5" : ""}
       >
         <form action={changePassword} className="grid gap-3 p-4 sm:grid-cols-3">
           <div>

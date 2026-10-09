@@ -1124,6 +1124,7 @@ if (await payRow.count()) {
   // Seans narxini Sozlamalardan o'zi o'zgartiradi
   await page.goto(`${BASE}/settings`);
   await page.waitForSelector("#soloPrice", { timeout: 15000 });
+  check("Yakka ham kanalga e'lon qila oladi", (await page.locator("#channel").count()) === 1);
   await page.fill("#soloPrice", "210000");
   await page.locator("form:has(#soloPrice) button[type=submit]").click();
   check(
@@ -1801,6 +1802,26 @@ check(
   page.url(),
 );
 
+/* 10a. Telegram kanalga e'lon: ega ko'radi, xato sababi aytiladi */
+{
+  await login(owner.phone);
+  await page.goto(`${BASE}/settings`);
+  await page.waitForSelector("#channel", { timeout: 15000 });
+  const text = await page.inputValue("#channelText");
+  check(
+    "Egada kanalga e'lon bo'limi bor, matn tayyor",
+    text.includes("Kabinet") && (await page.inputValue("#buttonText")).length > 0,
+  );
+  // Testdagi token soxta — Telegram rad etadi. Muhimi: jim qolmasin,
+  // qizil xabarda sababi ko'rinsin va "joylandi" deb aldamasin
+  await page.fill("#channel", "https://t.me/sinov_kanal_yoq");
+  await page.locator("form:has(#channel) button[type=submit]").click();
+  const shown = await waitUntil(async () => /Telegram|Kanal|Bot/.test(await page.locator("body").innerText()) &&
+    (await page.locator("body").innerText()).match(/(bot topilmadi|Kanal topilmadi|admin emas|qabul qilmadi|sozlanmagan)/i) !== null, 12000);
+  const body = await page.locator("body").innerText();
+  check("Kanalga joylanmasa sababi ko'rinadi", shown && !body.includes("E'lon kanalga joylandi"), body.match(/.*(topilmadi|admin emas|qabul qilmadi|sozlanmagan).*/i)?.[0] ?? "");
+}
+
 /* 10b. Qabulxona xodimi: faqat jadval, mijozlar va to'lovlar */
 if (!reception) {
   check("Qabulxona xodimi mavjud", false, "seed'da yo'q");
@@ -1825,6 +1846,10 @@ if (!reception) {
       !recNav.includes("Panel"),
     recNav.replace(/\n/g, " | "),
   );
+
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  check("Qabulxonada kanalga e'lon bo'limi yo'q", (await page.locator("#channel").count()) === 0);
 
   await page.goto(`${BASE}/reports`);
   await denied("Qabulxona hisobotlarni ko'ra olmaydi", "/reports", "Filiallar kesimi");
