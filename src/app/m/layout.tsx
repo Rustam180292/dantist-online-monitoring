@@ -37,7 +37,9 @@ export default async function MobileLayout({ children }: { children: React.React
       <div className="flex-1">{children}</div>
 
       <footer className="mx-auto w-full max-w-md space-y-4 px-4 py-5 text-sm">
-        <Install variant="banner" />
+        {/* Ota-ona kabinetni faqat Telegram'dagi bot orqali ochadi — telefonga
+            alohida ilova o'rnatish taklifi unga kerak emas, chalg'itadi */}
+        {isParent ? null : <Install variant="banner" />}
         {/* Ota-ona o'zbekcha bilmasligi mumkin — tilni kabinetning o'zida tanlaydi */}
         <div className="flex items-center justify-between gap-3">
           <LanguageSwitcher />

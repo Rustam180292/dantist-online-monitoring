@@ -153,8 +153,9 @@ if (!cookieMatch) {
     );
     const foot = await page.locator("footer").last().innerText();
     check(
-      "Ota-onada To'liq ko'rinish, Parol va Chiqish yo'q",
-      !foot.includes("To'liq ko'rinish") && !foot.includes("Parol") && !foot.includes("Chiqish"),
+      "Ota-onada To'liq ko'rinish, Parol, Chiqish va ilova o'rnatish yo'q",
+      !foot.includes("To'liq ko'rinish") && !foot.includes("Parol") && !foot.includes("Chiqish") &&
+        !foot.includes("O'rnatish"),
       foot.replace(/\n/g, " | "),
     );
     for (const path of ["/my", "/settings", "/"]) {
