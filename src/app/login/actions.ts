@@ -17,6 +17,12 @@ export async function login(formData: FormData) {
     where: { phone },
     include: { branch: { select: { isSolo: true } } },
   });
+  // Ota-ona parol bilan kirmaydi: uni markaz bazasidagi telefon raqami
+  // bo'yicha Telegram bot taniydi. Parol tekshirilishidan oldin aytiladi —
+  // aks holda u "parol noto'g'ri" deb, bilmagan parolini terib o'tirardi.
+  if (user?.role === "PARENT") {
+    redirect("/login?error=telegram");
+  }
   if (!user || !user.isActive || !verifyPassword(password, user.passwordHash)) {
     redirect("/login?error=notogri");
   }

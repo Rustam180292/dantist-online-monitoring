@@ -8,6 +8,7 @@ import { I18nProvider } from "@/components/i18n";
 import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
 import { dictFor } from "@/lib/i18n/dicts";
 import { getT } from "@/lib/i18n/server";
+import { TelegramThemeSync } from "./tg-theme";
 
 export const metadata = {
   title: "Logoped CRM — kabinet",
@@ -19,8 +20,12 @@ export const metadata = {
  */
 export default async function MobileLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // Ota-ona faqat Telegram orqali kiradi va hamma narsa shu kabinetda —
+  // to'liq ko'rinish, parol va chiqish unga kerak emas (chiqsa, qaytib
+  // kirish uchun yana botdan ochadi, login sahifasi uni kiritmaydi).
+  const isParent = user.role === "PARENT";
   // Yakka logopedning to'liq ko'rinishi — rahbar paneli
-  const fullViewHref = user.role === "PARENT" ? "/my" : isSolo(user) ? "/" : "/schedule";
+  const fullViewHref = isSolo(user) ? "/" : "/schedule";
   const t = await getT();
 
   return (
@@ -38,6 +43,7 @@ export default async function MobileLayout({ children }: { children: React.React
           <LanguageSwitcher />
           <ThemeToggle className="app-muted flex items-center gap-1.5 text-sm font-medium" />
         </div>
+        {isParent ? null : (
         <div className="flex items-center justify-between gap-3">
           <Link href={fullViewHref} className="app-link font-medium">
             {t("To'liq ko'rinish")} →
@@ -51,7 +57,9 @@ export default async function MobileLayout({ children }: { children: React.React
             </button>
           </form>
         </div>
+        )}
       </footer>
+      <TelegramThemeSync />
 
       <Flash />
     </div>

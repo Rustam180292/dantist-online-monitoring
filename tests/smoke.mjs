@@ -1894,28 +1894,17 @@ if (!reception) {
   );
 }
 
-/* 11. Ota-ona kabineti */
+/* 11. Ota-ona parol bilan kira olmaydi — faqat Telegram bot orqali */
 await login(parent.phone);
 check(
-  "Ota-ona telefon kabinetiga tushadi",
-  page.url().endsWith("/m") && (await page.content()).includes("Keyingi mashg"),
+  "Ota-ona login sahifasidan kira olmaydi",
+  page.url().includes("/login") &&
+    (await page.locator("main").innerText()).includes("Telegram bot orqali kiradi"),
   page.url(),
 );
-check("Ota-onaga qolgan seans ko'rsatiladi", (await page.content()).includes("Qolgan seans"));
-
-await page.goto(`${BASE}/my`);
+await page.goto(`${BASE}/m`);
 await page.waitForLoadState("networkidle");
-check(
-  "Ota-onaning to'liq ko'rinishi ham ishlaydi",
-  (await page.content()).includes("Farzandim"),
-  page.url(),
-);
-await page.goto(`${BASE}/clients`);
-check(
-  "Ota-ona boshqa mijozlarni ko'rmaydi",
-  !(await page.content()).includes("Yangi mijoz qo'shish"),
-  page.url(),
-);
+check("Ota-onaga sessiya ochilmagan", !page.url().endsWith("/m"), page.url());
 
 // Ilovaning o'z resurslari yuklanadimi (tashqi telegram.org bundan mustasno,
 // ERR_ABORTED esa sahifadan sahifaga tez o'tganda bekor bo'lgan prefetch)

@@ -63,30 +63,33 @@ html:not(.dark) body {
 }
 
 /* ---- Telefon kabineti (mutaxassis va ota-ona) ----
-   Telegram ichida ochilsa, Telegram mavzusining ranglari olinadi;
-   oddiy brauzerda esa oddiy ranglarga tushadi. */
+   Ranglar Telegram mavzusidan (--tg-theme-*) OLINMAYDI: Telegram ularni
+   o'zi qo'yib yuboradi va kabinetdagi tun/kun tugmasi ishlamay qolardi
+   (kartalar Telegram mavzusida qotib qolardi). Rejimni foydalanuvchi
+   tanlaydi; Telegram'ning sarlavha rangi esa unga moslab qo'yiladi
+   (`src/app/m/tg-theme.tsx`). */
 .app-shell {
-  background: var(--tg-theme-bg-color, #effbf6);
-  color: var(--tg-theme-text-color, #0f172a);
+  background: #effbf6;
+  color: #0f172a;
 }
 .app-card {
-  background: var(--tg-theme-secondary-bg-color, #ffffff);
+  background: #ffffff;
   border-radius: 14px;
 }
-.app-muted { color: var(--tg-theme-hint-color, #64748b); }
-.app-link { color: var(--tg-theme-link-color, #0a7ba5); }
+.app-muted { color: #64748b; }
+.app-link { color: #0a7ba5; }
 .app-accent {
-  background: var(--tg-theme-button-color, #0a7ba5);
-  color: var(--tg-theme-button-text-color, #ffffff);
+  background: #0a7ba5;
+  color: #ffffff;
 }
 
 .dark .app-shell {
-  background: var(--tg-theme-bg-color, #020617);
-  color: var(--tg-theme-text-color, #f1f5f9);
+  background: #020617;
+  color: #f1f5f9;
 }
-.dark .app-card { background: var(--tg-theme-secondary-bg-color, #0f172a); }
-.dark .app-muted { color: var(--tg-theme-hint-color, #94a3b8); }
+.dark .app-card { background: #0f172a; }
+.dark .app-muted { color: #94a3b8; }
 
 /* Tungi rejimda telefon kabinetining asosiy rangi avvalgidek binafsha qoladi */
-.dark .app-link { color: var(--tg-theme-link-color, #4f46e5); }
-.dark .app-accent { background: var(--tg-theme-button-color, #4f46e5); }
+.dark .app-link { color: #4f46e5; }
+.dark .app-accent { background: #4f46e5; }
