@@ -1,4 +1,3 @@
-import { HomeworkForm } from "./homework-form";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser, sessionScope, clientScope, NOT_SOLO } from "@/lib/auth";
@@ -380,11 +379,6 @@ export default async function SchedulePage({
                             <StatusButton id={s.id} status="PLANNED" title={t("Qaytarish")} tone="plain" />
                           )}
                         </div>
-                      ) : null}
-
-                      {/* Izoh rejadagi seansga emas, o'tgan mashg'ulotga yoziladi */}
-                      {canEdit && s.status === "DONE" ? (
-                        <HomeworkForm sessionId={s.id} homework={s.homework} />
                       ) : null}
                     </li>
                   ))}

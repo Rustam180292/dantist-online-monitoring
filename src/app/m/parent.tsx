@@ -258,7 +258,7 @@ export async function ParentApp({
         ) : (
           <ul className="space-y-2">
             {history.map((s) => (
-              <li key={s.id} className="app-card flex flex-wrap items-center justify-between gap-x-3 p-3">
+              <li key={s.id} className="app-card flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
                     {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
@@ -278,14 +278,6 @@ export async function ParentApp({
                 >
                   {t(SESSION_STATUSES[s.status as SessionStatus])}
                 </span>
-                {s.homework ? (
-                  <div className="mt-2 w-full rounded-lg bg-indigo-500/10 px-3 py-2" data-testid="parent-homework">
-                    <p className="text-[11px] font-semibold app-muted">
-                      📝 {t("Mutaxassis izohi / uyga vazifa")}
-                    </p>
-                    <p className="whitespace-pre-line text-sm">{s.homework}</p>
-                  </div>
-                ) : null}
               </li>
             ))}
           </ul>
