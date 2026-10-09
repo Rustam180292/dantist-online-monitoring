@@ -11,7 +11,13 @@ export function BrandMark({
   logoUrl: string | null;
   size?: "sm" | "md" | "lg";
 }) {
-  const box = { sm: "h-8 w-8 text-xs", md: "h-9 w-9 text-sm", lg: "h-12 w-12 text-lg rounded-xl" }[size];
+  // Logotiplar odatda mayda detalli rasm — kichik katakda ko'rinmay qolardi,
+  // shuning uchun belgi matndan kattaroq qilingan
+  const box = {
+    sm: "h-11 w-11 text-sm",
+    md: "h-14 w-14 text-lg",
+    lg: "h-20 w-20 text-2xl rounded-2xl",
+  }[size];
   if (logoUrl) {
     return (
       <img
