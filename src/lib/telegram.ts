@@ -251,6 +251,20 @@ export async function postToChannel(opts: {
   return { ok: true, pinned: pinned.ok };
 }
 
+/**
+ * Suhbatdagi "Kabinet" menyu tugmasi aynan `/tg` ni ochsin.
+ *
+ * BotFather'da qo'lda qo'yilgan tugma saytning bosh sahifasiga qarab qolsa,
+ * bog'lanmagan odamga login sahifasi ochilardi. Har /start da shu suhbat
+ * uchun to'g'ri manzil qo'yib qo'yiladi — qo'lda sozlashga bog'liq emas.
+ */
+export async function setKabinetMenu(chatId: number | string): Promise<void> {
+  await callApi<boolean>("setChatMenuButton", {
+    chat_id: chatId,
+    menu_button: { type: "web_app", text: "Kabinet", web_app: { url: `${appUrl()}/tg` } },
+  });
+}
+
 /** Mini App'ni ochadigan tugma */
 export function miniAppButton(text = "Kabinetni ochish") {
   return {

@@ -113,12 +113,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 254 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 257 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon (173)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq (176)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
@@ -216,6 +216,10 @@ Jadval, Davomat, To'lovlar, Abonement, Mutaxassislar.
 - **Ota-ona faqat Telegram orqali kiradi.** `/login` uni parol bilan
   kiritmaydi (`error=telegram`), katta panel (`(app)` layout) uni `/m` ga
   qaytaradi. Kabinetda "To'liq ko'rinish", "Parol" va "Chiqish" yo'q.
+  Telegram ichida `/login` (yoki `/`) ochilsa, sahifa `#tgWebAppData` ni ko'rib
+  darhol `/tg` ga o'tkazadi — bog'lanmagan odam login formasini ko'rmaydi,
+  "kabinet topilmadi" xabarini oladi. Bot har `/start` da suhbatning "Kabinet"
+  menyu tugmasini `/tg` ga qo'yadi (`setKabinetMenu`).
 - Kabinet ranglari (`.app-*`, `globals.css`) Telegram mavzusidan
   (`--tg-theme-*`) olinmaydi — aks holda tun/kun tugmasi ishlamaydi.
   Telegram sarlavhasi rejimga `src/app/m/tg-theme.tsx` orqali moslanadi.

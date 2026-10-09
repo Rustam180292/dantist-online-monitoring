@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ROLES, type Role } from "@/lib/constants";
 import {
@@ -6,6 +6,7 @@ import {
   miniAppButton,
   phoneVariants,
   sendMessage,
+  setKabinetMenu,
 } from "@/lib/telegram";
 
 /**
@@ -106,6 +107,8 @@ export async function POST(request: Request) {
   // 2) /start -> raqam so'raymiz
   const text = (message.text ?? "").trim();
   if (text.startsWith("/start")) {
+    // Javobdan keyin bajariladi: tugma qo'yilmasa ham /start ishlayveradi
+    after(() => setKabinetMenu(chatId));
     const from = message.from;
     const linked = from
       ? await prisma.user.findUnique({ where: { telegramId: String(from.id) } })

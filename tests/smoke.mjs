@@ -1894,6 +1894,25 @@ if (!reception) {
   );
 }
 
+/* 10z. Telegram ichida login sahifasi ochilmaydi — /tg ga o'tkaziladi */
+{
+  await ctx.clearCookies();
+  const hash = "#tgWebAppData=query_id%3DAAE&tgWebAppVersion=7.0&tgWebAppPlatform=ios";
+  for (const path of ["/", "/login"]) {
+    await page.goto(`${BASE}${path}${hash}`);
+    await page.waitForURL((u) => new URL(u).pathname === "/tg", { timeout: 10000 }).catch(() => {});
+    const u = new URL(page.url());
+    check(
+      `Telegram'dan ${path} ochilsa login emas, /tg chiqadi`,
+      u.pathname === "/tg" && u.hash.includes("tgWebAppData"),
+      page.url(),
+    );
+  }
+  await page.goto(`${BASE}/login`);
+  await page.waitForLoadState("networkidle");
+  check("Oddiy brauzerda login sahifasi ochiladi", new URL(page.url()).pathname === "/login" && (await page.locator("#phone").count()) === 1);
+}
+
 /* 11. Ota-ona parol bilan kira olmaydi — faqat Telegram bot orqali */
 await login(parent.phone);
 check(
