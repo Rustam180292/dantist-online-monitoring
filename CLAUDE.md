@@ -113,14 +113,14 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 253 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 254 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
 node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon (173)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
-node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (29)
+node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
 ```
 
@@ -250,6 +250,11 @@ Jadval, Davomat, To'lovlar, Abonement, Mutaxassislar.
   o'zgarmas statik fayllar keshlanadi.
 - **Mintaqa.** `vercel.json` da `fra1` — server baza bilan bir shaharda turishi shart.
   Bir sahifa bazaga 10-20 marta murojaat qiladi, ular uzoqlashsa ilova sekinlashadi.
+- **Bazaga borib-kelishlar soni = tezlik.** `relationJoins` yoqilgan: `include`
+  bog'langan jadvallarni alohida so'rovlar bilan emas, bitta SQL bilan oladi.
+  Uni o'chirmang. Yangi sahifada so'rovlarni ketma-ket emas, `Promise.all` bilan
+  bitta to'lqinda yuboring. Ota-ona kabineti hamma bo'limni bir martada yuklaydi
+  va bo'limlar brauzerning o'zida almashadi (`src/app/m/parent-tabs.tsx`).
 - **Telegram imzosi** `src/lib/telegram.ts` da tekshiriladi. `initData` ni tekshirmasdan
   ishonmang.
 - **Markaz sozlamalari** `src/lib/settings.ts` dagi `getSettings()` orqali olinadi.

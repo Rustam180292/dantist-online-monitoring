@@ -201,6 +201,25 @@ if (!cookieMatch) {
     check(`"${marker}" bo'limi ochiladi`, (await page.content()).includes(marker));
   }
 
+  /* 4b. Bo'limlar serverga bormasdan, darhol almashadi */
+  {
+    await page.goto(`${BASE}/m`);
+    await page.waitForLoadState("networkidle");
+    // Sahifa qayta yuklansa bu belgi yo'qoladi (replaceState esa saqlaydi)
+    await page.evaluate(() => { window.__sameDoc = true; });
+    await page.click('button[data-tab="payments"]');
+    const visible = await page.locator("main").innerText();
+    const navigated = !(await page.evaluate(() => window.__sameDoc === true));
+    check(
+      "Bo'lim sahifa yuklanmasdan almashadi",
+      !navigated && visible.includes("To'lovlar") &&
+        (visible.includes("Jami to'langan") || visible.includes("Hali to'lov qilinmagan")) &&
+        !visible.includes("Jami o'tgan mashg'ulot") &&
+        new URL(page.url()).searchParams.get("tab") === "payments",
+      page.url(),
+    );
+  }
+
   /* 5. Ota-ona boshqa bolani ko'ra olmaydi */
   {
     const other = await one(

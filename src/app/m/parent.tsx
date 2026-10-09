@@ -11,7 +11,8 @@ import {
 } from "@/lib/constants";
 import { cancelByParent } from "./parent-actions";
 import { TgLink } from "./tg-link";
-import { getClientPackages } from "@/lib/stats";
+import { ParentTabNav, ParentTabs, TabPanel } from "./parent-tabs";
+import { getParentPackages } from "@/lib/stats";
 import { dateShort, timeUz } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 
@@ -40,11 +41,60 @@ export async function ParentApp({
   const money = t.money;
   const tab: ParentTab = (TABS.find((x) => x.key === tabRaw)?.key ?? "child") as ParentTab;
 
-  const children = await prisma.client.findMany({
-    where: { parentUserId: userId },
-    orderBy: { fullName: "asc" },
-    include: { branch: { select: { name: true, address: true, phone: true } } },
-  });
+  const now = new Date();
+  const mine = { client: { parentUserId: userId } };
+  const withSpecialist = {
+    specialist: {
+      select: { specialization: true, user: { select: { fullName: true } } },
+    },
+  } as const;
+
+  // Hamma narsa bitta to'lqinda va hamma farzand uchun birdaniga olinadi:
+  // baza uzoqda, har bir ketma-ket so'rov kabinetni sekinlashtiradi.
+  // Farzand tanlangach qolgani xotirada ajratiladi (bolalar 1-2 ta bo'ladi).
+  const [children, upcomingAll, historyAll, packagesAll, paymentsAll, teamAll, doneAll] =
+    await Promise.all([
+      prisma.client.findMany({
+        where: { parentUserId: userId },
+        orderBy: { fullName: "asc" },
+        include: { branch: { select: { name: true, address: true, phone: true } } },
+      }),
+      prisma.session.findMany({
+        where: { ...mine, startsAt: { gte: now }, status: "PLANNED" },
+        orderBy: { startsAt: "asc" },
+        take: 60,
+        include: withSpecialist,
+      }),
+      prisma.session.findMany({
+        where: { ...mine, startsAt: { lt: now } },
+        orderBy: { startsAt: "desc" },
+        take: 60,
+        include: withSpecialist,
+      }),
+      getParentPackages(userId),
+      prisma.payment.findMany({
+        where: mine,
+        orderBy: { paidAt: "desc" },
+        take: 150,
+        include: { package: { select: { specialization: true } } },
+      }),
+      prisma.assignment.findMany({
+        where: { ...mine, specialist: { isActive: true } },
+        orderBy: { createdAt: "asc" },
+        include: {
+          specialist: {
+            include: {
+              user: { select: { fullName: true, phone: true, telegramUsername: true } },
+            },
+          },
+        },
+      }),
+      prisma.session.groupBy({
+        by: ["clientId"],
+        where: { ...mine, status: "DONE" },
+        _count: { _all: true },
+      }),
+    ]);
 
   if (children.length === 0) {
     return (
@@ -60,47 +110,14 @@ export async function ParentApp({
   }
 
   const child = children.find((c) => c.id === childRaw) ?? children[0];
-  const now = new Date();
-
-  const [upcoming, history, packages, payments, team, doneCount] = await Promise.all([
-    prisma.session.findMany({
-      where: { clientId: child.id, startsAt: { gte: now }, status: "PLANNED" },
-      orderBy: { startsAt: "asc" },
-      take: 10,
-      include: { specialist: { include: { user: { select: { fullName: true } } } } },
-    }),
-    prisma.session.findMany({
-      where: { clientId: child.id, startsAt: { lt: now } },
-      orderBy: { startsAt: "desc" },
-      take: 15,
-      include: { specialist: { include: { user: { select: { fullName: true } } } } },
-    }),
-    getClientPackages(child.id),
-    tab === "payments"
-      ? prisma.payment.findMany({
-          where: { clientId: child.id },
-          orderBy: { paidAt: "desc" },
-          take: 50,
-          include: { package: { select: { specialization: true } } },
-        })
-      : Promise.resolve([]),
-    tab === "team" || tab === "child"
-      ? prisma.assignment.findMany({
-          where: { clientId: child.id, specialist: { isActive: true } },
-          orderBy: { createdAt: "asc" },
-          include: {
-            specialist: {
-              include: {
-                user: { select: { fullName: true, phone: true, telegramUsername: true } },
-              },
-            },
-          },
-        })
-      : Promise.resolve([]),
-    tab === "child"
-      ? prisma.session.count({ where: { clientId: child.id, status: "DONE" } })
-      : Promise.resolve(0),
-  ]);
+  const ofChild = <T extends { clientId: string }>(rows: T[]) =>
+    rows.filter((r) => r.clientId === child.id);
+  const upcoming = ofChild(upcomingAll).slice(0, 10);
+  const history = ofChild(historyAll).slice(0, 15);
+  const packages = ofChild(packagesAll);
+  const payments = ofChild(paymentsAll).slice(0, 50);
+  const team = ofChild(teamAll);
+  const doneCount = doneAll.find((r) => r.clientId === child.id)?._count._all ?? 0;
   const cancelDeadline = new Date(now.getTime() + PARENT_CANCEL_MIN_HOURS * 3_600_000);
 
   const remaining = packages.reduce((s, p) => s + (p.isActive ? p.remaining : 0), 0);
@@ -185,21 +202,11 @@ export async function ParentApp({
         </div>
       </div>
 
-      <nav className="mb-3 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {TABS.map((x) => (
-          <Link
-            key={x.key}
-            href={`/m?child=${child.id}&tab=${x.key}`}
-            className={`shrink-0 rounded-xl px-3 py-1.5 text-sm font-medium ${
-              x.key === tab ? "app-accent" : "app-card app-muted"
-            }`}
-          >
-            {t(x.label)}
-          </Link>
-        ))}
-      </nav>
+      <ParentTabs initial={tab}>
+      <ParentTabNav tabs={TABS.map((x) => ({ key: x.key, label: t(x.label) }))} />
 
-      {tab === "child" ? (
+      <TabPanel name="child">
+        {(
         <div className="space-y-2" data-testid="parent-child">
           <div className="grid grid-cols-2 gap-2">
             <div className="app-card p-3">
@@ -242,9 +249,11 @@ export async function ParentApp({
             )}
           </section>
         </div>
-      ) : null}
+      )}
+      </TabPanel>
 
-      {tab === "schedule" ? (
+      <TabPanel name="schedule">
+        {(
         upcoming.length === 0 ? (
           <p className="app-card px-4 py-8 text-center text-sm app-muted">
             {t("Rejada mashg'ulot yo'q.")}
@@ -298,9 +307,11 @@ export async function ParentApp({
             ))}
           </ul>
         )
-      ) : null}
+      )}
+      </TabPanel>
 
-      {tab === "history" ? (
+      <TabPanel name="history">
+        {(
         history.length === 0 ? (
           <p className="app-card px-4 py-8 text-center text-sm app-muted">
             {t("Hali mashg'ulot bo'lmagan.")}
@@ -332,9 +343,11 @@ export async function ParentApp({
             ))}
           </ul>
         )
-      ) : null}
+      )}
+      </TabPanel>
 
-      {tab === "billing" ? (
+      <TabPanel name="billing">
+        {(
         <div className="space-y-2">
           {packages.length === 0 ? (
             <p className="app-card px-4 py-8 text-center text-sm app-muted">{t("Abonement yo'q.")}</p>
@@ -372,9 +385,11 @@ export async function ParentApp({
             ))
           )}
         </div>
-      ) : null}
+      )}
+      </TabPanel>
 
-      {tab === "payments" ? (
+      <TabPanel name="payments">
+        {(
         payments.length === 0 ? (
           <p className="app-card px-4 py-8 text-center text-sm app-muted">
             {t("Hali to'lov qilinmagan.")}
@@ -407,9 +422,11 @@ export async function ParentApp({
             </ul>
           </>
         )
-      ) : null}
+      )}
+      </TabPanel>
 
-      {tab === "team" ? (
+      <TabPanel name="team">
+        {(
         team.length === 0 ? (
           <p className="app-card px-4 py-8 text-center text-sm app-muted">
             {t("Mutaxassis hali biriktirilmagan.")}
@@ -443,7 +460,10 @@ export async function ParentApp({
             ))}
           </ul>
         )
-      ) : null}
+      )}
+      </TabPanel>
+
+      </ParentTabs>
 
       <footer className="mt-4 app-card p-3 text-xs app-muted">
         <p className="font-semibold">{child.branch.name}</p>
