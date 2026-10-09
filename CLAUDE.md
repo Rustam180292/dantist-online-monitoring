@@ -113,12 +113,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 230 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 240 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA (161)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA (171)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti va eslatmalar (18)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
@@ -142,6 +142,15 @@ mutaxassis** (`isSolo`, `src/lib/auth.ts`) esa markazga tegishli emas: u
 `/royxat` dan taklif kodi bilan o'zi ro'yxatdan o'tadi, o'ziga alohida filial
 ochiladi (`Branch.isSolo`), ulushi 100%, mijozini o'zi qo'shadi va to'lovini
 o'zi yozadi.
+
+Yakka mutaxassis o'ziga o'zi rahbar, shuning uchun u telefon kabinetiga emas,
+**rahbar paneliga** tushadi (`homePath()`): Panel, Jadval, Bo'sh vaqtlar,
+Qabullar, Mijozlar, To'lovlar, Hisobotlar, Sozlamalar — faqat Xodimlar va
+Filiallarsiz. Rahbar sahifalari `requireManager()` bilan himoyalanadi (ega,
+filial admini yoki yakka). Panel va hisobotda "mutaxassis haqi / markaz
+ulushi" ko'rinmaydi — pulning hammasi o'ziniki. Qabulda "kim ko'radi" so'ralmaydi,
+server uni o'ziga yozadi. Seans narxini Sozlamalardan o'zi o'zgartiradi
+(`Specialist.defaultPrice`).
 
 Taklif kodi markaz panelida **ko'rinmaydi** — yakka mutaxassis markazga
 tegishli emas, uni markaz rahbari emas, ilovani sotayotgan odam qabul qiladi.

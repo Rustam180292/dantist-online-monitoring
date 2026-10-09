@@ -1,7 +1,7 @@
 import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
+import { requireRole, NOT_SOLO, branchWhere, isSolo } from "@/lib/auth";
 import {
   INTAKE_RESULTS,
   INTAKE_RESULT_KEYS,
@@ -198,6 +198,8 @@ export default async function IntakesPage({
               required
             />
           </div>
+          {/* Yakka mutaxassisda "kim ko'radi" degan savol yo'q — doim o'zi (server ham shuni qo'yadi) */}
+          {isSolo(user) ? null : (
           <BranchSpecialistFields
             branches={branches.map((b) => ({ id: b.id, name: b.name }))}
             specialists={specialists.map((x) => ({
@@ -206,6 +208,7 @@ export default async function IntakesPage({
               label: `${x.user.fullName} · ${t(SPECIALIZATIONS[x.specialization as Specialization])}`,
             }))}
           />
+          )}
           <div>
             <label className={label} htmlFor="price">
               {t("Konsultatsiya narxi")}

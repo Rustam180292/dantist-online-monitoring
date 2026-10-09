@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, requireUser, verifyPassword } from "@/lib/auth";
+import { hashPassword, isSolo, requireUser, verifyPassword } from "@/lib/auth";
 import { sendBackupToOwners } from "@/lib/backup-send";
 import { LOGO_MAX_BYTES } from "@/lib/settings";
 
@@ -217,6 +217,25 @@ async function removeLogoImpl() {
   await setFlash("Logotip olib tashlandi.", "ok");
 }
 
+/**
+ * Yakka logopedning o'z seans narxi.
+ *
+ * Markaz egasi narxni "Narx va ulush" da hamma uchun qo'yadi, yakka logopedda
+ * esa markaz yo'q — narx uning o'ziniki (`Specialist.defaultPrice`) va yangi
+ * seansga shu yerdan olinadi. O'tib bo'lgan seanslar narxi o'zgarmaydi: narx
+ * seans bilan birga saqlanadi.
+ */
+async function updateSoloPriceImpl(formData: FormData) {
+  const user = await requireUser();
+  if (!isSolo(user) || !user.specialistId) throw new Error("Sizda bu amal uchun ruxsat yo'q.");
+  const price = Math.round(Number(String(formData.get("price") ?? "").replace(/[^\d]/g, "")));
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Seans narxi to'g'ri kiritilmagan.");
+  await prisma.specialist.update({ where: { id: user.specialistId }, data: { defaultPrice: price } });
+  revalidatePath("/settings");
+  await setFlash("Seans narxi saqlandi.", "ok");
+}
+
+export const updateSoloPrice = withFlash(updateSoloPriceImpl);
 export const uploadLogo = withFlash(uploadLogoImpl);
 export const removeLogo = withFlash(removeLogoImpl);
 export const backupNow = withFlash(backupNowImpl);

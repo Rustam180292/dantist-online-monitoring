@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, homePath } from "@/lib/auth";
 import { btnPrimary, card, input, label } from "@/components/ui";
+import { PasswordInput } from "@/components/password-input";
 import { BrandMark } from "@/components/brand";
 import { I18nProvider } from "@/components/i18n";
 import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
@@ -21,15 +22,7 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const user = await getCurrentUser();
-  if (user) {
-    redirect(
-      user.role === "SPECIALIST" || user.role === "PARENT"
-        ? "/m"
-        : user.role === "RECEPTION"
-          ? "/schedule"
-          : "/",
-    );
-  }
+  if (user) redirect(homePath(user));
 
   const { error } = await searchParams;
   const t = await getT();
@@ -96,13 +89,11 @@ export default async function LoginPage({
             <label className={label} htmlFor="password">
               {t("Parol")}
             </label>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="current-password"
               placeholder="••••••••"
-              className={input}
               required
             />
           </div>

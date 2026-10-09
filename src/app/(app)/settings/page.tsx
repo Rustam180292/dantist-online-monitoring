@@ -1,4 +1,5 @@
-import { requireUser } from "@/lib/auth";
+import { PasswordInput } from "@/components/password-input";
+import { isSolo, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { appUrl } from "@/lib/telegram";
 import { getSettings, WEEKDAYS } from "@/lib/settings";
@@ -13,6 +14,7 @@ import {
   removeLogo,
   updateCenter,
   updatePricing,
+  updateSoloPrice,
   updateWorkHours,
   uploadLogo,
 } from "./actions";
@@ -28,6 +30,13 @@ export default async function SettingsPage() {
     ? await prisma.user.findUnique({ where: { id: user.id }, select: { telegramId: true } })
     : null;
   const telegramLinked = Boolean(me?.telegramId);
+  const solo = isSolo(user);
+  const soloPrice = solo && user.specialistId
+    ? (await prisma.specialist.findUnique({
+        where: { id: user.specialistId },
+        select: { defaultPrice: true },
+      }))?.defaultPrice ?? s.defaultPrice
+    : null;
   const backupUrl = `${appUrl()}/api/backup?secret=<CRON_SECRET>`;
 
   return (
@@ -50,6 +59,29 @@ export default async function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {solo ? (
+        <Card title={t("Seans narxi")} subtitle={t("yangi seans va abonementga shu narx qo'yiladi")} className="mb-5">
+          <form action={updateSoloPrice} className="flex flex-wrap items-end gap-3 p-4">
+            <div>
+              <label className={label} htmlFor="soloPrice">
+                {t("Bitta seans narxi ({currency})", { currency: t.currency })}
+              </label>
+              <input
+                id="soloPrice"
+                name="price"
+                inputMode="numeric"
+                defaultValue={soloPrice ?? ""}
+                className={input}
+                required
+              />
+            </div>
+            <button type="submit" className={btnPrimary}>
+              {t("Saqlash")}
+            </button>
+          </form>
+        </Card>
+      ) : null}
 
       {isOwner ? (
         <>
@@ -290,37 +322,19 @@ export default async function SettingsPage() {
             <label className={label} htmlFor="currentPassword">
               {t("Joriy parol")} *
             </label>
-            <input
-              id="currentPassword"
-              name="currentPassword"
-              type="password"
-              className={input}
-              required
-            />
+            <PasswordInput id="currentPassword" name="currentPassword" autoComplete="current-password" required />
           </div>
           <div>
             <label className={label} htmlFor="newPassword">
               {t("Yangi parol (kamida 5 belgi)")} *
             </label>
-            <input
-              id="newPassword"
-              name="newPassword"
-              type="password"
-              className={input}
-              required
-            />
+            <PasswordInput id="newPassword" name="newPassword" autoComplete="new-password" required />
           </div>
           <div>
             <label className={label} htmlFor="repeatPassword">
               {t("Yangi parolni takrorlang")} *
             </label>
-            <input
-              id="repeatPassword"
-              name="repeatPassword"
-              type="password"
-              className={input}
-              required
-            />
+            <PasswordInput id="repeatPassword" name="repeatPassword" autoComplete="new-password" required />
           </div>
           <div className="sm:col-span-3">
             <button type="submit" className={btnPrimary}>

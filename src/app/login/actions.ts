@@ -2,7 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { startSession, verifyPassword, endSession } from "@/lib/auth";
+import type { Role } from "@/lib/constants";
+import { startSession, verifyPassword, endSession, homePath } from "@/lib/auth";
 
 export async function login(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim();
@@ -12,19 +13,16 @@ export async function login(formData: FormData) {
     redirect("/login?error=bosh");
   }
 
-  const user = await prisma.user.findUnique({ where: { phone } });
+  const user = await prisma.user.findUnique({
+    where: { phone },
+    include: { branch: { select: { isSolo: true } } },
+  });
   if (!user || !user.isActive || !verifyPassword(password, user.passwordHash)) {
     redirect("/login?error=notogri");
   }
 
   await startSession(user.id);
-  redirect(
-    user.role === "SPECIALIST" || user.role === "PARENT"
-      ? "/m"
-      : user.role === "RECEPTION"
-        ? "/schedule"
-        : "/",
-  );
+  redirect(homePath({ role: user.role as Role, isSolo: user.branch?.isSolo ?? false }));
 }
 
 export async function logout() {

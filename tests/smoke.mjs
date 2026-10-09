@@ -104,6 +104,18 @@ async function login(phone, password = PASSWORD) {
   await page.waitForLoadState("networkidle");
 }
 
+/* 0. Login: parolni ko'rib tekshirish mumkin */
+{
+  await page.goto(`${BASE}/login`);
+  await page.fill("#password", "Qabul12");
+  const typeOf = () => page.locator("#password").getAttribute("type");
+  const hidden = (await typeOf()) === "password";
+  await page.click('[data-testid="password-toggle"]');
+  const shown = (await typeOf()) === "text" && (await page.inputValue("#password")) === "Qabul12";
+  await page.click('[data-testid="password-toggle"]');
+  check("Login: parolni ko'rsatish/yashirish", hidden && shown && (await typeOf()) === "password");
+}
+
 /* 1. Himoyalangan sahifa login'ga yo'naltiradi */
 await page.goto(`${BASE}/`);
 check("Auth: / -> /login", page.url().includes("/login"), page.url());
@@ -1073,9 +1085,77 @@ if (await payRow.count()) {
     JSON.stringify(solo),
   );
 
-  // Ro'yxatdan o'tgach darhol kabinetiga tushadi
-  await page.waitForURL(/\/m\b/, { timeout: 15000 }).catch(() => {});
-  check("Ro'yxatdan keyin kabinetga tushadi", page.url().includes("/m"), page.url());
+  // Ro'yxatdan o'tgach darhol o'z rahbar paneliga tushadi — u o'ziga o'zi rahbar
+  await page.waitForURL((u) => new URL(u).pathname === "/", { timeout: 15000 }).catch(() => {});
+  check("Ro'yxatdan keyin panelga tushadi", new URL(page.url()).pathname === "/", page.url());
+
+  /* --- Panel: egadagidek, faqat Xodimlar va Filiallarsiz --- */
+  await page.waitForLoadState("networkidle");
+  const soloNav = await page.locator("aside").innerText();
+  check(
+    "Yakka menyusida Panel, Qabullar, Hisobotlar bor",
+    ["Panel", "Qabullar", "To'lovlar", "Hisobotlar", "Sozlamalar"].every((x) => soloNav.includes(x)),
+    soloNav.replace(/\n/g, " | "),
+  );
+  check(
+    "Yakka menyusida Xodimlar va Filiallar yo'q",
+    !soloNav.includes("Xodimlar") && !soloNav.includes("Filiallar") && !soloNav.includes("Pulim"),
+  );
+  const soloPanel = await page.locator("main").innerText();
+  check(
+    "Yakka panelida mutaxassis haqi va markaz ulushi yo'q",
+    !soloPanel.includes("Markaz ulushi") && !soloPanel.includes("Mutaxassis haqi"),
+  );
+
+  for (const path of ["/specialists", "/branches"]) {
+    await page.goto(`${BASE}${path}`);
+    await page.waitForLoadState("networkidle");
+    check(`Yakka ${path} ga kira olmaydi`, !page.url().includes(path), page.url());
+  }
+
+  await page.goto(`${BASE}/reports`);
+  await page.waitForLoadState("networkidle");
+  check(
+    "Yakka hisobotlarni ko'radi",
+    page.url().includes("/reports") && !(await page.locator("main").innerText()).includes("Markaz ulushi"),
+    page.url(),
+  );
+
+  // Seans narxini Sozlamalardan o'zi o'zgartiradi
+  await page.goto(`${BASE}/settings`);
+  await page.waitForSelector("#soloPrice", { timeout: 15000 });
+  await page.fill("#soloPrice", "210000");
+  await page.locator("form:has(#soloPrice) button[type=submit]").click();
+  check(
+    "Yakka seans narxini o'zgartira oladi",
+    await waitUntil(
+      async () => Number((await one("SELECT defaultPrice FROM Specialist WHERE id = ?", solo.specialistId)).defaultPrice) === 210000,
+    ),
+  );
+
+  // Qabulda "kim ko'radi" so'ralmaydi — doim o'zi
+  const soloIntake = `Yakka Qabul ${tag}`;
+  await page.goto(`${BASE}/intakes`);
+  await page.waitForLoadState("networkidle");
+  await page.click('summary:has-text("Yangi qabul")');
+  check(
+    "Yakka qabulida filial va mutaxassis tanlovi yo'q",
+    (await page.locator("#branchId").count()) === 0 && (await page.locator("#specialistId").count()) === 0,
+  );
+  await page.fill("#childName", soloIntake);
+  await page.fill("#birthDate", "2020-02-02");
+  await page.fill("#parentName", "Yakka Ona");
+  await page.fill("#parentPhone", `+99890222${tag.slice(-4)}`);
+  await page.locator('form button:has-text("Saqlash")').first().click();
+  check(
+    "Yakka qabuli o'ziga va o'z filialiga yoziladi",
+    await waitUntil(
+      async () => (await count(
+        "SELECT COUNT(*) AS n FROM Intake WHERE childName = ? AND specialistId = ? AND branchId = ?",
+        soloIntake, solo.specialistId, solo.branchId,
+      )) === 1,
+    ),
+  );
 
   /* --- O'zi mijoz qo'shadi va to'lov yozadi --- */
   await page.goto(`${BASE}/clients`);
@@ -1144,6 +1224,7 @@ if (await payRow.count()) {
   );
 
   // Tozalab qo'yamiz: keyingi tekshiruvlarga xalaqit bermasin
+  await all("DELETE FROM Intake WHERE branchId = ?", solo.branchId);
   await all("DELETE FROM Client WHERE id = ?", kid.id);
   await all("DELETE FROM User WHERE id = ?", solo.userId);
   await all("DELETE FROM Branch WHERE id = ?", solo.branchId);

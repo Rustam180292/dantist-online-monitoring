@@ -173,6 +173,31 @@ export const isFrontDesk = (u: CurrentUser) =>
  */
 export const isSolo = (u: CurrentUser) => u.role === "SPECIALIST" && u.isSolo;
 export const isSpecialist = (u: CurrentUser) => u.role === "SPECIALIST";
+
+/**
+ * Kirgandan keyin qaysi sahifa ochiladi.
+ *
+ * Yakka mutaxassis — o'ziga rahbar ham: unga markaz egasinikidek panel
+ * ochiladi (Xodimlar va Filiallarsiz). Markazdagi mutaxassis va ota-onaga
+ * esa telefon kabineti qulayroq.
+ */
+export function homePath(u: { role: Role; isSolo?: boolean }): string {
+  if (u.role === "SPECIALIST" && u.isSolo) return "/";
+  if (u.role === "SPECIALIST" || u.role === "PARENT") return "/m";
+  if (u.role === "RECEPTION") return "/schedule";
+  return "/";
+}
+
+/**
+ * Rahbar sahifalari (panel, hisobotlar): markaz egasi, filial admini va
+ * yakka mutaxassis. Yakka mutaxassisning doirasi baribir o'z filiali —
+ * sahifalar `branchId` ni `user.branchId` dan oladi.
+ */
+export async function requireManager(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (isAdmin(user) || isSolo(user)) return user;
+  redirect(homePath(user));
+}
 export const isParent = (u: CurrentUser) => u.role === "PARENT";
 
 /**
