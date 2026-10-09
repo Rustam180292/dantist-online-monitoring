@@ -239,7 +239,7 @@ if (!cookieMatch) {
     const kinds = (await all("SELECT DISTINCT kind AS k FROM Notification")).map((r) => r.k);
     check(
       "Eslatma turlari to'g'ri",
-      kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PACKAGE_LOW", "DEBT"].includes(k)),
+      kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PACKAGE_LOW", "DEBT", "HOMEWORK", "PARENT_CANCEL"].includes(k)),
       kinds.join(", "),
     );
     if (debtor) {
@@ -342,6 +342,166 @@ if (!cookieMatch) {
       check("Mashg'ulot o'tgani haqida xabar yoziladi", false, "seans topilmadi");
     }
     await adminCtx.close();
+  }
+
+  /* 12. Mutaxassis izohi / uyga vazifa */
+  {
+    const adminCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const admin = await adminCtx.newPage();
+    await admin.goto(`${BASE}/login`);
+    await admin.fill("#phone", "+998901234567");
+    await admin.fill("#password", "parol123");
+    await admin.click("button[type=submit]");
+    await admin.waitForLoadState("networkidle");
+
+    // 11-qadamda "o'tdi" belgilangan seans — izoh faqat o'tgan seansga yoziladi
+    const done = await one(
+      "SELECT id, startsAt FROM Session WHERE id = ? AND status = 'DONE'",
+      target.sessionId,
+    );
+    const mondayOf = (d) => {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+      return x;
+    };
+    const offset = done
+      ? Math.round((mondayOf(new Date(done.startsAt)) - mondayOf(new Date())) / (7 * 86400000))
+      : 0;
+    await admin.goto(`${BASE}/schedule?w=${offset}`);
+    await admin.waitForLoadState("networkidle");
+    const hw = admin.locator(`li:has(input[name="sessionId"][value="${target.sessionId}"]) [data-testid="homework"]`).first();
+    const HW = `Uyda "r" tovushini 10 daqiqa <takrorlash> ${Date.now() % 10000}`;
+    if (done && (await hw.count())) {
+      await hw.locator("summary").click();
+      await hw.locator("textarea").fill(HW);
+      await hw.locator('button[type="submit"]').click();
+      check(
+        "Izoh seansga yoziladi",
+        await waitUntil(async () => (await one("SELECT homework FROM Session WHERE id = ?", target.sessionId))?.homework === HW),
+      );
+      const note = await waitUntil(
+        async () => (await count("SELECT COUNT(*) AS n FROM Notification WHERE kind = 'HOMEWORK' AND clientId = ?", target.clientId)) > 0,
+      );
+      const hwText = (await one("SELECT text FROM Notification WHERE kind = 'HOMEWORK' AND clientId = ? ORDER BY createdAt DESC LIMIT 1", target.clientId))?.text ?? "";
+      check(
+        "Izoh ota-onaga Telegram'ga yuboriladi (HTML xavfsiz)",
+        note && hwText.includes("&lt;takrorlash&gt;") && !hwText.includes("<takrorlash>"),
+        hwText.split("\n")[0],
+      );
+    } else {
+      check("Izoh seansga yoziladi", false, "seans yoki izoh maydoni topilmadi");
+    }
+    await adminCtx.close();
+
+    // Ota-ona izohni davomatda ko'radi (davomat — o'tib ketgan seanslar)
+    const past = await one(
+      "SELECT id FROM Session WHERE clientId = ? AND startsAt < now() ORDER BY startsAt DESC LIMIT 1",
+      target.clientId,
+    );
+    if (past) {
+      const prev = (await one("SELECT homework FROM Session WHERE id = ?", past.id)).homework;
+      await all("UPDATE Session SET homework = ? WHERE id = ?", HW, past.id);
+      await page.goto(`${BASE}/tg/app?tab=history`);
+      await page.waitForLoadState("networkidle");
+      const text = await page.locator('[data-testid="parent-homework"]').first().innerText().catch(() => "");
+      check("Ota-ona izohni davomatda ko'radi", text.includes(HW), text.slice(0, 60));
+      await all("UPDATE Session SET homework = ? WHERE id = ?", prev, past.id);
+    }
+    await all("DELETE FROM Notification WHERE kind = 'HOMEWORK' AND clientId = ?", target.clientId);
+  }
+
+  /* 13. To'lovlar tarixi */
+  {
+    const paid = await count("SELECT COUNT(*) AS n FROM Payment WHERE clientId = ?", target.clientId);
+    await page.goto(`${BASE}/tg/app?tab=payments`);
+    await page.waitForLoadState("networkidle");
+    const shown = await page.locator('[data-testid="parent-payment"]').count();
+    const main = await page.locator("main").innerText();
+    check(
+      "To'lovlar tarixi ko'rinadi",
+      shown === Math.min(paid, 50) && (paid === 0 ? main.includes("Hali to'lov qilinmagan") : main.includes("Jami to'langan")),
+      `${shown} / ${paid}`,
+    );
+  }
+
+  /* 14. Mutaxassislar va qo'ng'iroq */
+  let specialistUser;
+  {
+    const team = await all(
+      `SELECT s.id, u.id AS userId, u.phone FROM Assignment a
+         JOIN Specialist s ON s.id = a.specialistId JOIN User u ON u.id = s.userId
+        WHERE a.clientId = ? AND s.isActive = true`,
+      target.clientId,
+    );
+    specialistUser = team[0];
+    await page.goto(`${BASE}/tg/app?tab=team`);
+    await page.waitForLoadState("networkidle");
+    const cards = page.locator('[data-testid="parent-specialist"]');
+    const tels = await cards.locator('a[href^="tel:"]').evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+    check(
+      "Biriktirilgan mutaxassislar qo'ng'iroq tugmasi bilan ko'rinadi",
+      team.length > 0 && (await cards.count()) === team.length && team.every((m) => tels.includes(`tel:${m.phone}`)),
+      `${await cards.count()} / ${team.length}`,
+    );
+  }
+
+  /* 15. Ota-ona mashg'ulotni bekor qiladi */
+  if (specialistUser) {
+    const sp = await one("SELECT branchId FROM Specialist WHERE id = ?", specialistUser.id);
+    const later = `tst-bekor-${Date.now()}`;
+    const soon = `tst-yaqin-${Date.now()}`;
+    const ins = (id, hours) =>
+      all(
+        `INSERT INTO Session (id, clientId, specialistId, branchId, startsAt, durationMin, status, price, createdAt)
+         VALUES (?, ?, ?, ?, now() AT TIME ZONE 'UTC' + (? || ' hours')::interval, 45, 'PLANNED', 0, now())`,
+        id, target.clientId, specialistUser.id, sp.branchId, String(hours),
+      );
+    await ins(later, 72);
+    await ins(soon, 1);
+    // Xodimga xabar borishi uchun mutaxassisni vaqtincha Telegram'ga bog'laymiz
+    const prevTg = (await one("SELECT telegramId FROM User WHERE id = ?", specialistUser.userId)).telegramId;
+    if (!prevTg) await all("UPDATE User SET telegramId = '910000077' WHERE id = ?", specialistUser.userId);
+
+    await page.goto(`${BASE}/tg/app?tab=schedule`);
+    await page.waitForLoadState("networkidle");
+    const cardOf = (id) => page.locator(`[data-testid="parent-session"]:has(input[name="sessionId"][value="${id}"])`);
+    check(
+      "Yaqin mashg'ulotni ota-ona bekor qila olmaydi",
+      (await cardOf(soon).count()) === 0 &&
+        (await page.locator("main").innerText()).includes("markazga qo'ng'iroq qiling"),
+    );
+
+    const card = cardOf(later);
+    if (await card.count()) {
+      await card.locator("summary").click();
+      await card.locator('input[name="reason"]').fill("Kasal");
+      await card.locator('button[type="submit"]').click();
+      const cancelled = await waitUntil(
+        async () => (await one("SELECT status FROM Session WHERE id = ?", later))?.status === "CANCELLED_CLIENT",
+      );
+      const row = await one("SELECT note, price FROM Session WHERE id = ?", later);
+      check(
+        "Ota-ona mashg'ulotni bekor qila oladi",
+        cancelled && row.note.includes("Kasal") && Number(row.price) === 0,
+        JSON.stringify(row),
+      );
+      check(
+        "Bekor qilingani mutaxassisga xabar qilinadi",
+        await waitUntil(
+          async () => (await count(
+            "SELECT COUNT(*) AS n FROM Notification WHERE kind = 'PARENT_CANCEL' AND userId = ?",
+            specialistUser.userId,
+          )) > 0,
+        ),
+      );
+    } else {
+      check("Ota-ona mashg'ulotni bekor qila oladi", false, "bekor qilish tugmasi yo'q");
+    }
+
+    if (!prevTg) await all("UPDATE User SET telegramId = NULL WHERE id = ?", specialistUser.userId);
+    await all("DELETE FROM Notification WHERE kind = 'PARENT_CANCEL' AND clientId = ?", target.clientId);
+    await all("DELETE FROM Session WHERE id IN (?, ?)", later, soon);
   }
 
   const ownFailures = [

@@ -222,6 +222,102 @@ export async function queueSessionDone(sessionId: string): Promise<number> {
   ]);
 }
 
+/**
+ * Odam yozgan matn Telegram'ga HTML bo'lib ketadi: "<" yoki "&" bo'lsa
+ * Telegram butun xabarni rad etadi, teg bo'lsa esa uni bajarib yuboradi.
+ */
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* ---------------- 5. Mutaxassis izohi / uyga vazifa ---------------- */
+
+export async function queueHomework(sessionId: string): Promise<number> {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: {
+      client: { select: { id: true, fullName: true, parentUserId: true, status: true } },
+      specialist: { include: { user: { select: { fullName: true } } } },
+    },
+  });
+  if (!session?.homework || !session.client.parentUserId) return 0;
+
+  const parent = await prisma.user.findUnique({
+    where: { id: session.client.parentUserId },
+    select: { telegramId: true, isActive: true },
+  });
+  if (!parent?.telegramId || !parent.isActive) return 0;
+
+  return queue([
+    {
+      userId: session.client.parentUserId,
+      clientId: session.client.id,
+      kind: "HOMEWORK",
+      // Izoh tahrirlansa yangisi ham borsin — kalitga vaqt qo'shiladi
+      dedupeKey: `HOMEWORK:${session.id}:${Date.now()}`,
+      text:
+        `📝 <b>Mutaxassis izohi</b>\n\n` +
+        `<b>${session.client.fullName}</b> · ${dateShort(session.startsAt)} ${timeUz(session.startsAt)}\n` +
+        `Mutaxassis: ${session.specialist.user.fullName}\n\n` +
+        escapeHtml(session.homework),
+    },
+  ]);
+}
+
+/* ---------------- 6. Ota-ona mashg'ulotni bekor qildi ---------------- */
+
+/**
+ * Xabar mutaxassisning o'ziga va shu filial xodimlariga (qabulxona, admin)
+ * boradi — vaqt bo'shadi, uni boshqa bolaga berish mumkin. Ega ham oladi,
+ * lekin yakka mutaxassisning filialida ega yo'q: u markazga tegishli emas.
+ */
+export async function queueParentCancel(sessionId: string, reason: string): Promise<number> {
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    include: {
+      client: { select: { id: true, fullName: true } },
+      specialist: { select: { userId: true, specialization: true } },
+      branch: { select: { id: true, isSolo: true } },
+    },
+  });
+  if (!session) return 0;
+
+  const staff = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      telegramId: { not: null },
+      OR: [
+        { id: session.specialist.userId },
+        ...(session.branch.isSolo
+          ? []
+          : [
+              { branchId: session.branch.id, role: { in: ["RECEPTION", "BRANCH_ADMIN"] } },
+              { role: "OWNER" },
+            ]),
+      ],
+    },
+    select: { id: true },
+  });
+
+  const spec = SPECIALIZATIONS[session.specialist.specialization as Specialization];
+  const text =
+    `❌ <b>Ota-ona mashg'ulotni bekor qildi</b>\n\n` +
+    `<b>${session.client.fullName}</b> · ${spec}\n` +
+    `Vaqt: ${weekdayUz(session.startsAt)}, ${dateShort(session.startsAt)} ${timeUz(session.startsAt)}` +
+    (reason ? `\nSababi: ${escapeHtml(reason)}` : "") +
+    `\n\nBu vaqt endi bo'sh.`;
+
+  return queue(
+    staff.map((u) => ({
+      userId: u.id,
+      clientId: session.client.id,
+      kind: "PARENT_CANCEL",
+      dedupeKey: `PARENT_CANCEL:${session.id}:${u.id}`,
+      text,
+    })),
+  );
+}
+
 /* ---------------- Navbatdagilarni yuborish ---------------- */
 
 export async function sendPending(limit = 50): Promise<{ sent: number; failed: number }> {

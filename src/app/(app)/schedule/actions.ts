@@ -6,7 +6,8 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { SESSION_STATUS_KEYS, type SessionStatus } from "@/lib/constants";
-import { queueSessionDone, sendPending } from "@/lib/notify";
+import { queueHomework, queueSessionDone, sendPending } from "@/lib/notify";
+import { setFlash } from "@/lib/flash";
 import { getSettings } from "@/lib/settings";
 
 /** Seansni o'zgartirishga ruxsat bormi? */
@@ -201,7 +202,44 @@ async function deleteSessionImpl(formData: FormData) {
   revalidatePath(`/clients/${current.clientId}`);
 }
 
+/** Mutaxassisning ota-onaga izohi / uyga vazifa */
+async function saveHomeworkImpl(formData: FormData) {
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const text = String(formData.get("homework") ?? "").trim();
+  if (text.length > 2000) throw new Error("Izoh juda uzun (2000 belgigacha).");
+
+  const { session } = await assertCanEdit(sessionId);
+  const before = await prisma.session.findUniqueOrThrow({
+    where: { id: session.id },
+    select: { homework: true, clientId: true },
+  });
+
+  await prisma.session.update({
+    where: { id: sessionId },
+    data: { homework: text || null },
+  });
+
+  // Faqat matn haqiqatan o'zgarganda yuboriladi: "Saqlash" ni ikki marta
+  // bosish ota-onaga bir xil xabarni ikki marta jo'natmasin
+  if (text && text !== before.homework) {
+    after(async () => {
+      try {
+        const queued = await queueHomework(sessionId);
+        if (queued > 0) await sendPending(5);
+      } catch (e) {
+        console.error("Ota-onaga izoh yuborilmadi:", e);
+      }
+    });
+  }
+
+  await setFlash(text ? "Izoh saqlandi, ota-ona ko'radi." : "Izoh o'chirildi.", "ok");
+  revalidatePath("/schedule");
+  revalidatePath("/m");
+  revalidatePath(`/clients/${before.clientId}`);
+}
+
 /* Tekshiruv xatolari foydalanuvchiga xabar bo'lib ko'rinishi uchun */
 export const setSessionStatus = withFlash(setSessionStatusImpl);
 export const createSession = withFlash(createSessionImpl);
 export const deleteSession = withFlash(deleteSessionImpl);
+export const saveHomework = withFlash(saveHomeworkImpl);
