@@ -659,4 +659,7 @@ export const en: Record<string, string> = {
   "📱 Farzandingiz kabineti endi Telegram'da!\n\nJadval, davomat, to'lovlar va mutaxassislar bilan aloqa — hammasi bir joyda.\n\nQanday ochiladi:\n1. Pastdagi tugmani bosing\n2. Botda \"Start\" ni bosing\n3. \"📱 Raqamimni yuborish\" ni bosing — markazga bergan raqamingiz bo'lishi kerak\n4. \"Kabinetni ochish\" tugmasi chiqadi — tayyor!": "📱 Your child's cabinet is now in Telegram!\n\nSchedule, attendance, payments and contact with specialists — all in one place.\n\nHow to open it:\n1. Tap the button below\n2. Press \"Start\" in the bot\n3. Tap \"📱 Raqamimni yuborish\" (send my number) — it must be the number you gave the center\n4. The \"Kabinetni ochish\" (open cabinet) button appears — done!",
   "Kanalda qadab qo'yish (pin)": "Pin in the channel",
   "Kanalga joylash": "Publish to channel",
+  "faqat Telegram bot orqali": "only via the Telegram bot",
+  "seanslar paketi": "session package",
+  "Ota-onalar kabinetga Telegram bot orqali kiradi: botga /start yuboring va raqamingizni ulashing.": "Parents sign in through the Telegram bot: send /start to the bot and share your phone number.",
 };

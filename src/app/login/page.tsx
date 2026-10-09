@@ -14,6 +14,7 @@ import { login } from "./actions";
 const ERRORS: Record<string, string> = {
   bosh: "Telefon raqam va parolni kiriting.",
   notogri: "Telefon raqam yoki parol noto'g'ri.",
+  telegram: "Ota-onalar kabinetga Telegram bot orqali kiradi: botga /start yuboring va raqamingizni ulashing.",
 };
 
 export default async function LoginPage({
@@ -136,7 +137,7 @@ export default async function LoginPage({
               {t("Mutaxassis")} — <code className="font-mono">+998901110101</code>
             </li>
             <li className="pt-1 text-slate-500 dark:text-slate-500">
-              {t("Ota-ona")} — {t("mijoz kartasidagi telefon raqami")}
+              {t("Ota-ona")} — {t("faqat Telegram bot orqali")}
             </li>
           </ul>
           <p className="mt-2 text-slate-500 dark:text-slate-500">

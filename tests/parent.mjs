@@ -144,6 +144,52 @@ if (!cookieMatch) {
     !body.includes("Qolgan pulim") && !body.includes("Jami hisoblangan"),
   );
 
+  /* 3b. Kabinet "Farzandim" bilan ochiladi; to'liq ko'rinish, parol, chiqish yo'q */
+  {
+    check(
+      "Kabinet Farzandim bo'limi bilan ochiladi",
+      (await page.locator('[data-testid="parent-child"]').count()) === 1 &&
+        (await page.locator("main").innerText()).includes("Jami o'tgan mashg'ulot"),
+    );
+    const foot = await page.locator("footer").last().innerText();
+    check(
+      "Ota-onada To'liq ko'rinish, Parol va Chiqish yo'q",
+      !foot.includes("To'liq ko'rinish") && !foot.includes("Parol") && !foot.includes("Chiqish"),
+      foot.replace(/\n/g, " | "),
+    );
+    for (const path of ["/my", "/settings", "/"]) {
+      await page.goto(`${BASE}${path}`);
+      await page.waitForLoadState("networkidle");
+      check(`Ota-ona ${path} dan kabinetga qaytariladi`, new URL(page.url()).pathname === "/m", page.url());
+    }
+  }
+
+  /* 3c. Tun/kun rejimi Telegram mavzusidan qat'i nazar ishlaydi */
+  {
+    // Telegram o'z ranglarini --tg-theme-* bilan qo'yadi — shuni taqlid qilamiz
+    const shellBg = async (theme) => {
+      await ctx.addCookies([{ name: "theme", value: theme, domain: "localhost", path: "/" }]);
+      await page.goto(`${BASE}/m`);
+      await page.waitForLoadState("networkidle");
+      return page.evaluate(() => {
+        document.documentElement.style.setProperty("--tg-theme-bg-color", "#ffffff");
+        document.documentElement.style.setProperty("--tg-theme-secondary-bg-color", "#ffffff");
+        return [
+          getComputedStyle(document.querySelector(".app-shell")).backgroundColor,
+          getComputedStyle(document.querySelector(".app-card")).backgroundColor,
+        ].join(" ");
+      });
+    };
+    const dark = await shellBg("dark");
+    const light = await shellBg("light");
+    check(
+      "Mini App'da tungi va kunduzgi rejim almashadi",
+      dark.startsWith("rgb(2, 6, 23)") && light.startsWith("rgb(239, 251, 246)"),
+      `${dark} / ${light}`,
+    );
+    await ctx.clearCookies({ name: "theme" });
+  }
+
   /* 4. Bo'limlar ishlaydi */
   for (const [tab, marker] of [
     ["history", "Davomat"],

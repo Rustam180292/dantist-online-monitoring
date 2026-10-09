@@ -15,9 +15,11 @@ import { getClientPackages } from "@/lib/stats";
 import { dateShort, timeUz } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 
-type ParentTab = "schedule" | "history" | "payments" | "billing" | "team";
+type ParentTab = "child" | "schedule" | "history" | "payments" | "billing" | "team";
 
+// "Farzandim" birinchi: kabinet ochilganda bola haqida umumiy manzara turadi
 const TABS: { key: ParentTab; label: string }[] = [
+  { key: "child", label: "Farzandim" },
   { key: "schedule", label: "Jadval" },
   { key: "history", label: "Davomat" },
   { key: "payments", label: "To'lovlar" },
@@ -36,7 +38,7 @@ export async function ParentApp({
 }) {
   const t = await getT();
   const money = t.money;
-  const tab: ParentTab = (TABS.find((x) => x.key === tabRaw)?.key ?? "schedule") as ParentTab;
+  const tab: ParentTab = (TABS.find((x) => x.key === tabRaw)?.key ?? "child") as ParentTab;
 
   const children = await prisma.client.findMany({
     where: { parentUserId: userId },
@@ -60,7 +62,7 @@ export async function ParentApp({
   const child = children.find((c) => c.id === childRaw) ?? children[0];
   const now = new Date();
 
-  const [upcoming, history, packages, payments, team] = await Promise.all([
+  const [upcoming, history, packages, payments, team, doneCount] = await Promise.all([
     prisma.session.findMany({
       where: { clientId: child.id, startsAt: { gte: now }, status: "PLANNED" },
       orderBy: { startsAt: "asc" },
@@ -82,7 +84,7 @@ export async function ParentApp({
           include: { package: { select: { specialization: true } } },
         })
       : Promise.resolve([]),
-    tab === "team"
+    tab === "team" || tab === "child"
       ? prisma.assignment.findMany({
           where: { clientId: child.id, specialist: { isActive: true } },
           orderBy: { createdAt: "asc" },
@@ -95,6 +97,9 @@ export async function ParentApp({
           },
         })
       : Promise.resolve([]),
+    tab === "child"
+      ? prisma.session.count({ where: { clientId: child.id, status: "DONE" } })
+      : Promise.resolve(0),
   ]);
   const cancelDeadline = new Date(now.getTime() + PARENT_CANCEL_MIN_HOURS * 3_600_000);
 
@@ -117,7 +122,7 @@ export async function ParentApp({
       </header>
 
       {children.length > 1 ? (
-        <nav className="mb-3 flex gap-1 overflow-x-auto">
+        <nav className="mb-3 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {children.map((c) => (
             <Link
               key={c.id}
@@ -180,7 +185,7 @@ export async function ParentApp({
         </div>
       </div>
 
-      <nav className="mb-3 flex gap-1 overflow-x-auto">
+      <nav className="mb-3 flex gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {TABS.map((x) => (
           <Link
             key={x.key}
@@ -193,6 +198,51 @@ export async function ParentApp({
           </Link>
         ))}
       </nav>
+
+      {tab === "child" ? (
+        <div className="space-y-2" data-testid="parent-child">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="app-card p-3">
+              <p className="text-xs app-muted">{t("To'lov turi")}</p>
+              <p className="mt-1 text-base font-bold">
+                {child.billingType === "PACKAGE" ? t("Abonement") : t("Kunlik")}
+              </p>
+              <p className="text-[11px] app-muted">
+                {child.billingType === "PACKAGE" ? t("seanslar paketi") : t("har kelganida")}
+              </p>
+            </div>
+            <div className="app-card p-3">
+              <p className="text-xs app-muted">{t("Jami o'tgan mashg'ulot")}</p>
+              <p className="mt-1 text-base font-bold tabular-nums">{doneCount}</p>
+            </div>
+          </div>
+
+          <section className="app-card p-3">
+            <p className="text-xs app-muted">{t("Tug'ilgan sana")}</p>
+            <p className="text-sm font-medium">
+              {dateShort(child.birthDate)} · {t.age(child.birthDate)}
+            </p>
+          </section>
+
+          <section className="app-card p-3">
+            <p className="mb-1.5 text-xs app-muted">{t("Mutaxassislar")}</p>
+            {team.length === 0 ? (
+              <p className="text-sm app-muted">{t("Mutaxassis hali biriktirilmagan.")}</p>
+            ) : (
+              <ul className="space-y-1">
+                {team.map(({ specialist: sp }) => (
+                  <li key={sp.id} className="flex items-center justify-between gap-2 text-sm">
+                    <span className="truncate font-medium">{sp.user.fullName}</span>
+                    <span className="shrink-0 text-xs app-muted">
+                      {t(SPECIALIZATIONS[sp.specialization as Specialization])}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
+      ) : null}
 
       {tab === "schedule" ? (
         upcoming.length === 0 ? (

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireUser, isSolo } from "@/lib/auth";
 import { ROLES, SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { MobileNav, SideNav, type NavItem } from "@/components/nav";
@@ -14,14 +15,14 @@ import { getT } from "@/lib/i18n/server";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
+  // Ota-onaning hamma narsasi Telegram kabinetida (/m). Katta panel, uning
+  // sozlamalari va paroli unga kerak emas — u faqat Telegram orqali kiradi.
+  if (user.role === "PARENT") redirect("/m");
   const t = await getT();
   const { logoUrl } = await getSettings();
 
   const items: NavItem[] = [];
-  if (user.role === "PARENT") {
-    items.push({ href: "/m", label: t("Kabinet"), icon: "phone" });
-    items.push({ href: "/my", label: t("Farzandim"), icon: "child" });
-  } else if (isSolo(user)) {
+  if (isSolo(user)) {
     // Yakka logoped — o'ziga rahbar: markaz egasining paneli, faqat Xodimlar
     // va Filiallarsiz (unda boshqa xodim ham, boshqa filial ham yo'q).
     // "Pulim" ham kerak emas: pulning hammasi o'ziniki, Hisobotlarda turadi.
