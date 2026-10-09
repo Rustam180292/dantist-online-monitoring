@@ -239,7 +239,7 @@ if (!cookieMatch) {
     const kinds = (await all("SELECT DISTINCT kind AS k FROM Notification")).map((r) => r.k);
     check(
       "Eslatma turlari to'g'ri",
-      kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PACKAGE_LOW", "DEBT", "HOMEWORK", "PARENT_CANCEL"].includes(k)),
+      kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PACKAGE_LOW", "DEBT", "PARENT_CANCEL"].includes(k)),
       kinds.join(", "),
     );
     if (debtor) {
@@ -344,74 +344,7 @@ if (!cookieMatch) {
     await adminCtx.close();
   }
 
-  /* 12. Mutaxassis izohi / uyga vazifa */
-  {
-    const adminCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    const admin = await adminCtx.newPage();
-    await admin.goto(`${BASE}/login`);
-    await admin.fill("#phone", "+998901234567");
-    await admin.fill("#password", "parol123");
-    await admin.click("button[type=submit]");
-    await admin.waitForLoadState("networkidle");
-
-    // 11-qadamda "o'tdi" belgilangan seans — izoh faqat o'tgan seansga yoziladi
-    const done = await one(
-      "SELECT id, startsAt FROM Session WHERE id = ? AND status = 'DONE'",
-      target.sessionId,
-    );
-    const mondayOf = (d) => {
-      const x = new Date(d);
-      x.setHours(0, 0, 0, 0);
-      x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
-      return x;
-    };
-    const offset = done
-      ? Math.round((mondayOf(new Date(done.startsAt)) - mondayOf(new Date())) / (7 * 86400000))
-      : 0;
-    await admin.goto(`${BASE}/schedule?w=${offset}`);
-    await admin.waitForLoadState("networkidle");
-    const hw = admin.locator(`li:has(input[name="sessionId"][value="${target.sessionId}"]) [data-testid="homework"]`).first();
-    const HW = `Uyda "r" tovushini 10 daqiqa <takrorlash> ${Date.now() % 10000}`;
-    if (done && (await hw.count())) {
-      await hw.locator("summary").click();
-      await hw.locator("textarea").fill(HW);
-      await hw.locator('button[type="submit"]').click();
-      check(
-        "Izoh seansga yoziladi",
-        await waitUntil(async () => (await one("SELECT homework FROM Session WHERE id = ?", target.sessionId))?.homework === HW),
-      );
-      const note = await waitUntil(
-        async () => (await count("SELECT COUNT(*) AS n FROM Notification WHERE kind = 'HOMEWORK' AND clientId = ?", target.clientId)) > 0,
-      );
-      const hwText = (await one("SELECT text FROM Notification WHERE kind = 'HOMEWORK' AND clientId = ? ORDER BY createdAt DESC LIMIT 1", target.clientId))?.text ?? "";
-      check(
-        "Izoh ota-onaga Telegram'ga yuboriladi (HTML xavfsiz)",
-        note && hwText.includes("&lt;takrorlash&gt;") && !hwText.includes("<takrorlash>"),
-        hwText.split("\n")[0],
-      );
-    } else {
-      check("Izoh seansga yoziladi", false, "seans yoki izoh maydoni topilmadi");
-    }
-    await adminCtx.close();
-
-    // Ota-ona izohni davomatda ko'radi (davomat — o'tib ketgan seanslar)
-    const past = await one(
-      "SELECT id FROM Session WHERE clientId = ? AND startsAt < now() ORDER BY startsAt DESC LIMIT 1",
-      target.clientId,
-    );
-    if (past) {
-      const prev = (await one("SELECT homework FROM Session WHERE id = ?", past.id)).homework;
-      await all("UPDATE Session SET homework = ? WHERE id = ?", HW, past.id);
-      await page.goto(`${BASE}/tg/app?tab=history`);
-      await page.waitForLoadState("networkidle");
-      const text = await page.locator('[data-testid="parent-homework"]').first().innerText().catch(() => "");
-      check("Ota-ona izohni davomatda ko'radi", text.includes(HW), text.slice(0, 60));
-      await all("UPDATE Session SET homework = ? WHERE id = ?", prev, past.id);
-    }
-    await all("DELETE FROM Notification WHERE kind = 'HOMEWORK' AND clientId = ?", target.clientId);
-  }
-
-  /* 13. To'lovlar tarixi */
+  /* 12. To'lovlar tarixi */
   {
     const paid = await count("SELECT COUNT(*) AS n FROM Payment WHERE clientId = ?", target.clientId);
     await page.goto(`${BASE}/tg/app?tab=payments`);
@@ -425,7 +358,7 @@ if (!cookieMatch) {
     );
   }
 
-  /* 14. Mutaxassislar va qo'ng'iroq */
+  /* 13. Mutaxassislar va qo'ng'iroq */
   let specialistUser;
   {
     const team = await all(
@@ -446,7 +379,7 @@ if (!cookieMatch) {
     );
   }
 
-  /* 15. Ota-ona mashg'ulotni bekor qiladi */
+  /* 14. Ota-ona mashg'ulotni bekor qiladi */
   if (specialistUser) {
     const sp = await one("SELECT branchId FROM Specialist WHERE id = ?", specialistUser.id);
     const later = `tst-bekor-${Date.now()}`;

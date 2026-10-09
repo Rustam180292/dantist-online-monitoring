@@ -171,9 +171,6 @@ model Session {
   salaryPercent Int?
   /// Xodimlar uchun ichki izoh — ota-onaga ko'rinmaydi
   note         String?
-  /// Mutaxassisning ota-onaga izohi / uyga vazifa. `note` dan ataylab alohida:
-  /// xodim ichki izohini ota-ona o'qib qolishidan qo'rqmay yozishi kerak.
-  homework     String?
   createdAt    DateTime @default(now())
 
   client     Client     @relation(fields: [clientId], references: [id], onDelete: Cascade)

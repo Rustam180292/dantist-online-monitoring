@@ -371,7 +371,7 @@ export default async function SettingsPage() {
                   required
                   className={input}
                   defaultValue={t(
-                    "📱 Farzandingiz kabineti endi Telegram'da!\n\nJadval, davomat, to'lovlar, mutaxassis izohlari va uyga vazifalar — hammasi bir joyda.\n\nQanday ochiladi:\n1. Pastdagi tugmani bosing\n2. Botda \"Start\" ni bosing\n3. \"📱 Raqamimni yuborish\" ni bosing — markazga bergan raqamingiz bo'lishi kerak\n4. \"Kabinetni ochish\" tugmasi chiqadi — tayyor!",
+                    "📱 Farzandingiz kabineti endi Telegram'da!\n\nJadval, davomat, to'lovlar va mutaxassislar bilan aloqa — hammasi bir joyda.\n\nQanday ochiladi:\n1. Pastdagi tugmani bosing\n2. Botda \"Start\" ni bosing\n3. \"📱 Raqamimni yuborish\" ni bosing — markazga bergan raqamingiz bo'lishi kerak\n4. \"Kabinetni ochish\" tugmasi chiqadi — tayyor!",
                   )}
                 />
               </div>
