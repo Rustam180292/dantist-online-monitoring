@@ -11,6 +11,8 @@ import { dictFor } from "@/lib/i18n/dicts";
 import { getT } from "@/lib/i18n/server";
 import { login } from "./actions";
 
+const TG_REDIRECT = `(function(){try{var h=location.hash||"";if(/tgWebApp(Data|Platform|Version)=/.test(h)){document.documentElement.style.visibility="hidden";location.replace("/tg"+h)}}catch(e){}})()`;
+
 const ERRORS: Record<string, string> = {
   bosh: "Telefon raqam va parolni kiriting.",
   notogri: "Telefon raqam yoki parol noto'g'ri.",
@@ -45,6 +47,14 @@ export default async function LoginPage({
 
   return (
     <I18nProvider locale={t.locale} dict={dictFor(t.locale)}>
+    {/* Telegram ichida login sahifasi ochilmasin: u yerda kirish faqat bot
+        orqali. Menyu tugmasi saytning bosh sahifasiga qarab qolgan bo'lsa,
+        bog'lanmagan ota-ona parol so'raydigan sahifani ko'rib qolardi.
+        Telegram ishga tushirish ma'lumotini manzilning # qismida beradi
+        (yo'naltirishda u saqlanadi) — shu bilan /tg ga o'tkaziladi, u esa
+        raqami bazada bormi-yo'qligini tekshiradi. Skript sahifa chizilishidan
+        oldin ishlaydi, shuning uchun login formasi ko'rinib ham qolmaydi. */}
+    <script dangerouslySetInnerHTML={{ __html: TG_REDIRECT }} />
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         {/* Til va mavzu kirishdan oldin ham tanlansin: xodim o'zbekcha bilmasligi mumkin */}
