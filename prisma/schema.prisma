@@ -118,6 +118,7 @@ model Client {
   sessions      Session[]
   payments      Payment[]
   notifications Notification[]
+  services      ClientService[]
   intake        Intake?
 
   @@index([branchId])
@@ -141,7 +142,12 @@ model Assignment {
 model Package {
   id              String    @id @default(cuid())
   clientId        String
-  specialization  String
+  /// Eski abonementlar yo'nalishga (Logoped, Massajchi...) bog'langan edi.
+  /// Yangilari xizmatga bog'lanadi — ularda bu bo'sh.
+  specialization  String?
+  /// Qaysi xizmat abonementi ("Massaj: 10 seans"). Shu xizmat seanslari
+  /// shu abonementdan yechiladi.
+  sessionTypeId   String?
   totalSessions   Int
   /// Bitta seans narxi, so'mda
   pricePerSession Int
@@ -149,9 +155,10 @@ model Package {
   expiresAt       DateTime?
   isActive        Boolean   @default(true)
 
-  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  sessions Session[]
-  payments Payment[]
+  client      Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessionType SessionType? @relation(fields: [sessionTypeId], references: [id], onDelete: SetNull)
+  sessions    Session[]
+  payments    Payment[]
 
   @@index([clientId])
 }
@@ -335,12 +342,31 @@ model SessionType {
   name      String
   /// Bitta seans narxi, so'mda
   price     Int
+  /// Mutaxassisga tegadigan ulush (%). Xizmatga bog'liq: bitta xodim ham
+  /// logoped, ham massaj qilsa, har biri uchun o'z foizini oladi.
+  salaryPercent Int  @default(40)
   /// O'chirilgan tur ro'yxatdan yo'qoladi, lekin eski seanslarda nomi qoladi
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
   branch   Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
   sessions Session[]
+  packages Package[]
+  clients  ClientService[]
 
   @@index([branchId])
+}
+
+/// Mijozga biriktirilgan xizmatlar. Seans yozilganda xizmat shu ro'yxatdan
+/// o'zi olinadi — har safar qo'lda tanlash shart emas.
+model ClientService {
+  id            String   @id @default(cuid())
+  clientId      String
+  sessionTypeId String
+  createdAt     DateTime @default(now())
+
+  client      Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  sessionType SessionType @relation(fields: [sessionTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, sessionTypeId])
 }

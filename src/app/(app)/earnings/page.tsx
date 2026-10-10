@@ -44,7 +44,8 @@ export default async function EarningsPage() {
     <>
       <PageHeader
         title={t("Pulim")}
-        subtitle={`${t("Ish haqi ulushim: {pct}%", { pct: specialist?.salaryPercent ?? 0 })} · ${t.monthYear(new Date())}`}
+        // Ulush xizmatga qarab har xil — har bir seans qatorida o'z foizi ko'rinadi
+        subtitle={`${t("ulush har bir xizmatda o'zicha")} · ${t.monthYear(new Date())}`}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

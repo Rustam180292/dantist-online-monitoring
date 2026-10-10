@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { packageName } from "@/lib/packages";
 import { prisma } from "@/lib/prisma";
 import {
   PARENT_CANCEL_MIN_HOURS,
@@ -76,7 +77,7 @@ export async function ParentApp({
         where: mine,
         orderBy: { paidAt: "desc" },
         take: 150,
-        include: { package: { select: { specialization: true } } },
+        include: { package: { select: { specialization: true, sessionType: { select: { name: true } } } } },
       }),
       prisma.assignment.findMany({
         where: { ...mine, specialist: { isActive: true } },
@@ -356,7 +357,7 @@ export async function ParentApp({
               <section key={p.id} className="app-card p-3">
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-sm font-semibold">
-                    {t(SPECIALIZATIONS[p.specialization as Specialization])}
+                    {packageName(p, t)}
                   </p>
                   <p className="text-sm tabular-nums app-muted">
                     {t("{left} / {total} qoldi", { left: p.remaining, total: p.totalSessions })}
@@ -410,7 +411,7 @@ export async function ParentApp({
                     <p className="truncate text-xs app-muted">
                       {t(PAYMENT_METHODS[p.method as PaymentMethod] ?? p.method)}
                       {p.package
-                        ? ` · ${t(SPECIALIZATIONS[p.package.specialization as Specialization])}`
+                        ? ` · ${packageName(p.package, t)}`
                         : ""}
                     </p>
                   </div>

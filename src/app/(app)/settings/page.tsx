@@ -15,8 +15,6 @@ import {
   postChannel,
   removeLogo,
   updateCenter,
-  updatePricing,
-  updateSoloPrice,
   updateWorkHours,
   uploadLogo,
 } from "./actions";
@@ -33,12 +31,6 @@ export default async function SettingsPage() {
     : null;
   const telegramLinked = Boolean(me?.telegramId);
   const solo = isSolo(user);
-  const soloPrice = solo && user.specialistId
-    ? (await prisma.specialist.findUnique({
-        where: { id: user.specialistId },
-        select: { defaultPrice: true },
-      }))?.defaultPrice ?? s.defaultPrice
-    : null;
   const backupUrl = `${appUrl()}/api/backup?secret=<CRON_SECRET>`;
 
   return (
@@ -61,29 +53,6 @@ export default async function SettingsPage() {
           </div>
         </div>
       </Card>
-
-      {solo ? (
-        <Card title={t("Seans narxi")} subtitle={t("yangi seans va abonementga shu narx qo'yiladi")} className="mb-5">
-          <form action={updateSoloPrice} className="flex flex-wrap items-end gap-3 p-4">
-            <div>
-              <label className={label} htmlFor="soloPrice">
-                {t("Bitta seans narxi ({currency})", { currency: t.currency })}
-              </label>
-              <input
-                id="soloPrice"
-                name="price"
-                inputMode="numeric"
-                defaultValue={soloPrice ?? ""}
-                className={input}
-                required
-              />
-            </div>
-            <button type="submit" className={btnPrimary}>
-              {t("Saqlash")}
-            </button>
-          </form>
-        </Card>
-      ) : null}
 
       {solo ? <SessionTypesCard user={user} className="mb-5" /> : null}
 
@@ -146,51 +115,6 @@ export default async function SettingsPage() {
                 ) : null}
               </div>
             </div>
-          </Card>
-
-          <Card
-            title={t("Narx va ulush")}
-            subtitle={t("yangi abonement va yangi mutaxassis uchun standart qiymatlar")}
-            className="mt-5"
-          >
-            <form action={updatePricing} className="grid gap-3 p-4 sm:grid-cols-2">
-              <div>
-                <label className={label} htmlFor="defaultPrice">
-                  {t("Bitta seans narxi ({currency})", { currency: t.currency })}
-                </label>
-                <input
-                  id="defaultPrice"
-                  name="defaultPrice"
-                  inputMode="numeric"
-                  defaultValue={s.defaultPrice}
-                  className={input}
-                />
-              </div>
-              <div>
-                <label className={label} htmlFor="defaultSalaryPercent">
-                  {t("Yangi mutaxassis uchun ulush (%)")}
-                </label>
-                <input
-                  id="defaultSalaryPercent"
-                  name="defaultSalaryPercent"
-                  type="number"
-                  min={0}
-                  max={100}
-                  defaultValue={s.defaultSalaryPercent}
-                  className={input}
-                />
-              </div>
-              <p className="text-xs text-slate-500 sm:col-span-2 dark:text-slate-400">
-                {t(
-                  "Bu qiymatlar formalarda oldindan to'ldirilgan bo'lib turadi. Mavjud mutaxassislarning foizi o'zgarmaydi — u Xodimlar bo'limida alohida turadi.",
-                )}
-              </p>
-              <div className="sm:col-span-2">
-                <button type="submit" className={btnPrimary}>
-                  {t("Saqlash")}
-                </button>
-              </div>
-            </form>
           </Card>
 
           <SessionTypesCard user={user} className="mt-5" />

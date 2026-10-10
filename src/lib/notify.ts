@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/telegram";
+import { packageName } from "@/lib/packages";
 import { BILLABLE_STATUSES, SPECIALIZATIONS, type SessionStatus, type Specialization } from "@/lib/constants";
 import { dateShort, money, timeUz, weekdayUz } from "@/lib/format";
 import { addDays, startOfDay } from "@/lib/stats";
@@ -104,6 +105,7 @@ export async function queueLowPackageAlerts(threshold = 2): Promise<number> {
     include: {
       client: { select: { id: true, fullName: true, parentUserId: true } },
       sessions: { select: { status: true } },
+      sessionType: { select: { name: true } },
     },
   });
 
@@ -116,7 +118,7 @@ export async function queueLowPackageAlerts(threshold = 2): Promise<number> {
     const remaining = Math.max(p.totalSessions - used, 0);
     if (remaining > threshold) continue;
 
-    const spec = SPECIALIZATIONS[p.specialization as Specialization];
+    const spec = packageName(p);
     candidates.push({
       userId: p.client.parentUserId,
       clientId: p.client.id,
@@ -125,7 +127,7 @@ export async function queueLowPackageAlerts(threshold = 2): Promise<number> {
       dedupeKey: `PACKAGE_LOW:${p.id}:${remaining}`,
       text:
         `⏳ <b>Abonement tugayapti</b>\n\n` +
-        `<b>${p.client.fullName}</b> · ${spec} yo'nalishi bo'yicha ` +
+        `<b>${p.client.fullName}</b> · ${spec} abonementi bo'yicha ` +
         (remaining === 0 ? "seanslar tugadi." : `<b>${remaining} ta</b> seans qoldi.`) +
         `\n\nYangilash uchun administratorga murojaat qiling.`,
     });
@@ -145,6 +147,7 @@ export async function queueDebtReminders(now: Date = new Date()): Promise<number
     include: {
       client: { select: { id: true, fullName: true, parentUserId: true } },
       payments: { select: { amount: true } },
+      sessionType: { select: { name: true } },
     },
   });
 
@@ -157,7 +160,7 @@ export async function queueDebtReminders(now: Date = new Date()): Promise<number
     const debt = p.totalSessions * p.pricePerSession - paid;
     if (debt <= 0) continue;
 
-    const spec = SPECIALIZATIONS[p.specialization as Specialization];
+    const spec = packageName(p);
     candidates.push({
       userId: p.client.parentUserId,
       clientId: p.client.id,

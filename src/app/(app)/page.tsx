@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { packageName } from "@/lib/packages";
 import { requireManager, branchWhere, isSolo } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -274,7 +275,7 @@ export default async function DashboardPage() {
               empty={t("Hammasining abonementi yetarli.")}
               columns={[{ label: t("Mijoz") }, { label: t("Qolgan") }]}
               rows={alerts.ending.map((a) => {
-                const spec = t(SPECIALIZATIONS[a.specialization as Specialization]);
+                const spec = packageName(a, t);
                 return {
                   key: a.packageId,
                   search: `${a.clientName} ${spec}`,

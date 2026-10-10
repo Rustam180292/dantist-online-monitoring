@@ -280,10 +280,10 @@ export default async function SlotsPage({
                     <select
                       name="sessionTypeId"
                       defaultValue=""
-                      aria-label={t("Seans turi")}
+                      aria-label={t("Xizmat")}
                       className={`${input} mt-2`}
                     >
-                      <option value="">{t("Seans turi")}: {t("— tanlanmagan —")}</option>
+                      <option value="">{t("— mijozning xizmati —")}</option>
                       {sessionTypes.map((st) => (
                         <option key={st.id} value={st.id}>
                           {st.name} · {t.money(st.price)}

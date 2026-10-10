@@ -1,3 +1,4 @@
+import { getSessionTypes } from "@/lib/session-types";
 import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
@@ -95,7 +96,7 @@ export default async function ClientsPage({
       statusFilter || telegramFilter || billingFilter || sp.b,
   );
 
-  const [clients, branches, specialists] = await Promise.all([
+  const [clients, branches, specialists, services] = await Promise.all([
     prisma.client.findMany({
       where: {
         ...clientScope(user),
@@ -165,6 +166,7 @@ export default async function ClientsPage({
       select: { id: true, user: { select: { fullName: true } } },
       orderBy: { user: { fullName: "asc" } },
     }),
+    getSessionTypes(user),
   ]);
 
   const rows = clients.map((c) => {
@@ -252,6 +254,21 @@ export default async function ClientsPage({
                 {t("Kunlikda har kelganida to'laydi, abonementda oldindan.")}
               </p>
             </div>
+            {services.length > 0 ? (
+              <div>
+                <label className={label} htmlFor="newClientService">
+                  {t("Xizmat")}
+                </label>
+                <select id="newClientService" name="sessionTypeId" className={input} defaultValue="">
+                  <option value="">{t("— keyin qo'shaman —")}</option>
+                  {services.map((x) => (
+                    <option key={x.id} value={x.id}>
+                      {x.name} · {t.money(x.price)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
             {user.role === "OWNER" ? (
               <div>
                 <label className={label} htmlFor="branchId">
