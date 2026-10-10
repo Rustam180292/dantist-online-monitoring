@@ -321,7 +321,14 @@ if (!sessionCookie) {
   /* 14. Mijozlarim bo'limi */
   await page.goto(`${BASE}/tg/app?tab=clients`);
   await page.waitForLoadState("networkidle");
-  check("Mijozlarim bo'limi ishlaydi", (await page.content()).includes("seans"));
+  {
+    // Har bir mijozda keyingi seans yoziladi; abonement yo'q — "qolgan seans" ham yo'q
+    const list = await page.locator("main").innerText();
+    check(
+      "Mijozlarim bo'limi ishlaydi",
+      list.includes("Keyingi") && !/abonement|qolgan seans/i.test(list),
+    );
+  }
 
   /* 15. Ota-ona Mini App'da o'z ko'rinishini oladi */
   const parentRes = await fetch(`${BASE}/api/tg/auth`, {

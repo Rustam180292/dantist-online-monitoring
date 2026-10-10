@@ -135,10 +135,20 @@ if (!cookieMatch) {
     body.includes(target.childName) && body.includes("Keyingi mashg"),
     page.url(),
   );
-  check(
-    "Qolgan seans va qarzdorlik ko'rinadi",
-    body.includes("Qolgan seans") && body.includes("Qarzdorlik"),
-  );
+  {
+    // Markazda abonement yo'q. textContent — yashirin bo'limlarni ham qamraydi
+    const all = (await page.locator("main").textContent()) ?? "";
+    check(
+      "Kabinetda abonement, qolgan seans, qarzdorlik va to'lov turi yo'q",
+      !/abonement/i.test(all) && !all.includes("Qolgan seans") && !all.includes("Qarzdorlik") &&
+        !all.includes("To'lov turi") &&
+        (await page.locator('button[data-tab="billing"]').count()) === 0,
+    );
+    check(
+      "Farzandim'da o'tgan va rejadagi mashg'ulotlar soni",
+      all.includes("Jami o'tgan mashg'ulot") && all.includes("Rejadagi mashg'ulot"),
+    );
+  }
   check(
     "Mutaxassisning puli ota-onaga ko'rinmaydi",
     !body.includes("Qolgan pulim") && !body.includes("Jami hisoblangan"),
@@ -194,7 +204,7 @@ if (!cookieMatch) {
   /* 4. Bo'limlar ishlaydi */
   for (const [tab, marker] of [
     ["history", "Davomat"],
-    ["billing", "Abonement"],
+    ["payments", "To'lovlar"],
   ]) {
     await page.goto(`${BASE}/tg/app?tab=${tab}`);
     await page.waitForLoadState("networkidle");
@@ -236,8 +246,8 @@ if (!cookieMatch) {
     );
   }
 
-  /* 5b. Qarzdor va abonementi tugayotgan ota-onalarni ham ulaymiz,
-       shunda eslatmalarning barcha turi sinaladi */
+  /* 5b. Eski abonementi qarzdor yoki tugayotgan ota-onalarni ham ulaymiz —
+       markazda abonement yo'q, ularga bunday eslatma bormasligi sinaladi */
   const linkParent = async (phone, tgId) =>
     fetch(`${BASE}/api/tg/webhook`, {
       method: "POST",
@@ -288,6 +298,24 @@ if (!cookieMatch) {
 
   /* 7. Eslatmalar navbatga qo'yiladi */
   const before = await count("SELECT COUNT(*) AS n FROM Notification");
+  // Seed'da eski PACKAGE_LOW/DEBT yozuvlari bo'lishi mumkin — faqat shu
+  // yurishda yozilganlarga qaraymiz (baza vaqti UTC, zonasiz)
+  const runStart = new Date(Date.now() - 2000).toISOString().replace("Z", "");
+  // Ertangi mashg'ulot eslatmasi — endi yagona muntazam eslatma. Seed'da
+  // ulangan ota-onaning ertaga mashg'uloti bo'lmasligi mumkin, shuning uchun
+  // bittasini yozib qo'yamiz (baza vaqti UTC, zonasiz)
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(10, 0, 0, 0);
+  const reminderSessionId = `remtest${Date.now()}`;
+  await all(
+    `INSERT INTO Session (id, clientId, specialistId, branchId, sessionTypeId, startsAt, durationMin, status, price)
+     SELECT ?, clientId, specialistId, branchId, sessionTypeId, ?, durationMin, 'PLANNED', 0
+       FROM Session WHERE id = ?`,
+    reminderSessionId,
+    tomorrow.toISOString().replace("Z", ""),
+    target.sessionId,
+  );
   let firstRun;
   {
     const res = await fetch(`${BASE}/api/tg/notify`, {
@@ -302,22 +330,21 @@ if (!cookieMatch) {
       `${before} -> ${after}`,
     );
 
-    const kinds = (await all("SELECT DISTINCT kind AS k FROM Notification")).map((r) => r.k);
+    const kinds = (
+      await all("SELECT DISTINCT kind AS k FROM Notification WHERE createdAt >= ?", runStart)
+    ).map((r) => r.k);
     check(
       "Eslatma turlari to'g'ri",
-      kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PACKAGE_LOW", "DEBT", "PARENT_CANCEL"].includes(k)),
+      kinds.every((k) => ["SESSION_REMINDER", "SESSION_DONE", "PARENT_CANCEL"].includes(k)),
       kinds.join(", "),
     );
-    if (debtor) {
-      check("Qarzdorlik eslatmasi yoziladi", kinds.includes("DEBT"), kinds.join(", "));
-    }
-    if (lowPackage) {
-      check(
-        "Abonement tugayapti eslatmasi yoziladi",
-        kinds.includes("PACKAGE_LOW"),
-        kinds.join(", "),
-      );
-    }
+    // Eski abonementi qarzdor yoki tugayotgan ota-ona ham ulangan, lekin
+    // markazda abonement yo'q — ularga bunday eslatma bormasligi kerak
+    check(
+      "Abonement va qarzdorlik eslatmasi yuborilmaydi",
+      Boolean(debtor || lowPackage) && !kinds.includes("DEBT") && !kinds.includes("PACKAGE_LOW"),
+      kinds.join(", "),
+    );
   }
 
   /* 8. Ikkinchi yurishda takrorlanmaydi */
@@ -335,6 +362,8 @@ if (!cookieMatch) {
       `${beforeSecond} -> ${afterSecond} (navbatga: ${JSON.stringify(second.queued)})`,
     );
   }
+
+  await all("DELETE FROM Session WHERE id = ?", reminderSessionId);
 
   /* 9. Yuborilmagan xabar qayta urinish uchun qoladi */
   {

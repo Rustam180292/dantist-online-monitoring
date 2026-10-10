@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { packageName } from "@/lib/packages";
 import { requireManager, branchWhere, isSolo } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
@@ -12,7 +11,6 @@ import {
 import {
   dayRange,
   getBranchReport,
-  getClientAlerts,
   getOverview,
   getSpecialistRows,
   monthRange,
@@ -41,7 +39,6 @@ export default async function DashboardPage() {
     todaySessions,
     activeClients,
     specialistRows,
-    alerts,
     branchReport,
     noTelegram,
   ] = await Promise.all([
@@ -65,7 +62,6 @@ export default async function DashboardPage() {
       },
     }),
     getSpecialistRows({ branchId, ...month }),
-    getClientAlerts({ branchId }),
     // Filiallar kesimi faqat egaga kerak: filial admini bitta filialni ko'radi
     user.role === "OWNER" ? getBranchReport(month) : Promise.resolve([]),
     // Botga ulanmagan ota-onaga eslatma bormaydi, lekin bu hech qayerda
@@ -133,7 +129,8 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      {/* Markazda abonement yo'q — qarzdorlik ham yo'q: har seans kelganda to'lanadi */}
+      <div className={`mt-3 grid grid-cols-2 gap-3 ${solo ? "" : "lg:grid-cols-3"}`}>
           <StatCard label={t("Xizmat qiymati")} value={money(overview.earned)} hint={t("o'tgan seanslar")} />
           {solo ? (
             <StatCard label={t("Rejadagi seanslar")} value={num(overview.planned)} hint={t("shu oy")} />
@@ -153,13 +150,6 @@ export default async function DashboardPage() {
               />
             </>
           )}
-          <StatCard
-            label={t("Qarzdorlik")}
-            value={money(alerts.debtors.reduce((s, d) => s + d.debt, 0))}
-            hint={t("{n} ta abonement", { n: alerts.debtors.length })}
-            tone={alerts.debtors.length ? "bad" : "default"}
-          href="/payments"
-        />
       </div>
 
       {branchReport.length > 1 ? (
@@ -205,9 +195,8 @@ export default async function DashboardPage() {
         </Card>
       ) : null}
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-3">
+      <div className="mt-6">
         <Card
-          className="xl:col-span-2"
           title={t("Bugungi jadval")}
           subtitle={t("{n} ta seans", { n: todaySessions.length })}
           action={
@@ -266,47 +255,6 @@ export default async function DashboardPage() {
             })}
           />
         </Card>
-
-        <div className="space-y-5">
-          <Card title={t("Abonementi tugayotganlar")} subtitle={t("2 va kamroq seans qolgan")}>
-            <DataTable
-              testId="dash-ending"
-              minWidth=""
-              empty={t("Hammasining abonementi yetarli.")}
-              columns={[{ label: t("Mijoz") }, { label: t("Qolgan") }]}
-              rows={alerts.ending.map((a) => {
-                const spec = packageName(a, t);
-                return {
-                  key: a.packageId,
-                  search: `${a.clientName} ${spec}`,
-                  sort: [a.clientName, a.remaining],
-                  cells: [
-                    <span key="c" className="block min-w-0">
-                      <Link
-                        href={`/clients/${a.clientId}`}
-                        className="block truncate text-sm font-medium text-slate-800 hover:underline dark:text-slate-200"
-                      >
-                        {a.clientName}
-                      </Link>
-                      <span className="block truncate text-xs text-slate-400">{spec}</span>
-                    </span>,
-                    <Badge
-                      key="r"
-                      className={
-                        a.remaining === 0
-                          ? "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900"
-                          : "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900"
-                      }
-                    >
-                      {t("{n} seans", { n: a.remaining })}
-                    </Badge>,
-                  ],
-                };
-              })}
-            />
-          </Card>
-
-        </div>
       </div>
 
       {/* To'liq kenglikda: tor ustunda ish haqi ustuni sig'may, kesilib qolardi.

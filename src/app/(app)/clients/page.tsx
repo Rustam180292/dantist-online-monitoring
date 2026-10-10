@@ -4,7 +4,6 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser, NOT_SOLO, isFrontDesk } from "@/lib/auth";
 import {
-  BILLABLE_STATUSES,
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   SPECIALIZATIONS,
@@ -78,14 +77,13 @@ export default async function ClientsPage({
   const phoneFilter = (sp.p ?? "").trim();
   const ageFilter = /^\d{1,2}$/.test(sp.age ?? "") ? Number(sp.age) : null;
   const specialistFilter = (sp.sp ?? "").trim();
-  const remainingFilter = sp.rem === "0" || sp.rem === "low" || sp.rem === "ok" ? sp.rem : null;
   const statusFilter = CLIENT_STATUS_KEYS.includes(sp.st as ClientStatus)
     ? (sp.st as ClientStatus)
     : null;
   // Telegram'ga ulanmagan ota-onaga eslatma bormaydi — ularni ajratib ko'rsatish kerak
   const telegramFilter = sp.tg === "bor" || sp.tg === "yoq" ? sp.tg : null;
   const hasFilter = Boolean(
-    nameFilter || phoneFilter || ageFilter !== null || specialistFilter || remainingFilter ||
+    nameFilter || phoneFilter || ageFilter !== null || specialistFilter ||
       statusFilter || telegramFilter || sp.b,
   );
 
@@ -134,15 +132,6 @@ export default async function ClientsPage({
             },
           },
         },
-        packages: {
-          where: { isActive: true },
-          select: {
-            totalSessions: true,
-            pricePerSession: true,
-            sessions: { select: { status: true } },
-            payments: { select: { amount: true } },
-          },
-        },
       },
     }),
     user.role === "OWNER" ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } }) : Promise.resolve([]),
@@ -161,46 +150,16 @@ export default async function ClientsPage({
     getSessionTypes(user),
   ]);
 
-  const rows = clients.map((c) => {
-    let remaining = 0;
-    let debt = 0;
-    for (const p of c.packages) {
-      const used = p.sessions.filter((s) =>
-        BILLABLE_STATUSES.includes(s.status as never),
-      ).length;
-      remaining += Math.max(p.totalSessions - used, 0);
-      const paid = p.payments.reduce((sum, x) => sum + x.amount, 0);
-      debt += Math.max(p.totalSessions * p.pricePerSession - paid, 0);
-    }
-    return { ...c, remaining, debt };
-  });
-
-  // Qolgan seans bazada saqlanmaydi (abonement va o'tgan seanslardan hisoblanadi),
-  // shuning uchun bu filtr hisoblangandan keyin qo'llanadi.
-  // Abonementi yo'q mijozning "qolgan seansi" 0 emas, shunaqa tushuncha unda
-  // yo'q — shuning uchun bu filtr faqat abonementi borlarga tegishli.
-  const visible = remainingFilter
-    ? rows.filter((c) =>
-        c.billingType !== "PACKAGE"
-          ? false
-          : remainingFilter === "0"
-            ? c.remaining === 0
-            : remainingFilter === "low"
-              ? c.remaining > 0 && c.remaining <= 2
-              : c.remaining > 2,
-      )
-    : rows;
-
-  // Bola, yoshi, mutaxassis, ota-ona, qolgan seans, qarz, holat (+ filial egada)
-  const colCount = user.role === "OWNER" ? 8 : 7;
+  // Markazda abonement yo'q: "qolgan seans" va "qarz" ustunlari ham yo'q,
+  // har seans kelganda to'lanadi.
+  // Bola, yoshi, mutaxassis, ota-ona, holat (+ filial egada)
+  const colCount = user.role === "OWNER" ? 6 : 5;
 
   return (
     <>
       <PageHeader
         title={t("Mijozlar")}
-        subtitle={`${t("{n} ta mijoz", { n: visible.length })}${
-          rows.length !== visible.length ? ` (${t("jami {n}", { n: rows.length })})` : ""
-        }${user.role === "SPECIALIST" ? ` · ${t("menga biriktirilgan")}` : ""}`}
+        subtitle={`${t("{n} ta mijoz", { n: clients.length })}${user.role === "SPECIALIST" ? ` · ${t("menga biriktirilgan")}` : ""}`}
       />
 
       {canManage ? (
@@ -301,11 +260,11 @@ export default async function ClientsPage({
       ) : null}
 
       <Card>
-        {rows.length === 0 && !hasFilter ? (
+        {clients.length === 0 && !hasFilter ? (
           <Empty>{t("Hali mijoz qo'shilmagan.")}</Empty>
         ) : (
           <div className="scroll-x">
-            <table className="w-full min-w-[1080px]">
+            <table className="w-full min-w-[860px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className={th}>{t("Bola")}</th>
@@ -313,8 +272,6 @@ export default async function ClientsPage({
                   {user.role === "OWNER" ? <th className={th}>{t("Filial")}</th> : null}
                   <th className={th}>{t("Mutaxassis")}</th>
                   <th className={th}>{t("Ota-ona")}</th>
-                  <th className={th}>{t("Qolgan seans")}</th>
-                  <th className={th}>{t("Qarz")}</th>
                   <th className={th}>{t("Holat")}</th>
                 </tr>
                 <ClientFilters
@@ -325,7 +282,7 @@ export default async function ClientsPage({
                 />
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {visible.map((c) => (
+                {clients.map((c) => (
                   <Fragment key={c.id}>
                   <tr className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
                     <td className={td}>
@@ -375,36 +332,6 @@ export default async function ClientsPage({
                         >
                           {t("Telegram yo'q")}
                         </span>
-                      )}
-                    </td>
-                    <td className={`${td} tabular-nums`}>
-                      {/* Kunlik to'laydigan mijozning "qolgan seansi" 0 emas,
-                          umuman yo'q. Qizil 0 yozib qo'yilsa bekorga qo'rqitadi. */}
-                      {c.billingType !== "PACKAGE" ? (
-                        <span className="text-slate-400" title={t("Har kelganida to'laydi")}>
-                          {t("kunlik")}
-                        </span>
-                      ) : (
-                        <span
-                          className={
-                            c.remaining === 0
-                              ? "font-semibold text-rose-600 dark:text-rose-400"
-                              : c.remaining <= 2
-                                ? "font-semibold text-amber-600 dark:text-amber-400"
-                                : ""
-                          }
-                        >
-                          {c.remaining}
-                        </span>
-                      )}
-                    </td>
-                    <td className={`${td} tabular-nums`}>
-                      {c.debt > 0 ? (
-                        <span className="font-semibold text-rose-600 dark:text-rose-400">
-                          {t.money(c.debt)}
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">—</span>
                       )}
                     </td>
                     <td className={td}>

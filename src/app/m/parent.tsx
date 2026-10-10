@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { packageName } from "@/lib/packages";
 import { prisma } from "@/lib/prisma";
 import {
   PARENT_CANCEL_MIN_HOURS,
@@ -13,11 +12,10 @@ import {
 import { cancelByParent } from "./parent-actions";
 import { TgLink } from "./tg-link";
 import { ParentTabNav, ParentTabs, TabPanel } from "./parent-tabs";
-import { getParentPackages } from "@/lib/stats";
 import { dateShort, timeUz } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 
-type ParentTab = "child" | "schedule" | "history" | "payments" | "billing" | "team";
+type ParentTab = "child" | "schedule" | "history" | "payments" | "team";
 
 // "Farzandim" birinchi: kabinet ochilganda bola haqida umumiy manzara turadi
 const TABS: { key: ParentTab; label: string }[] = [
@@ -25,7 +23,6 @@ const TABS: { key: ParentTab; label: string }[] = [
   { key: "schedule", label: "Jadval" },
   { key: "history", label: "Davomat" },
   { key: "payments", label: "To'lovlar" },
-  { key: "billing", label: "Abonement" },
   { key: "team", label: "Mutaxassislar" },
 ];
 
@@ -53,7 +50,7 @@ export async function ParentApp({
   // Hamma narsa bitta to'lqinda va hamma farzand uchun birdaniga olinadi:
   // baza uzoqda, har bir ketma-ket so'rov kabinetni sekinlashtiradi.
   // Farzand tanlangach qolgani xotirada ajratiladi (bolalar 1-2 ta bo'ladi).
-  const [children, upcomingAll, historyAll, packagesAll, paymentsAll, teamAll, doneAll] =
+  const [children, upcomingAll, historyAll, paymentsAll, teamAll, doneAll] =
     await Promise.all([
       prisma.client.findMany({
         where: { parentUserId: userId },
@@ -72,12 +69,10 @@ export async function ParentApp({
         take: 60,
         include: withSpecialist,
       }),
-      getParentPackages(userId),
       prisma.payment.findMany({
         where: mine,
         orderBy: { paidAt: "desc" },
         take: 150,
-        include: { package: { select: { specialization: true, sessionType: { select: { name: true } } } } },
       }),
       prisma.assignment.findMany({
         where: { ...mine, specialist: { isActive: true } },
@@ -115,14 +110,13 @@ export async function ParentApp({
     rows.filter((r) => r.clientId === child.id);
   const upcoming = ofChild(upcomingAll).slice(0, 10);
   const history = ofChild(historyAll).slice(0, 15);
-  const packages = ofChild(packagesAll);
   const payments = ofChild(paymentsAll).slice(0, 50);
   const team = ofChild(teamAll);
   const doneCount = doneAll.find((r) => r.clientId === child.id)?._count._all ?? 0;
   const cancelDeadline = new Date(now.getTime() + PARENT_CANCEL_MIN_HOURS * 3_600_000);
 
-  const remaining = packages.reduce((s, p) => s + (p.isActive ? p.remaining : 0), 0);
-  const debt = packages.reduce((s, p) => s + p.debt, 0);
+  // So'rov 60 ta bilan cheklangan — ota-onaga aniq son emas, umumiy manzara kerak
+  const plannedCount = ofChild(upcomingAll).length;
   const next = upcoming[0] ?? null;
 
   const link = (params: Record<string, string>) => {
@@ -176,33 +170,6 @@ export async function ParentApp({
         )}
       </section>
 
-      <div className="mb-3 grid grid-cols-2 gap-2">
-        <div className="app-card p-3">
-          <p className="text-xs app-muted">{t("Qolgan seans")}</p>
-          {/* Kunlik to'laydigan bolada abonement yo'q — "0 seans qoldi" deb
-              qizartirib qo'yish ota-onani bekorga xavotirga soladi */}
-          {child.billingType === "PACKAGE" ? (
-            <p
-              className={`mt-1 text-lg font-bold tabular-nums ${
-                remaining === 0 ? "text-rose-600" : remaining <= 2 ? "text-amber-600" : ""
-              }`}
-            >
-              {remaining}
-            </p>
-          ) : (
-            <p className="mt-1 text-lg font-bold app-muted">{t("kunlik")}</p>
-          )}
-        </div>
-        <div className="app-card p-3">
-          <p className="text-xs app-muted">{t("Qarzdorlik")}</p>
-          <p
-            className={`mt-1 text-lg font-bold tabular-nums ${debt > 0 ? "text-rose-600" : ""}`}
-          >
-            {debt > 0 ? money(debt) : t("yo'q")}
-          </p>
-        </div>
-      </div>
-
       <ParentTabs initial={tab}>
       <ParentTabNav tabs={TABS.map((x) => ({ key: x.key, label: t(x.label) }))} />
 
@@ -210,18 +177,15 @@ export async function ParentApp({
         {(
         <div className="space-y-2" data-testid="parent-child">
           <div className="grid grid-cols-2 gap-2">
-            <div className="app-card p-3">
-              <p className="text-xs app-muted">{t("To'lov turi")}</p>
-              <p className="mt-1 text-base font-bold">
-                {child.billingType === "PACKAGE" ? t("Abonement") : t("Kunlik")}
-              </p>
-              <p className="text-[11px] app-muted">
-                {child.billingType === "PACKAGE" ? t("seanslar paketi") : t("har kelganida")}
-              </p>
-            </div>
+            {/* Markazda abonement yo'q — "qolgan seans" va "qarz" o'rniga
+                o'tgan va rejadagi mashg'ulotlar soni */}
             <div className="app-card p-3">
               <p className="text-xs app-muted">{t("Jami o'tgan mashg'ulot")}</p>
               <p className="mt-1 text-base font-bold tabular-nums">{doneCount}</p>
+            </div>
+            <div className="app-card p-3">
+              <p className="text-xs app-muted">{t("Rejadagi mashg'ulot")}</p>
+              <p className="mt-1 text-base font-bold tabular-nums">{plannedCount}</p>
             </div>
           </div>
 
@@ -347,48 +311,6 @@ export async function ParentApp({
       )}
       </TabPanel>
 
-      <TabPanel name="billing">
-        {(
-        <div className="space-y-2">
-          {packages.length === 0 ? (
-            <p className="app-card px-4 py-8 text-center text-sm app-muted">{t("Abonement yo'q.")}</p>
-          ) : (
-            packages.map((p) => (
-              <section key={p.id} className="app-card p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold">
-                    {packageName(p, t)}
-                  </p>
-                  <p className="text-sm tabular-nums app-muted">
-                    {t("{left} / {total} qoldi", { left: p.remaining, total: p.totalSessions })}
-                  </p>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10">
-                  <div
-                    className="h-full rounded-full bg-indigo-500"
-                    style={{
-                      width: `${Math.min(Math.round((p.used / p.totalSessions) * 100), 100)}%`,
-                    }}
-                  />
-                </div>
-                <p className="mt-1.5 text-xs app-muted">
-                  {t("Seans narxi {sum}", { sum: money(p.pricePerSession) })} ·{" "}
-                  {t("jami {sum}", { sum: money(p.cost) })} ·{" "}
-                  {t("to'langan {sum}", { sum: money(p.paid) })}
-                  {p.expiresAt ? ` · ${t("{date} gacha", { date: dateShort(p.expiresAt) })}` : ""}
-                </p>
-                {p.debt > 0 ? (
-                  <p className="mt-1 text-xs font-semibold text-rose-600">
-                    {t("To'lanmagan: {sum}", { sum: money(p.debt) })}
-                  </p>
-                ) : null}
-              </section>
-            ))
-          )}
-        </div>
-      )}
-      </TabPanel>
-
       <TabPanel name="payments">
         {(
         payments.length === 0 ? (
@@ -410,9 +332,6 @@ export async function ParentApp({
                     <p className="text-sm font-medium">{dateShort(p.paidAt)}</p>
                     <p className="truncate text-xs app-muted">
                       {t(PAYMENT_METHODS[p.method as PaymentMethod] ?? p.method)}
-                      {p.package
-                        ? ` · ${packageName(p.package, t)}`
-                        : ""}
                     </p>
                   </div>
                   <p className="shrink-0 text-sm font-bold tabular-nums text-emerald-600">

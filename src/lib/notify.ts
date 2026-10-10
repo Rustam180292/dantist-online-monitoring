@@ -1,9 +1,8 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { sendMessage } from "@/lib/telegram";
-import { packageName } from "@/lib/packages";
-import { BILLABLE_STATUSES, SPECIALIZATIONS, type SessionStatus, type Specialization } from "@/lib/constants";
-import { dateShort, money, timeUz, weekdayUz } from "@/lib/format";
+import { SPECIALIZATIONS, type Specialization } from "@/lib/constants";
+import { dateShort, timeUz, weekdayUz } from "@/lib/format";
 import { addDays, startOfDay } from "@/lib/stats";
 
 /**
@@ -94,90 +93,13 @@ export async function queueTomorrowReminders(now: Date = new Date()): Promise<nu
   );
 }
 
-/* ---------------- 2. Abonement tugayapti ---------------- */
+/*
+ * Abonement tugashi va qarzdorlik eslatmalari olib tashlangan: markazda
+ * abonement yo'q, har seans kelganda to'lanadi. Bazadagi eski PACKAGE_LOW /
+ * DEBT yozuvlari tarix sifatida qoladi.
+ */
 
-export async function queueLowPackageAlerts(threshold = 2): Promise<number> {
-  const packages = await prisma.package.findMany({
-    where: {
-      isActive: true,
-      client: { status: "ACTIVE", parent: { telegramId: { not: null }, isActive: true } },
-    },
-    include: {
-      client: { select: { id: true, fullName: true, parentUserId: true } },
-      sessions: { select: { status: true } },
-      sessionType: { select: { name: true } },
-    },
-  });
-
-  const candidates: Candidate[] = [];
-  for (const p of packages) {
-    if (!p.client.parentUserId) continue;
-    const used = p.sessions.filter((s) =>
-      BILLABLE_STATUSES.includes(s.status as SessionStatus),
-    ).length;
-    const remaining = Math.max(p.totalSessions - used, 0);
-    if (remaining > threshold) continue;
-
-    const spec = packageName(p);
-    candidates.push({
-      userId: p.client.parentUserId,
-      clientId: p.client.id,
-      kind: "PACKAGE_LOW",
-      // Qolgan seans kamayganda yangi xabar ketadi (2 -> 1 -> 0)
-      dedupeKey: `PACKAGE_LOW:${p.id}:${remaining}`,
-      text:
-        `⏳ <b>Abonement tugayapti</b>\n\n` +
-        `<b>${p.client.fullName}</b> · ${spec} abonementi bo'yicha ` +
-        (remaining === 0 ? "seanslar tugadi." : `<b>${remaining} ta</b> seans qoldi.`) +
-        `\n\nYangilash uchun administratorga murojaat qiling.`,
-    });
-  }
-
-  return queue(candidates);
-}
-
-/* ---------------- 3. Qarzdorlik eslatmasi (haftada bir marta) ---------------- */
-
-export async function queueDebtReminders(now: Date = new Date()): Promise<number> {
-  const packages = await prisma.package.findMany({
-    where: {
-      isActive: true,
-      client: { status: "ACTIVE", parent: { telegramId: { not: null }, isActive: true } },
-    },
-    include: {
-      client: { select: { id: true, fullName: true, parentUserId: true } },
-      payments: { select: { amount: true } },
-      sessionType: { select: { name: true } },
-    },
-  });
-
-  const week = weekKey(now);
-  const candidates: Candidate[] = [];
-
-  for (const p of packages) {
-    if (!p.client.parentUserId) continue;
-    const paid = p.payments.reduce((sum, x) => sum + x.amount, 0);
-    const debt = p.totalSessions * p.pricePerSession - paid;
-    if (debt <= 0) continue;
-
-    const spec = packageName(p);
-    candidates.push({
-      userId: p.client.parentUserId,
-      clientId: p.client.id,
-      kind: "DEBT",
-      dedupeKey: `DEBT:${p.id}:${week}`,
-      text:
-        `💳 <b>To'lov eslatmasi</b>\n\n` +
-        `<b>${p.client.fullName}</b> · ${spec} abonementi bo'yicha ` +
-        `<b>${money(debt)}</b> to'lanmagan.\n\n` +
-        `Savollar bo'lsa administratorga murojaat qiling.`,
-    });
-  }
-
-  return queue(candidates);
-}
-
-/* ---------------- 4. Mashg'ulot o'tdi (seans belgilangan zahoti) ---------------- */
+/* ---------------- 2. Mashg'ulot o'tdi (seans belgilangan zahoti) ---------------- */
 
 export async function queueSessionDone(sessionId: string): Promise<number> {
   const session = await prisma.session.findUnique({
@@ -185,7 +107,6 @@ export async function queueSessionDone(sessionId: string): Promise<number> {
     include: {
       client: { select: { id: true, fullName: true, parentUserId: true, status: true } },
       specialist: { include: { user: { select: { fullName: true } } } },
-      package: { select: { id: true, totalSessions: true } },
     },
   });
 
@@ -197,15 +118,6 @@ export async function queueSessionDone(sessionId: string): Promise<number> {
     select: { telegramId: true, isActive: true },
   });
   if (!parent?.telegramId || !parent.isActive) return 0;
-
-  let remainingLine = "";
-  if (session.package) {
-    const used = await prisma.session.count({
-      where: { packageId: session.package.id, status: { in: ["DONE", "NO_SHOW"] } },
-    });
-    const remaining = Math.max(session.package.totalSessions - used, 0);
-    remainingLine = `\nAbonementda qolgan seans: <b>${remaining}</b>`;
-  }
 
   const spec = SPECIALIZATIONS[session.specialist.specialization as Specialization];
 
@@ -219,8 +131,7 @@ export async function queueSessionDone(sessionId: string): Promise<number> {
         `✅ <b>Mashg'ulot o'tdi</b>\n\n` +
         `<b>${session.client.fullName}</b> · ${spec}\n` +
         `Mutaxassis: ${session.specialist.user.fullName}\n` +
-        `Vaqt: ${dateShort(session.startsAt)} ${timeUz(session.startsAt)}` +
-        remainingLine,
+        `Vaqt: ${dateShort(session.startsAt)} ${timeUz(session.startsAt)}`,
     },
   ]);
 }
@@ -233,7 +144,7 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/* ---------------- 5. Ota-ona mashg'ulotni bekor qildi ---------------- */
+/* ---------------- 3. Ota-ona mashg'ulotni bekor qildi ---------------- */
 
 /**
  * Xabar mutaxassisning o'ziga va shu filial xodimlariga (qabulxona, admin)
@@ -332,9 +243,7 @@ export async function sendPending(limit = 50): Promise<{ sent: number; failed: n
 /** Cron chaqiradigan to'liq sikl */
 export async function runNotifications(now: Date = new Date()) {
   const reminders = await queueTomorrowReminders(now);
-  const packageLow = await queueLowPackageAlerts();
-  const debt = await queueDebtReminders(now);
   const { sent, failed } = await sendPending();
 
-  return { queued: { reminders, packageLow, debt }, sent, failed };
+  return { queued: { reminders }, sent, failed };
 }

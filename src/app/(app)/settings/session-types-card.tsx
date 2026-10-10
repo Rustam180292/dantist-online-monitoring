@@ -10,7 +10,7 @@ import { addSessionType, removeSessionType, updateSessionType } from "./actions"
  *
  * Narx ham, ulush ham xizmatga bog'liq: bitta xodim ham logoped, ham massaj
  * qilsa, har biri o'z narxida va o'z foizida hisoblanadi. Mijozga xizmat
- * biriktiriladi, seans va abonement shu xizmat bilan yoziladi.
+ * biriktiriladi, seans shu xizmat bilan yoziladi.
  *
  * Yakka logopedda ulush ustuni yo'q — pulning hammasi o'ziniki (100%).
  */
@@ -26,7 +26,7 @@ export async function SessionTypesCard({ user, className }: { user: CurrentUser;
   return (
     <Card
       title={t("Xizmatlar, narx va ulush")}
-      subtitle={t("mijozga xizmat biriktiriladi — seans va abonement narxi shundan olinadi")}
+      subtitle={t("mijozga xizmat biriktiriladi — seans narxi shundan olinadi")}
       className={className}
     >
       <div className="space-y-2 p-4" data-testid="session-types">

@@ -103,7 +103,7 @@ export default async function EarningsPage() {
                           {s.price > 0 ? (
                             t.money(s.price)
                           ) : (
-                            // Narx abonementdan olinadi — faol abonement bo'lmasa
+                            // Narx xizmatdan olinadi — xizmatsiz eski seansda
                             // 0 bo'lib qoladi va ulush ham 0 chiqadi
                             <span className="text-amber-600 dark:text-amber-400">
                               {t("belgilanmagan")}
