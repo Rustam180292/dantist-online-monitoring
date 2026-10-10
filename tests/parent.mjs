@@ -532,6 +532,68 @@ if (!cookieMatch) {
     await all("DELETE FROM Session WHERE id IN (?, ?)", later, soon);
   }
 
+  /* 15. Yakka logopedning mijozi: kabinetda markaz emas, logopedning o'z nomi */
+  {
+    const tag = Date.now().toString().slice(-6);
+    const branchId = `ysolo${tag}`;
+    const clientId = `ykid${tag}`;
+    const phone = `+99890555${tag.slice(-4)}`;
+    const tgId = 920000000 + Number(tag.slice(-4));
+    await all(
+      `INSERT INTO Branch (id, name, isSolo, brandName, phone) VALUES (?, ?, true, 'Nutq Test', '+998901112233')`,
+      branchId, `Sinov Logoped (yakka) ${tag}`,
+    );
+    await all(
+      `INSERT INTO Client (id, fullName, birthDate, branchId, parentName, parentPhone, status, billingType)
+       VALUES (?, ?, '2020-03-03', ?, 'Yakka Ota', ?, 'ACTIVE', 'DAILY')`,
+      clientId, `Yakka Farzand ${tag}`, branchId, phone,
+    );
+    // Kanal tugmasi -> bot -> raqam: ota-ona akkaunti mijoz kartasidagi raqamdan ochiladi
+    await fetch(`${BASE}/api/tg/webhook`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(WEBHOOK_SECRET ? { "x-telegram-bot-api-secret-token": WEBHOOK_SECRET } : {}),
+      },
+      body: JSON.stringify({
+        message: { chat: { id: tgId }, from: { id: tgId }, contact: { phone_number: phone, user_id: tgId } },
+      }),
+    });
+    const res = await fetch(`${BASE}/api/tg/auth`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData: makeInitData({ id: tgId, first_name: "Yakka" }) }),
+    });
+    const m = (res.headers.get("set-cookie") ?? "").match(/logoped_session=([^;]+)/);
+    let header = "";
+    let footer = "";
+    if (m) {
+      const c2 = await browser.newContext({ viewport: { width: 390, height: 844 } });
+      await c2.addCookies([{ name: "logoped_session", value: m[1], domain: "localhost", path: "/", httpOnly: true, sameSite: "Lax" }]);
+      const p2 = await c2.newPage();
+      await p2.goto(`${BASE}/m`);
+      await p2.waitForLoadState("networkidle");
+      header = await p2.locator('[data-testid="parent-provider"]').innerText().catch(() => "");
+      footer = await p2.locator("main footer").first().innerText().catch(() => "");
+      await c2.close();
+    }
+    check(
+      "Yakka logoped mijozining ota-onasi Telegram orqali kabinetga kiradi",
+      Boolean(m) && header.length > 0,
+      `${res.status}`,
+    );
+    check(
+      "Kabinetda yakka logopedning o'z nomi ko'rinadi, \"(yakka)\" emas",
+      header.includes("Nutq Test") && footer.includes("Nutq Test") && !header.includes("(yakka)") &&
+        footer.includes("+998901112233"),
+      `${header} | ${footer.replace(/\n/g, " ")}`,
+    );
+    const pu = await one("SELECT id FROM User WHERE phone = ?", phone);
+    await all("DELETE FROM Client WHERE id = ?", clientId);
+    if (pu) await all("DELETE FROM User WHERE id = ?", pu.id);
+    await all("DELETE FROM Branch WHERE id = ?", branchId);
+  }
+
   const ownFailures = [
     ...new Set(
       failedRequests

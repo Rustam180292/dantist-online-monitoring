@@ -372,9 +372,16 @@ export default async function SettingsPage() {
                   maxLength={4000}
                   required
                   className={input}
-                  defaultValue={t(
-                    "📱 Farzandingiz kabineti endi Telegram'da!\n\nJadval, davomat, to'lovlar va mutaxassislar bilan aloqa — hammasi bir joyda.\n\nQanday ochiladi:\n1. Pastdagi tugmani bosing\n2. Botda \"Start\" ni bosing\n3. \"📱 Raqamimni yuborish\" ni bosing — markazga bergan raqamingiz bo'lishi kerak\n4. \"Kabinetni ochish\" tugmasi chiqadi — tayyor!",
-                  )}
+                  defaultValue={
+                    // Yakka logopedning ota-onalari raqamini markazga emas, logopedga bergan
+                    solo
+                      ? t(
+                          "📱 Farzandingiz kabineti endi Telegram'da!\n\nJadval, davomat va to'lovlar — hammasi bir joyda.\n\nQanday ochiladi:\n1. Pastdagi tugmani bosing\n2. Botda \"Start\" ni bosing\n3. \"📱 Raqamimni yuborish\" ni bosing — logopedga bergan raqamingiz bo'lishi kerak\n4. \"Kabinetni ochish\" tugmasi chiqadi — tayyor!",
+                        )
+                      : t(
+                          "📱 Farzandingiz kabineti endi Telegram'da!\n\nJadval, davomat, to'lovlar va mutaxassislar bilan aloqa — hammasi bir joyda.\n\nQanday ochiladi:\n1. Pastdagi tugmani bosing\n2. Botda \"Start\" ni bosing\n3. \"📱 Raqamimni yuborish\" ni bosing — markazga bergan raqamingiz bo'lishi kerak\n4. \"Kabinetni ochish\" tugmasi chiqadi — tayyor!",
+                        )
+                  }
                 />
               </div>
               <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">

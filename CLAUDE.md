@@ -121,14 +121,14 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 323 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 325 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
 node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi, ish vaqti va tushlik, Google Sheets zaxira (jonli), mijozlar puli va holati (233)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (19)
-node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
+node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q, yakka logoped mijozi (32)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
 ```
 
@@ -275,6 +275,11 @@ Jadval, Davomat, To'lovlar, Mutaxassislar.
   (`--tg-theme-*`) olinmaydi — aks holda tun/kun tugmasi ishlamaydi.
   Telegram sarlavhasi rejimga `src/app/m/tg-theme.tsx` orqali moslanadi.
 
+- **Yakka logopedning mijozlari** ham shu bot va shu kabinetdan foydalanadi.
+  Yakka logoped Sozlamalardan o'z kanaliga e'lon qo'yadi (matnda "logopedga
+  bergan raqamingiz"). Kabinetda filialning ichki nomi ("Ism (yakka)")
+  emas, logopedning ilova nomi (`brandName`) yoki ismi ko'rinadi; bekor
+  qilish matnlari "markazga" emas, "logopedga".
 - `Session.note` — xodimlarning ichki izohi, ota-onaga hech qachon
   ko'rsatilmaydi.
 - **Ota-ona bekor qilishi** — holat `CANCELLED_CLIENT` (abonementdan

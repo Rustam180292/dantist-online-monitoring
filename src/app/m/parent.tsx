@@ -55,7 +55,9 @@ export async function ParentApp({
       prisma.client.findMany({
         where: { parentUserId: userId },
         orderBy: { fullName: "asc" },
-        include: { branch: { select: { name: true, address: true, phone: true } } },
+        include: {
+          branch: { select: { name: true, address: true, phone: true, isSolo: true, brandName: true } },
+        },
       }),
       prisma.session.findMany({
         where: { ...mine, startsAt: { gte: now }, status: "PLANNED" },
@@ -98,7 +100,7 @@ export async function ParentApp({
         <div className="app-card p-5 text-center">
           <p className="text-base font-bold">{t("Farzand biriktirilmagan")}</p>
           <p className="mt-2 text-sm app-muted">
-            {t("Hisobingizga farzandingiz bog'lanmagan. Iltimos, markaz administratoriga murojaat qiling.")}
+            {t("Hisobingizga farzandingiz bog'lanmagan. Iltimos, markaz administratoriga yoki logopedingizga murojaat qiling.")}
           </p>
         </div>
       </main>
@@ -124,12 +126,19 @@ export async function ParentApp({
     return `/m?${p.toString()}`;
   };
 
+  // Yakka logopedning mijozi markazni emas, logopedni ko'rishi kerak: filial
+  // nomi ichki ("Ism (yakka)"), ota-onaga uning o'zi qo'ygan nomi yoki ismi
+  const solo = child.branch.isSolo;
+  const providerName = solo
+    ? child.branch.brandName || child.branch.name.replace(/ \(yakka\)( \d+)?$/, "")
+    : child.branch.name;
+
   return (
     <main className="mx-auto max-w-md px-4 pb-10 pt-4">
       <header className="mb-3">
         <p className="text-base font-bold">{child.fullName}</p>
-        <p className="text-xs app-muted">
-          {t.age(child.birthDate)} · {child.branch.name}
+        <p className="text-xs app-muted" data-testid="parent-provider">
+          {t.age(child.birthDate)} · {providerName}
         </p>
       </header>
 
@@ -265,7 +274,9 @@ export async function ParentApp({
                   </details>
                 ) : (
                   <p className="mt-2 text-[11px] app-muted">
-                    {t("Bekor qilish uchun markazga qo'ng'iroq qiling.")}
+                    {solo
+                      ? t("Bekor qilish uchun logopedga qo'ng'iroq qiling.")
+                      : t("Bekor qilish uchun markazga qo'ng'iroq qiling.")}
                   </p>
                 )}
               </li>
@@ -386,7 +397,7 @@ export async function ParentApp({
       </ParentTabs>
 
       <footer className="mt-4 app-card p-3 text-xs app-muted">
-        <p className="font-semibold">{child.branch.name}</p>
+        <p className="font-semibold">{providerName}</p>
         {child.branch.address ? <p>{child.branch.address}</p> : null}
         {child.branch.phone ? (
           <a href={`tel:${child.branch.phone}`} className="app-link">
