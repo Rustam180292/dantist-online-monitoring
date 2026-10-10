@@ -5,12 +5,9 @@ import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser, NOT_SOLO, isFrontDesk } from "@/lib/auth";
 import {
   BILLABLE_STATUSES,
-  BILLING_TYPES,
-  BILLING_TYPE_KEYS,
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   SPECIALIZATIONS,
-  type BillingType,
   type ClientStatus,
   type Specialization,
 } from "@/lib/constants";
@@ -40,7 +37,6 @@ type Search = {
   b?: string;
   st?: string;
   tg?: string;
-  bt?: string;
 };
 
 /**
@@ -88,12 +84,9 @@ export default async function ClientsPage({
     : null;
   // Telegram'ga ulanmagan ota-onaga eslatma bormaydi — ularni ajratib ko'rsatish kerak
   const telegramFilter = sp.tg === "bor" || sp.tg === "yoq" ? sp.tg : null;
-  const billingFilter = BILLING_TYPE_KEYS.includes(sp.bt as BillingType)
-    ? (sp.bt as BillingType)
-    : null;
   const hasFilter = Boolean(
     nameFilter || phoneFilter || ageFilter !== null || specialistFilter || remainingFilter ||
-      statusFilter || telegramFilter || billingFilter || sp.b,
+      statusFilter || telegramFilter || sp.b,
   );
 
   const [clients, branches, specialists, services] = await Promise.all([
@@ -102,7 +95,6 @@ export default async function ClientsPage({
         ...clientScope(user),
         ...(user.role === "OWNER" && sp.b ? { branchId: sp.b } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
-        ...(billingFilter ? { billingType: billingFilter } : {}),
         ...(ageFilter !== null ? { birthDate: birthRangeForAge(ageFilter) } : {}),
         ...(specialistFilter ? { specialists: { some: { specialistId: specialistFilter } } } : {}),
         ...(nameFilter
@@ -239,21 +231,6 @@ export default async function ClientsPage({
                 <option value="F">{t("Qiz bola")}</option>
               </select>
             </div>
-            <div>
-              <label className={label} htmlFor="billingType">
-                {t("To'lov turi")}
-              </label>
-              <select id="billingType" name="billingType" className={input}>
-                {BILLING_TYPE_KEYS.map((k) => (
-                  <option key={k} value={k}>
-                    {t(BILLING_TYPES[k])}
-                  </option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                {t("Kunlikda har kelganida to'laydi, abonementda oldindan.")}
-              </p>
-            </div>
             {services.length > 0 ? (
               <div>
                 <label className={label} htmlFor="newClientService">
@@ -300,18 +277,6 @@ export default async function ClientsPage({
                 placeholder="+998901234567"
                 className={input}
                 required
-              />
-            </div>
-            <div>
-              <label className={label} htmlFor="parentPassword">
-                {t("Ota-ona kabineti uchun parol")}
-              </label>
-              <input
-                id="parentPassword"
-                name="parentPassword"
-                type="text"
-                placeholder={t("bo'sh qoldirsangiz kabinet ochilmaydi")}
-                className={input}
               />
             </div>
             <div className="sm:col-span-2">

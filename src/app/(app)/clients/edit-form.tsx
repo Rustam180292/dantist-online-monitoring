@@ -1,4 +1,3 @@
-import { BILLING_TYPES, BILLING_TYPE_KEYS } from "@/lib/constants";
 import { toDateInput } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
 import { btnPrimary, input, label } from "@/components/ui";
@@ -9,7 +8,6 @@ export type EditableClient = {
   fullName: string;
   birthDate: Date;
   gender: string | null;
-  billingType: string | null;
   branchId: string;
   parentName: string;
   parentPhone: string;
@@ -59,16 +57,6 @@ export async function ClientEditForm({
           <option value="">{t("Ko'rsatilmagan")}</option>
           <option value="M">{t("O'g'il bola")}</option>
           <option value="F">{t("Qiz bola")}</option>
-        </select>
-      </div>
-      <div>
-        <label className={label}>{t("To'lov turi")}</label>
-        <select name="billingType" defaultValue={client.billingType ?? "DAILY"} className={input}>
-          {BILLING_TYPE_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {t(BILLING_TYPES[k])}
-            </option>
-          ))}
         </select>
       </div>
       {branches.length > 0 ? (

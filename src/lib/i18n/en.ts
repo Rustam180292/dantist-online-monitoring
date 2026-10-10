@@ -348,6 +348,8 @@ export const en: Record<string, string> = {
   "Qolgan (olishim kerak)": "Remaining (owed to me)",
   "Qolgan pulim": "My balance",
   "Qolgan seans": "Sessions left",
+  "Hisob-kitob": "Billing",
+  "har bir seans alohida hisoblanadi": "each session is billed separately",
   "Qolgan seans bo'yicha filtr": "Filter by sessions left",
   "Rad etdi": "Declined",
   "Raqam — o'sha kundagi bo'sh vaqtlar soni. Raqamni bosib vaqtni tanlang. O'tib ketgan vaqtlar sanalmaydi.": "The number is how many free slots that day has. Click it to pick a time. Past times are not counted.",

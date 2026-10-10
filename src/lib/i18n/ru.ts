@@ -348,6 +348,8 @@ export const ru: Record<string, string> = {
   "Qolgan (olishim kerak)": "Остаток (мне должны)",
   "Qolgan pulim": "Мой остаток",
   "Qolgan seans": "Осталось сеансов",
+  "Hisob-kitob": "Расчёты",
+  "har bir seans alohida hisoblanadi": "каждый сеанс оплачивается отдельно",
   "Qolgan seans bo'yicha filtr": "Фильтр по остатку сеансов",
   "Rad etdi": "Отказался",
   "Raqam — o'sha kundagi bo'sh vaqtlar soni. Raqamni bosib vaqtni tanlang. O'tib ketgan vaqtlar sanalmaydi.": "Число — количество свободных слотов в этот день. Нажмите на него, чтобы выбрать время. Прошедшее время не учитывается.",

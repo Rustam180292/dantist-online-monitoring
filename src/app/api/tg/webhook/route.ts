@@ -35,6 +35,45 @@ const HELP =
   "Boshlash uchun /start buyrug'ini yuboring va telefon raqamingizni ulashing. " +
   "Raqamingiz markaz bazasida bo'lsa, kabinetingiz ochiladi.";
 
+/**
+ * Ota-ona akkaunti yo'q, lekin raqami mijoz kartasida turibdi.
+ *
+ * Ilgari ota-ona akkaunti faqat "kabinet paroli" yozilganda ochilardi —
+ * parolsiz qo'shilgan mijozlarning ota-onasi botga raqamini yuborsa ham
+ * "topilmadi" degan javob olardi. Endi kirish faqat Telegram orqali, shuning
+ * uchun raqam mijoz kartasida bo'lsa, akkaunt shu yerda ochiladi va o'sha
+ * raqamdagi hamma farzand (aka-uka) unga ulanadi.
+ */
+async function parentFromClients(variants: string[]) {
+  const clients = await prisma.client.findMany({
+    where: { parentPhone: { in: variants }, parentUserId: null },
+    select: { id: true, branchId: true, parentName: true, parentPhone: true },
+    orderBy: { createdAt: "asc" },
+  });
+  if (clients.length === 0) return null;
+  // O'chirib qo'yilgan akkaunt shu raqamda bo'lsa, uni qayta tiklamaymiz —
+  // uni kimdir ataylab yopgan
+  const blocked = await prisma.user.findFirst({ where: { phone: { in: variants } } });
+  if (blocked) return null;
+
+  const first = clients[0];
+  const user = await prisma.user.create({
+    data: {
+      phone: first.parentPhone,
+      fullName: first.parentName,
+      // Parol yo'q: ota-ona faqat Telegram orqali kiradi
+      passwordHash: "",
+      role: "PARENT",
+      branchId: first.branchId,
+    },
+  });
+  await prisma.client.updateMany({
+    where: { id: { in: clients.map((c) => c.id) } },
+    data: { parentUserId: user.id },
+  });
+  return user;
+}
+
 export async function POST(request: Request) {
   const expected = process.env.TELEGRAM_WEBHOOK_SECRET;
   if (expected) {
@@ -66,9 +105,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true });
     }
 
-    const user = await prisma.user.findFirst({
-      where: { phone: { in: phoneVariants(contact.phone_number) }, isActive: true },
-    });
+    const variants = phoneVariants(contact.phone_number);
+    const user =
+      (await prisma.user.findFirst({
+        where: { phone: { in: variants }, isActive: true },
+      })) ?? (await parentFromClients(variants));
 
     if (!user) {
       await sendMessage(
