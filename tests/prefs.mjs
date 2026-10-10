@@ -116,8 +116,8 @@ const isDark = (page) => page.evaluate(() => document.documentElement.classList.
     darkVars[0] !== "#0a7ba5" && darkVars[1] !== "#effbf6",
     darkVars.join(" / "),
   );
-  await page.locator('aside [data-testid="theme-toggle"]').click();
-  check("Menyudagi tugma kunduzgi rejimga qaytaradi", !(await isDark(page)));
+  await page.locator('[data-testid="topbar"] [data-testid="theme-toggle"]').click();
+  check("Tepa paneldagi tugma kunduzgi rejimga qaytaradi", !(await isDark(page)));
   const accent = await page.evaluate(() =>
     getComputedStyle(document.documentElement).getPropertyValue("--color-indigo-600").trim(),
   );
@@ -291,6 +291,73 @@ const PNG = Buffer.from(
 
   await page.getByRole("button", { name: "Logotipni olib tashlash" }).click();
   await page.getByText("Logotip olib tashlandi.").waitFor({ timeout: 8000 }).catch(() => {});
+  await ctx.close();
+}
+
+/* ---------- 5b. Tepa o'ng burchak: til, rejim, foydalanuvchi menyusi ---------- */
+{
+  const { ctx, page } = await newPage();
+  await login(page, owner.phone);
+  await page.goto(`${BASE}/`);
+  await page.waitForLoadState("networkidle");
+  const bar = page.locator('[data-testid="topbar"]');
+  const box = await bar.boundingBox();
+  check(
+    "Kompyuterda tepa panelda til, rejim va menyu bor",
+    (await bar.locator('[data-testid="lang-uz"]').isVisible()) &&
+      (await bar.locator('[data-testid="theme-toggle"]').isVisible()) &&
+      (await bar.locator('[data-testid="user-menu"]').isVisible()) &&
+      !!box && box.y === 0,
+  );
+  const menuBox = await bar.locator('[data-testid="user-menu"]').boundingBox();
+  check("Menyu o'ng burchakda", !!menuBox && menuBox.x + menuBox.width > 1280 - 80, JSON.stringify(menuBox));
+  check(
+    "Yon menyuda til/rejim/chiqish takrorlanmaydi",
+    (await page.locator('aside [data-testid="theme-toggle"]').count()) === 0 &&
+      !(await page.locator("aside").innerText()).includes("Chiqish"),
+  );
+
+  // Til tepa paneldan almashadi
+  await bar.locator('[data-testid="lang-en"]').click();
+  // Til cookie'ga yoziladi va sahifa serverdan qayta chiziladi — matn kelguncha kutamiz
+  const switched = await page
+    .waitForFunction(() => document.querySelector("aside")?.textContent?.includes("Clients"), null, { timeout: 10000 })
+    .then(() => true)
+    .catch(() => false);
+  check("Tepa paneldan til almashadi", switched);
+  await bar.locator('[data-testid="lang-uz"]').click();
+  await page.waitForFunction(() => document.documentElement.lang === "uz");
+
+  // Menyu ochiladi, tashqariga bosilsa yopiladi, Chiqish ishlaydi
+  await bar.locator('[data-testid="user-menu"]').click();
+  const menu = page.locator('[role="menu"]');
+  check("Foydalanuvchi menyusi ochiladi", (await menu.innerText()).includes("Chiqish"));
+  await page.mouse.click(600, 500);
+  check("Tashqariga bosilsa menyu yopiladi", (await menu.count()) === 0);
+  await bar.locator('[data-testid="user-menu"]').click();
+  await menu.locator('button:has-text("Chiqish")').click();
+  await page.waitForURL(/\/login/, { timeout: 10000 }).catch(() => {});
+  check("Menyudan chiqish ishlaydi", page.url().includes("/login"), page.url());
+  await ctx.close();
+}
+
+/* ---------- 5c. Telefonda ham sarlavhaning o'ng tomonida ---------- */
+{
+  const ctx = await browser.newContext({ viewport: { width: 360, height: 760 } });
+  const page = await ctx.newPage();
+  await login(page, owner.phone);
+  await page.goto(`${BASE}/`);
+  await page.waitForLoadState("networkidle");
+  const head = page.locator("header:visible").first();
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  check(
+    "Telefonda til, rejim va menyu sarlavhada, sahifa yonga oshmaydi",
+    (await head.locator('[data-testid="lang-ru"]').isVisible()) &&
+      (await head.locator('[data-testid="theme-toggle"]').isVisible()) &&
+      (await head.locator('[data-testid="user-menu"]').isVisible()) &&
+      width <= 360,
+    `scrollWidth=${width}`,
+  );
   await ctx.close();
 }
 

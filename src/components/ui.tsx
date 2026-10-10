@@ -73,7 +73,9 @@ export function Card({
   className?: string;
 }) {
   return (
-    <section className={`${card} ${className}`}>
+    // min-w-0: kartadagi keng jadval kartani ekrandan kengaytirib yubormasin —
+    // jadval o'zining scroll-x qutisida suriladi, sahifa esa yonga oshmaydi
+    <section className={`${card} min-w-0 ${className}`}>
       {title ? (
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
           <div>
