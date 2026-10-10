@@ -47,7 +47,7 @@ async function setSessionStatusImpl(formData: FormData) {
     where: { id: sessionId },
     include: {
       package: { select: { pricePerSession: true } },
-      sessionType: { select: { price: true } },
+      sessionType: { select: { price: true, salaryPercent: true } },
       specialist: { select: { salaryPercent: true, defaultPrice: true } },
     },
   });
@@ -56,9 +56,9 @@ async function setSessionStatusImpl(formData: FormData) {
   // Ish haqi foizi ham o'sha paytdagi holicha saqlanadi: keyin foiz o'zgarsa,
   // o'tib bo'lgan seanslarning hisobi o'zgarmaydi.
   //
-  // Mijozlarning ko'pi abonement olmay, har kelganida to'laydi. Unday mijozning
-  // abonementi yo'q — narx markazning standart narxidan olinadi. Aks holda
-  // narx 0 bo'lib qolardi va mutaxassis o'sha seansdan hech narsa olmasdi.
+  // Mijozlarning ko'pi abonement olmay, har kelganida to'laydi. Unday mijozda
+  // narx seans xizmatidan olinadi. Aks holda narx 0 bo'lib qolardi va
+  // mutaxassis o'sha seansdan hech narsa olmasdi.
   const billable = status === "DONE" || status === "NO_SHOW";
   // Narx: seansda yozilgani -> abonement narxi -> seans turining narxi ->
   // mutaxassisning o'z narxi -> markazning standart narxi. Abonement turdan
@@ -77,8 +77,10 @@ async function setSessionStatusImpl(formData: FormData) {
     data: {
       status,
       price,
+      // Ulush xizmatdan: bitta xodim ham logoped, ham massaj qilsa, har biri
+      // o'z foizida. Xizmatsiz eski seanslar xodimning foizida qoladi.
       salaryPercent: billable
-        ? (session.salaryPercent ?? session.specialist.salaryPercent)
+        ? (session.salaryPercent ?? session.sessionType?.salaryPercent ?? session.specialist.salaryPercent)
         : null,
     },
   });
@@ -112,7 +114,7 @@ async function createSessionImpl(formData: FormData) {
   const specialistId = String(formData.get("specialistId") ?? "");
   const startsAtRaw = String(formData.get("startsAt") ?? "");
   const durationMin = Number(formData.get("durationMin") ?? 45);
-  const sessionTypeId = String(formData.get("sessionTypeId") ?? "") || null;
+  const chosenTypeId = String(formData.get("sessionTypeId") ?? "") || null;
 
   if (!clientId || !specialistId || !startsAtRaw) {
     throw new Error("Mijoz, mutaxassis va vaqtni to'liq kiriting.");
@@ -139,8 +141,22 @@ async function createSessionImpl(formData: FormData) {
   if (client.branchId !== specialist.branchId) {
     throw new Error("Mijoz va mutaxassis bitta filialda bo'lishi kerak.");
   }
-  // Begona (boshqa markaz yoki yakka logoped) turi bilan narx qo'yib bo'lmasin
-  if (sessionTypeId) await assertTypeFitsBranch(sessionTypeId, client.branchId);
+  // Har seans xizmat bilan yoziladi — narx va mutaxassis ulushi xizmatdan.
+  // Tanlanmasa mijozga biriktirilgan xizmat olinadi (bittasi bo'lsa).
+  let sessionTypeId = chosenTypeId;
+  if (!sessionTypeId) {
+    const own = await prisma.clientService.findMany({
+      where: { clientId, sessionType: { isActive: true } },
+      select: { sessionTypeId: true },
+    });
+    if (own.length === 0) {
+      throw new Error("Mijozga xizmat biriktirilmagan — xizmatni tanlang yoki mijoz kartasida biriktiring.");
+    }
+    if (own.length > 1) throw new Error("Mijozda bir nechta xizmat bor — xizmatni tanlang.");
+    sessionTypeId = own[0].sessionTypeId;
+  }
+  // Begona (boshqa markaz yoki yakka logoped) xizmati bilan narx qo'yib bo'lmasin
+  await assertTypeFitsBranch(sessionTypeId, client.branchId);
 
   // Shu vaqtda mutaxassis band emasmi?
   const end = new Date(startsAt.getTime() + durationMin * 60_000);
@@ -157,12 +173,20 @@ async function createSessionImpl(formData: FormData) {
     if (clashEnd > startsAt) throw new Error("Mutaxassisning bu vaqti band.");
   }
 
-  // Shu mutaxassislik bo'yicha faol abonementni topib, narxni olamiz
-  const pkg = await prisma.package.findFirst({
-    where: { clientId, specialization: specialist.specialization, isActive: true },
-    orderBy: { purchasedAt: "desc" },
-    select: { id: true, pricePerSession: true },
-  });
+  // Seans shu xizmatning faol abonementidan yechiladi. Xizmatlar kiritilishidan
+  // oldin sotilgan abonementlar yo'nalishga bog'langan — ularda qolgan seanslar
+  // kuyib ketmasin, shuning uchun xizmat abonementi bo'lmasa o'shalar olinadi.
+  const pkg =
+    (await prisma.package.findFirst({
+      where: { clientId, sessionTypeId, isActive: true },
+      orderBy: { purchasedAt: "desc" },
+      select: { id: true },
+    })) ??
+    (await prisma.package.findFirst({
+      where: { clientId, sessionTypeId: null, specialization: specialist.specialization, isActive: true },
+      orderBy: { purchasedAt: "desc" },
+      select: { id: true },
+    }));
 
   await prisma.session.create({
     data: {
@@ -179,12 +203,19 @@ async function createSessionImpl(formData: FormData) {
     },
   });
 
-  // Mijoz hali bu mutaxassisga biriktirilmagan bo'lsa — biriktiramiz
-  await prisma.assignment.upsert({
-    where: { clientId_specialistId: { clientId, specialistId } },
-    create: { clientId, specialistId },
-    update: {},
-  });
+  // Mijoz hali bu mutaxassisga va xizmatga biriktirilmagan bo'lsa — biriktiramiz
+  await Promise.all([
+    prisma.assignment.upsert({
+      where: { clientId_specialistId: { clientId, specialistId } },
+      create: { clientId, specialistId },
+      update: {},
+    }),
+    prisma.clientService.upsert({
+      where: { clientId_sessionTypeId: { clientId, sessionTypeId } },
+      create: { clientId, sessionTypeId },
+      update: {},
+    }),
+  ]);
 
   revalidatePath("/schedule");
   revalidatePath("/");

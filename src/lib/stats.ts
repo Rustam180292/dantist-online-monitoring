@@ -242,7 +242,10 @@ export async function getSpecialistRows(opts: {
 
 export type PackageProgress = {
   id: string;
-  specialization: string;
+  /** Eski abonementda yo'nalish, yangisida bo'sh — nomi `packageName()` bilan */
+  specialization: string | null;
+  /** Xizmat abonementi bo'lsa — xizmat nomi */
+  serviceName: string | null;
   totalSessions: number;
   pricePerSession: number;
   used: number;
@@ -278,6 +281,7 @@ async function getPackagesWhere(
     include: {
       sessions: { select: { status: true } },
       payments: { select: { amount: true } },
+      sessionType: { select: { name: true } },
     },
   });
 
@@ -289,6 +293,7 @@ async function getPackagesWhere(
       id: p.id,
       clientId: p.clientId,
       specialization: p.specialization,
+      serviceName: p.sessionType?.name ?? null,
       totalSessions: p.totalSessions,
       pricePerSession: p.pricePerSession,
       used,
@@ -308,7 +313,8 @@ export type ClientAlert = {
   clientName: string;
   branchName: string;
   parentPhone: string;
-  specialization: string;
+  specialization: string | null;
+  serviceName: string | null;
   remaining: number;
   debt: number;
 };
@@ -338,6 +344,7 @@ export async function getClientAlerts(opts: { branchId?: string | null }) {
       },
       sessions: { select: { status: true } },
       payments: { select: { amount: true } },
+      sessionType: { select: { name: true } },
     },
   });
 
@@ -357,6 +364,7 @@ export async function getClientAlerts(opts: { branchId?: string | null }) {
       branchName: p.client.branch.name,
       parentPhone: p.client.parentPhone,
       specialization: p.specialization,
+      serviceName: p.sessionType?.name ?? null,
       remaining,
       debt,
     };

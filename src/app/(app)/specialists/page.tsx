@@ -28,7 +28,6 @@ import {
   toggleReceptionActive,
   toggleSpecialistActive,
   updateReception,
-  updateSalaryPercent,
   updateSpecialist,
 } from "./actions";
 import { getT } from "@/lib/i18n/server";
@@ -146,20 +145,6 @@ export default async function SpecialistsPage() {
             </label>
             <input id="password" name="password" type="text" className={input} required />
           </div>
-          <div>
-            <label className={label} htmlFor="salaryPercent">
-              {t("Ish haqi foizi (%)")}
-            </label>
-            <input
-              id="salaryPercent"
-              name="salaryPercent"
-              type="number"
-              min={0}
-              max={100}
-              defaultValue={settings.defaultSalaryPercent}
-              className={input}
-            />
-          </div>
           <div className="flex items-end">
             <button type="submit" className={`${btnPrimary} w-full`}>
               {t("Qo'shish")}
@@ -184,7 +169,6 @@ export default async function SpecialistsPage() {
                   <th className={th}>{t("Kelmadi")}</th>
                   <th className={th}>{t("Rejada")}</th>
                   <th className={th}>{t("Xizmat qiymati")}</th>
-                  <th className={th}>{t("Foiz")}</th>
                   <th className={th}>{t("Ish haqi")}</th>
                   <th className={th} />
                 </tr>
@@ -212,23 +196,6 @@ export default async function SpecialistsPage() {
                     <td className={`${td} tabular-nums`}>{r.noShow}</td>
                     <td className={`${td} tabular-nums`}>{r.planned}</td>
                     <td className={`${td} tabular-nums`}>{t.money(r.revenue)}</td>
-                    <td className={td}>
-                      <form action={updateSalaryPercent} className="flex items-center gap-1">
-                        <input type="hidden" name="specialistId" value={r.id} />
-                        <input
-                          name="salaryPercent"
-                          type="number"
-                          min={0}
-                          max={100}
-                          defaultValue={r.salaryPercent}
-                          className="w-16 rounded-md border border-slate-300 px-2 py-1 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950"
-                          aria-label={t("Ish haqi foizi")}
-                        />
-                        <button type="submit" className="text-xs text-indigo-600 hover:underline">
-                          {t("saqlash")}
-                        </button>
-                      </form>
-                    </td>
                     <td className={`${td} font-semibold tabular-nums`}>{t.money(r.salary)}</td>
                     <td className={td}>
                       <form action={toggleSpecialistActive}>
@@ -294,17 +261,6 @@ export default async function SpecialistsPage() {
                               </select>
                             </div>
                           ) : null}
-                          <div>
-                            <label className={label}>{t("Ish haqi foizi")}</label>
-                            <input
-                              name="salaryPercent"
-                              type="number"
-                              min={0}
-                              max={100}
-                              defaultValue={r.salaryPercent}
-                              className={input}
-                            />
-                          </div>
                           <div>
                             <label className={label}>{t("Yangi parol")}</label>
                             <input

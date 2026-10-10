@@ -47,7 +47,7 @@ export default async function SchedulePage({
   const specialistFilter =
     user.role === "SPECIALIST" ? user.specialistId : (sp.s || null);
 
-  const [sessions, branches, specialists, clients, sessionTypes] = await Promise.all([
+  const [sessions, branches, specialists, clients, sessionTypes, presetService] = await Promise.all([
     prisma.session.findMany({
       where: {
         ...sessionScope(user),
@@ -81,6 +81,14 @@ export default async function SchedulePage({
         })
       : Promise.resolve([]),
     canEdit ? getSessionTypes(user) : Promise.resolve([]),
+    // Mijoz kartasidagi "Seans yozish" dan kelinsa — uning xizmati oldindan tanlanadi
+    sp.yangi
+      ? prisma.clientService.findFirst({
+          where: { clientId: sp.yangi, sessionType: { isActive: true } },
+          orderBy: { createdAt: "asc" },
+          select: { sessionTypeId: true },
+        })
+      : Promise.resolve(null),
   ]);
 
   // Mutaxassis o'ziga seans qo'shishi uchun ro'yxat
@@ -297,11 +305,16 @@ export default async function SchedulePage({
             {sessionTypes.length > 0 ? (
               <div className="lg:col-span-2">
                 <label className={label} htmlFor="sessionTypeId">
-                  {t("Seans turi")}
+                  {t("Xizmat")}
                 </label>
-                {/* Tanlanmasa narx avvalgidek: abonementdan yoki standart narxdan */}
-                <select id="sessionTypeId" name="sessionTypeId" defaultValue="" className={input}>
-                  <option value="">{t("— tanlanmagan —")}</option>
+                {/* Tanlanmasa mijozga biriktirilgan xizmat olinadi */}
+                <select
+                  id="sessionTypeId"
+                  name="sessionTypeId"
+                  defaultValue={presetService?.sessionTypeId ?? ""}
+                  className={input}
+                >
+                  <option value="">{t("— mijozning xizmati —")}</option>
                   {sessionTypes.map((st) => (
                     <option key={st.id} value={st.id}>
                       {st.name} · {money(st.price)}
@@ -309,8 +322,12 @@ export default async function SchedulePage({
                   ))}
                 </select>
               </div>
-            ) : null}
-            <div className={sessionTypes.length > 0 ? "" : "lg:col-span-3"}>
+            ) : (
+              <p className="text-xs text-amber-700 lg:col-span-2 dark:text-amber-400">
+                {t("Seans yozish uchun avval Sozlamalarda xizmat qo'shing.")}
+              </p>
+            )}
+            <div>
               <label className={label} htmlFor="note">
                 {t("Izoh (ixtiyoriy)")}
               </label>

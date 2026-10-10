@@ -190,6 +190,9 @@ await page.selectOption("#specialistId", pair.specialistId);
 const soon = new Date();
 soon.setDate(soon.getDate() + 30 + (sessBefore % 60));
 await page.fill("#startsAt", `${soon.toISOString().slice(0, 10)}T19:15`);
+// Har seans xizmat bilan yoziladi; mijozda bir nechta xizmat bo'lishi mumkin
+const anyService = await one("SELECT id FROM SessionType WHERE branchId IS NULL AND isActive = true ORDER BY name LIMIT 1");
+await page.selectOption("#sessionTypeId", anyService.id);
 await page.click('form button:has-text("Qo\'shish")');
 const sessGrew = await waitUntil(
   async () => await count("SELECT COUNT(*) AS n FROM Session") === sessBefore + 1,
@@ -221,12 +224,27 @@ check("To'lov qabul qilindi", payGrew, `${payBefore} -> ${await count("SELECT CO
 /* 8. Abonement sotish */
 const pkgBefore = await count("SELECT COUNT(*) AS n FROM Package");
 await page.click('summary:has-text("Abonement sotish")');
-await page.fill("#pricePerSession", "130000");
+// Narx so'ralmaydi — xizmatdan olinadi
+check("Abonement formasida narx maydoni yo'q", (await page.locator("#pricePerSession").count()) === 0);
+const soldService = await page.inputValue("#packageService");
 await page.click('form button:has-text("Sotish")');
 const pkgGrew = await waitUntil(
   async () => await count("SELECT COUNT(*) AS n FROM Package") === pkgBefore + 1,
 );
 check("Abonement sotildi", pkgGrew, `${pkgBefore} -> ${await count("SELECT COUNT(*) AS n FROM Package")}`);
+{
+  const sold = await one(
+    `SELECT p.sessionTypeId, p.pricePerSession, st.price AS "servicePrice"
+       FROM Package p JOIN SessionType st ON st.id = p.sessionTypeId
+      WHERE p.clientId = ? ORDER BY p.purchasedAt DESC LIMIT 1`,
+    pkgClient.id,
+  );
+  check(
+    "Abonement xizmatga bog'lanadi, narxi xizmatdan",
+    sold?.sessionTypeId === soldService && Number(sold.pricePerSession) === Number(sold.servicePrice),
+    JSON.stringify(sold),
+  );
+}
 
 /* 9. Qolgan sahifalar ochiladi */
 for (const [path, marker] of [
@@ -783,13 +801,42 @@ if (await payRow.count()) {
   ).padStart(2, "0")}`;
   const when = `${ymd}T06:05`;
 
-  await page.goto(`${BASE}/schedule`);
-  await page.waitForLoadState("networkidle");
-  await page.click('summary:has-text("Yangi seans")');
-  await page.selectOption("#clientId", kid.id);
-  await page.selectOption("#specialistId", sp.id);
-  await page.fill("#startsAt", when);
-  await page.click('form button:has-text("Qo\'shish")');
+  const bookKid = async () => {
+    await page.goto(`${BASE}/schedule`);
+    await page.waitForLoadState("networkidle");
+    await page.click('summary:has-text("Yangi seans")');
+    await page.selectOption("#clientId", kid.id);
+    await page.selectOption("#specialistId", sp.id);
+    await page.fill("#startsAt", when);
+    await page.click('form button:has-text("Qo\'shish")');
+  };
+
+  // Xizmati yo'q mijozga seans yozilmaydi — nega ekani aytiladi
+  await bookKid();
+  await page.waitForTimeout(1500);
+  check(
+    "Xizmatsiz mijozga seans yozilmaydi",
+    (await count("SELECT COUNT(*) AS n FROM Session WHERE clientId = ?", kid.id)) === 0 &&
+      (await page.locator("body").innerText()).includes("xizmat biriktirilmagan"),
+  );
+
+  // Mijoz kartasida xizmat biriktiriladi (ulushi boshqacha xizmatni olamiz)
+  const kidService = await one(
+    "SELECT id, price, salaryPercent FROM SessionType WHERE branchId IS NULL AND isActive = true ORDER BY salaryPercent DESC, name LIMIT 1",
+  );
+  await page.goto(`${BASE}/clients/${kid.id}`);
+  await page.waitForSelector("#assignService", { timeout: 15000 });
+  await page.selectOption("#assignService", kidService.id);
+  await page.locator("form:has(#assignService) button[type=submit]").click();
+  check(
+    "Mijozga xizmat biriktiriladi",
+    await waitUntil(async () => (await count(
+      "SELECT COUNT(*) AS n FROM ClientService WHERE clientId = ? AND sessionTypeId = ?", kid.id, kidService.id,
+    )) === 1),
+  );
+
+  // Endi xizmat tanlanmasa ham mijozning xizmati o'zi olinadi
+  await bookKid();
   const added = await waitUntil(
     async () => (await count("SELECT COUNT(*) AS n FROM Session WHERE clientId = ?", kid.id)) === 1,
   );
@@ -816,8 +863,13 @@ if (await payRow.count()) {
     );
   }
 
+  check(
+    "Seansga mijozning xizmati o'zi qo'yiladi",
+    (await one("SELECT sessionTypeId FROM Session WHERE clientId = ? LIMIT 1", kid.id))?.sessionTypeId === kidService.id,
+  );
+
   if (!sess) {
-    check("Kunlik seansning narxi standart narxdan olinadi", false, "seans yozilmadi");
+    check("Seans narxi va ulushi xizmatdan olinadi", false, "seans yozilmadi");
   } else {
   await page.goto(`${BASE}/schedule?w=${weekOffsetOf(day)}`);
   await page.waitForLoadState("networkidle");
@@ -832,16 +884,12 @@ if (await payRow.count()) {
     const r = await one("SELECT price FROM Session WHERE id = ?", sess.id);
     return Number(r?.price ?? 0) > 0;
   });
-  const got = await one("SELECT price FROM Session WHERE id = ?", sess.id);
-  // Standart narxni Sozlamalar sahifasidan olamiz: bazada Settings qatori hali
-  // yozilmagan bo'lishi mumkin, u holda kod ichidagi standart qiymat ishlaydi
-  await page.goto(`${BASE}/settings`);
-  await page.waitForSelector("#defaultPrice", { timeout: 15000 });
-  const standard = Number(await page.inputValue("#defaultPrice"));
+  const got = await one("SELECT price, salaryPercent FROM Session WHERE id = ?", sess.id);
   check(
-    "Kunlik seansning narxi standart narxdan olinadi",
-    priced && Number(got.price) === standard,
-    `${got?.price} / standart ${standard}`,
+    "Seans narxi va ulushi xizmatdan olinadi",
+    priced && Number(got.price) === Number(kidService.price) &&
+      Number(got.salaryPercent) === Number(kidService.salaryPercent),
+    `${got?.price}/${got?.salaryPercent}% — xizmat ${kidService.price}/${kidService.salaryPercent}%`,
   );
   }
 }
@@ -1121,26 +1169,32 @@ if (await payRow.count()) {
     page.url(),
   );
 
-  // Seans narxini Sozlamalardan o'zi o'zgartiradi
+  // Ro'yxatdan o'tganda kiritgan narxi bilan birinchi xizmati tayyor turadi,
+  // ulush so'ralmaydi (pulning hammasi o'ziniki)
   await page.goto(`${BASE}/settings`);
-  await page.waitForSelector("#soloPrice", { timeout: 15000 });
+  await page.waitForSelector('[data-testid="session-types"]', { timeout: 15000 });
   check("Yakka ham kanalga e'lon qila oladi", (await page.locator("#channel").count()) === 1);
   {
     const soloTypes = await page.locator('[data-testid="session-types"]').innerText();
+    const own = await all("SELECT id, price, salaryPercent FROM SessionType WHERE branchId = ?", solo.branchId);
     check(
-      "Yakka o'z seans turlarini boshqaradi, markaznikini ko'rmaydi",
-      (await page.locator('[data-testid="session-types"]').count()) === 1 &&
-        !soloTypes.includes("Logoped seansi") && !soloTypes.includes("Massaj"),
+      "Yakkaning birinchi xizmati ro'yxatdan o'tishda yaratiladi (100%)",
+      own.length === 1 && Number(own[0].price) === 200000 && Number(own[0].salaryPercent) === 100,
+      JSON.stringify(own),
+    );
+    check(
+      "Yakka o'z xizmatlarini boshqaradi, markaznikini ko'rmaydi, ulush so'ralmaydi",
+      !soloTypes.includes("Logoped seansi") && !soloTypes.includes("Massaj") &&
+        (await page.locator('[data-testid="session-types"] input[name="salaryPercent"]').count()) === 0,
+    );
+    const row = page.locator('[data-testid="session-type-row"]').first();
+    await row.locator('input[name="price"]').fill("210000");
+    await row.locator('form:has(input[name="price"]) button[type=submit]').click();
+    check(
+      "Yakka xizmat narxini o'zgartira oladi",
+      await waitUntil(async () => Number((await one("SELECT price FROM SessionType WHERE id = ?", own[0]?.id ?? "")).price) === 210000),
     );
   }
-  await page.fill("#soloPrice", "210000");
-  await page.locator("form:has(#soloPrice) button[type=submit]").click();
-  check(
-    "Yakka seans narxini o'zgartira oladi",
-    await waitUntil(
-      async () => Number((await one("SELECT defaultPrice FROM Specialist WHERE id = ?", solo.specialistId)).defaultPrice) === 210000,
-    ),
-  );
 
   // Qabulda "kim ko'radi" so'ralmaydi — doim o'zi
   const soloIntake = `Yakka Qabul ${tag}`;
@@ -1508,7 +1562,8 @@ if (await payRow.count()) {
   await form.locator('input[name="fullName"]').fill(`${target.fullName} (tahrir)`);
   await form.locator('input[name="phone"]').fill(newPhone);
   await form.locator('select[name="specialization"]').selectOption("LOGOPED");
-  await form.locator('input[name="salaryPercent"]').fill("55");
+  // Ulush endi xizmatda — xodim formasida yo'q va tahrirlashda o'zgarmaydi
+  check("Xodim formasida ulush maydoni yo'q", (await form.locator('input[name="salaryPercent"]').count()) === 0);
   await form.locator('button:has-text("Saqlash")').click();
 
   const saved = await waitUntil(async () => {
@@ -1520,7 +1575,7 @@ if (await payRow.count()) {
       r.fullName === `${target.fullName} (tahrir)` &&
       r.phone === newPhone &&
       r.specialization === "LOGOPED" &&
-      r.salaryPercent === 55
+      r.salaryPercent === target.salaryPercent
     );
   });
   check("Mutaxassis ma'lumoti tahrirlanadi", saved, newPhone);
@@ -1559,7 +1614,6 @@ if (await payRow.count()) {
   await back.locator('input[name="fullName"]').fill(target.fullName);
   await back.locator('input[name="phone"]').fill(target.phone);
   await back.locator('select[name="specialization"]').selectOption(target.specialization);
-  await back.locator('input[name="salaryPercent"]').fill(String(target.salaryPercent));
   await back.locator('button:has-text("Saqlash")').click();
   const restored = await waitUntil(async () => {
     const r = await one(
@@ -1651,27 +1705,39 @@ if (await payRow.count()) {
     await badHours.waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false),
   );
 
-  // Narx va ulush
+  // Narx va ulush endi xizmatlarda: alohida standart narx kartasi yo'q
   await page.goto(`${BASE}/settings`);
   await page.waitForLoadState("networkidle");
-  const pricing = page.locator('form:has(input[name="defaultPrice"])');
-  await pricing.locator('input[name="defaultPrice"]').fill("175000");
-  await pricing.locator('input[name="defaultSalaryPercent"]').fill("45");
-  await pricing.locator('button:has-text("Saqlash")').click();
-  const priced = await waitUntil(async () => {
-    const r = await one("SELECT defaultPrice, defaultSalaryPercent FROM Settings WHERE id='main'");
-    return r && r.defaultPrice === 175000 && r.defaultSalaryPercent === 45;
-  });
-  check("Standart narx va ulush saqlanadi", priced);
+  check(
+    "Sozlamalarda alohida standart narx/ulush kartasi yo'q",
+    (await page.locator('input[name="defaultPrice"]').count()) === 0 &&
+      (await page.locator('input[name="defaultSalaryPercent"]').count()) === 0,
+  );
+  {
+    const svc = await one("SELECT id, salaryPercent FROM SessionType WHERE branchId IS NULL AND isActive = true ORDER BY name LIMIT 1");
+    const row = page.locator(`[data-testid="session-type-row"]:has(input[name="typeId"][value="${svc.id}"])`);
+    await row.locator('input[name="salaryPercent"]').fill("55");
+    await row.locator('form:has(input[name="price"]) button[type=submit]').click();
+    check(
+      "Xizmat ulushi tahrirlanadi",
+      await waitUntil(async () => Number((await one("SELECT salaryPercent FROM SessionType WHERE id = ?", svc.id)).salaryPercent) === 55),
+    );
+    await page.goto(`${BASE}/settings`);
+    await page.waitForLoadState("networkidle");
+    await row.locator('input[name="salaryPercent"]').fill("150");
+    await row.locator('form:has(input[name="price"]) button[type=submit]').click();
+    await page.waitForTimeout(1500);
+    check(
+      "100 dan katta ulush qabul qilinmaydi",
+      Number((await one("SELECT salaryPercent FROM SessionType WHERE id = ?", svc.id)).salaryPercent) === 55,
+    );
+    await all("UPDATE SessionType SET salaryPercent = ? WHERE id = ?", svc.salaryPercent, svc.id);
+  }
 
-  // Standart qiymat formalarda ishlatiladi
   await page.goto(`${BASE}/specialists`);
   await page.waitForLoadState("networkidle");
   await page.click('summary:has-text("Yangi mutaxassis")');
-  check(
-    "Yangi mutaxassis formasida standart foiz turadi",
-    (await page.locator("#salaryPercent").inputValue()) === "45",
-  );
+  check("Yangi mutaxassis formasida ulush so'ralmaydi", (await page.locator("#salaryPercent").count()) === 0);
 
   // Parolni o'zgartirish: joriy parol noto'g'ri bo'lsa rad etiladi
   await page.goto(`${BASE}/settings`);
@@ -1739,6 +1805,8 @@ if (await payRow.count()) {
 
   if (hasSlots) {
     await slotForm.locator('select[name="clientId"]').selectOption({ index: 1 });
+    // Mijozda bir nechta xizmat bo'lishi mumkin — xizmatni aniq tanlaymiz
+    await slotForm.locator('select[name="sessionTypeId"]').selectOption({ index: 1 });
     await slotForm.locator('button:has-text("Yozish")').click();
     const booked = await waitUntil(
       async () => (await count("SELECT COUNT(*) AS n FROM Session")) === before + 1,
@@ -1907,6 +1975,53 @@ check(
     if (sess) await all("DELETE FROM Session WHERE id = ?", sess.id);
   }
   await all("DELETE FROM SessionType WHERE id = ?", type.id);
+}
+
+/* 10t. Abonement: seans xizmat abonementidan, eski abonementdan ham yechiladi */
+{
+  await login(owner.phone);
+  const tag = String(Date.now()).slice(-6);
+  const pair = await one(`
+    SELECT c.id AS clientId, s.id AS specialistId, s.specialization
+      FROM Client c
+      JOIN Branch b ON b.id = c.branchId AND b.isSolo = false
+      JOIN Specialist s ON s.branchId = c.branchId AND s.isActive = true
+     WHERE c.status = 'ACTIVE' AND NOT EXISTS (SELECT 1 FROM Package p WHERE p.clientId = c.id)
+     LIMIT 1`);
+  const [svcA, svcB] = await all("SELECT id FROM SessionType WHERE branchId IS NULL AND isActive = true ORDER BY name LIMIT 2");
+  // Xizmatlar kiritilishidan oldin sotilgan abonement — yo'nalishga bog'langan
+  const legacyId = `tst-eski-${tag}`;
+  const typedId = `tst-xizmat-${tag}`;
+  await all(
+    "INSERT INTO Package (id, clientId, specialization, totalSessions, pricePerSession, purchasedAt, isActive) VALUES (?, ?, ?, 5, 99000, now(), true)",
+    legacyId, pair.clientId, pair.specialization,
+  );
+  await all(
+    "INSERT INTO Package (id, clientId, sessionTypeId, totalSessions, pricePerSession, purchasedAt, isActive) VALUES (?, ?, ?, 5, 77000, now(), true)",
+    typedId, pair.clientId, svcA.id,
+  );
+  const book = async (serviceId, hour) => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    const pad = (n) => String(n).padStart(2, "0");
+    await page.goto(`${BASE}/schedule?yangi=${pair.clientId}`);
+    await page.waitForSelector("#sessionTypeId", { timeout: 15000 });
+    await page.selectOption("#specialistId", pair.specialistId);
+    await page.fill("#startsAt", `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${hour}:10`);
+    await page.selectOption("#sessionTypeId", serviceId);
+    await page.locator('form:has(#sessionTypeId) button[type="submit"]').click();
+    return waitUntil(async () => (await one(
+      "SELECT packageId FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, serviceId,
+    )) !== null);
+  };
+  await book(svcA.id, "06");
+  await book(svcB.id, "05");
+  const a = await one("SELECT packageId FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, svcA.id);
+  const b = await one("SELECT packageId FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, svcB.id);
+  check("Seans shu xizmat abonementidan yechiladi", a?.packageId === typedId, JSON.stringify(a));
+  check("Xizmat abonementi bo'lmasa eski abonementdan yechiladi", b?.packageId === legacyId, JSON.stringify(b));
+  await all("DELETE FROM Session WHERE clientId = ? AND packageId IN (?, ?)", pair.clientId, legacyId, typedId);
+  await all("DELETE FROM Package WHERE id IN (?, ?)", legacyId, typedId);
 }
 
 /* 10a. Telegram kanalga e'lon: ega ko'radi, xato sababi aytiladi */

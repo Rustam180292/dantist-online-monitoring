@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { packageName } from "@/lib/packages";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser, NOT_SOLO, isFrontDesk, isSolo } from "@/lib/auth";
-import { getSettings } from "@/lib/settings";
+import { branchTypeScope } from "@/lib/session-types";
 import {
   BILLING_TYPES,
   CLIENT_STATUSES,
@@ -39,7 +40,9 @@ import {
   addPackage,
   addPayment,
   anonymizeClient,
+  assignService,
   assignSpecialist,
+  unassignService,
   deleteClient,
   deletePayment,
   setClientStatus,
@@ -73,15 +76,6 @@ export default async function ClientPage({
     isFrontDesk(user);
   const canDelete = user.role === "OWNER" || user.role === "BRANCH_ADMIN";
 
-  const settings = await getSettings();
-  // Yakka logopedning narxi o'ziniki — abonement formasida shu taklif qilinadi
-  const soloPrice =
-    isSolo(user) && user.specialistId
-      ? (await prisma.specialist.findUnique({
-          where: { id: user.specialistId },
-          select: { defaultPrice: true },
-        }))?.defaultPrice ?? null
-      : null;
 
   const client = await prisma.client.findFirst({
     where: { id, ...clientScope(user) },
@@ -98,7 +92,14 @@ export default async function ClientPage({
       sessions: {
         orderBy: { startsAt: "desc" },
         take: 30,
-        include: { specialist: { include: { user: { select: { fullName: true } } } } },
+        include: {
+          specialist: { include: { user: { select: { fullName: true } } } },
+          sessionType: { select: { name: true } },
+        },
+      },
+      services: {
+        orderBy: { createdAt: "asc" },
+        include: { sessionType: { select: { id: true, name: true, price: true, isActive: true } } },
       },
       payments: { orderBy: { paidAt: "desc" } },
     },
@@ -110,7 +111,7 @@ export default async function ClientPage({
   // o'zgaradi
   const daily = client.billingType !== "PACKAGE";
 
-  const [packages, freeSpecialists, notifications, branches, sessionCount] = await Promise.all([
+  const [packages, freeSpecialists, notifications, branches, sessionCount, branchServices] = await Promise.all([
     getClientPackages(client.id),
     canManage
       ? prisma.specialist.findMany({
@@ -136,7 +137,21 @@ export default async function ClientPage({
       : Promise.resolve([]),
     // Ro'yxat 30 ta bilan cheklangan, o'chirishda esa aniq son kerak
     prisma.session.count({ where: { clientId: client.id } }),
+    // Shu filialga mos xizmatlar: markaz mijoziga — markaz xizmatlari,
+    // yakka logoped mijoziga — uning o'z xizmatlari
+    prisma.sessionType.findMany({
+      where: { ...branchTypeScope(client.branch), isActive: true },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, price: true },
+    }),
   ]);
+  const myServiceIds = new Set(client.services.map((x) => x.sessionTypeId));
+  const freeServices = branchServices.filter((x) => !myServiceIds.has(x.id));
+  // Abonement formasida mijozning o'z xizmatlari birinchi turadi
+  const packageServices = [
+    ...branchServices.filter((x) => myServiceIds.has(x.id)),
+    ...freeServices,
+  ];
 
   const totalPaid = client.payments.reduce((s, p) => s + p.amount, 0);
   const totalDebt = packages.reduce((s, p) => s + p.debt, 0);
@@ -173,7 +188,7 @@ export default async function ClientPage({
             {daily ? (
               <div className="space-y-2 p-4 text-sm text-slate-600 dark:text-slate-400">
                 <p>
-                  {t("Seans narxi Sozlamalardagi standart narxdan olinadi. Qolgan seans va qarzdorlik hisoblanmaydi.")}
+                  {t("Seans narxi mijozga biriktirilgan xizmatdan olinadi. Qolgan seans va qarzdorlik hisoblanmaydi.")}
                 </p>
                 <p>
                   {t("Abonementga o'tkazmoqchi bo'lsangiz, pastdagi")}
@@ -191,7 +206,7 @@ export default async function ClientPage({
                     <li key={p.id} className="px-4 py-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                          {t(SPECIALIZATIONS[p.specialization as Specialization])}
+                          {packageName(p, t)}
                         </p>
                         <div className="flex items-center gap-2">
                           <Badge
@@ -247,13 +262,14 @@ export default async function ClientPage({
                 <form action={addPackage} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <input type="hidden" name="clientId" value={client.id} />
                   <div>
-                    <label className={label} htmlFor="specialization">
-                      {t("Yo'nalish")}
+                    <label className={label} htmlFor="packageService">
+                      {t("Xizmat")}
                     </label>
-                    <select id="specialization" name="specialization" className={input} required>
-                      {SPECIALIZATION_KEYS.map((s) => (
-                        <option key={s} value={s}>
-                          {t(SPECIALIZATIONS[s])}
+                    {/* Narx so'ralmaydi — xizmat narxidan olinadi */}
+                    <select id="packageService" name="sessionTypeId" className={input} required>
+                      {packageServices.map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name} · {t.money(x.price)}
                         </option>
                       ))}
                     </select>
@@ -269,19 +285,6 @@ export default async function ClientPage({
                       min={1}
                       max={100}
                       defaultValue={12}
-                      className={input}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className={label} htmlFor="pricePerSession">
-                      {t("Bitta seans narxi ({currency})", { currency: t.currency })}
-                    </label>
-                    <input
-                      id="pricePerSession"
-                      name="pricePerSession"
-                      inputMode="numeric"
-                      defaultValue={soloPrice ?? settings.defaultPrice}
                       className={input}
                       required
                     />
@@ -346,7 +349,7 @@ export default async function ClientPage({
                         <td className={td}>
                           {s.specialist.user.fullName}
                           <span className="block text-xs text-slate-400">
-                            {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
+                            {s.sessionType?.name ?? t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
                           </span>
                         </td>
                         <td className={td}>
@@ -465,7 +468,7 @@ export default async function ClientPage({
                         <option value="">{t("Avtomatik — qarzi bor abonementga")}</option>
                         {packages.map((p) => (
                           <option key={p.id} value={p.id}>
-                            {t(SPECIALIZATIONS[p.specialization as Specialization])} ·{" "}
+                            {packageName(p, t)} ·{" "}
                             {t("{n} seans", { n: p.totalSessions })}
                             {p.debt > 0 ? ` (${t("qarz {sum}", { sum: t.money(p.debt) })})` : ""}
                           </option>
@@ -521,6 +524,67 @@ export default async function ClientPage({
                 v={client.parent?.telegramId ? t("ulangan") : t("ulanmagan")}
               />
             </dl>
+          </Card>
+
+          <Card title={t("Xizmatlar")} subtitle={t("seans va abonement shu xizmat narxida yoziladi")}>
+            <div data-testid="client-services">
+              {client.services.length === 0 ? (
+                <Empty>{t("Xizmat biriktirilmagan — seans yozishdan oldin qo'shing.")}</Empty>
+              ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {client.services.map((x) => (
+                    <li key={x.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-800 dark:text-slate-200">
+                          {x.sessionType.name}
+                        </p>
+                        <p className="text-xs tabular-nums text-slate-400">
+                          {t.money(x.sessionType.price)}
+                          {x.sessionType.isActive ? "" : ` · ${t("ro'yxatdan olingan")}`}
+                        </p>
+                      </div>
+                      {canManage ? (
+                        <form action={unassignService}>
+                          <input type="hidden" name="clientId" value={client.id} />
+                          <input type="hidden" name="sessionTypeId" value={x.sessionTypeId} />
+                          <button
+                            type="submit"
+                            className="text-xs text-slate-400 hover:text-rose-600"
+                            title={t("Olib tashlash")}
+                          >
+                            ✕
+                          </button>
+                        </form>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {canManage && freeServices.length > 0 ? (
+              <form
+                action={assignService}
+                className="flex items-end gap-2 border-t border-slate-200 p-4 dark:border-slate-800"
+              >
+                <input type="hidden" name="clientId" value={client.id} />
+                <div className="flex-1">
+                  <label className={label} htmlFor="assignService">
+                    {t("Xizmat qo'shish")}
+                  </label>
+                  <select id="assignService" name="sessionTypeId" className={input} required>
+                    {freeServices.map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name} · {t.money(x.price)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button type="submit" className={btnPrimary}>
+                  {t("Qo'shish")}
+                </button>
+              </form>
+            ) : null}
           </Card>
 
           <Card title={t("Mutaxassislar")}>

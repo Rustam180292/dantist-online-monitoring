@@ -161,22 +161,33 @@ async function main() {
   await prisma.linkCode.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.session.deleteMany();
-  await prisma.sessionType.deleteMany();
+  await prisma.clientService.deleteMany();
   await prisma.package.deleteMany();
+  await prisma.sessionType.deleteMany();
   await prisma.assignment.deleteMany();
   await prisma.client.deleteMany();
   await prisma.specialist.deleteMany();
   await prisma.user.deleteMany();
   await prisma.branch.deleteMany();
 
-  // Har xil mashg'ulotning narxi har xil — demo'da ham bir nechta tur bo'lsin
-  await prisma.sessionType.createMany({
-    data: [
-      { name: "Logoped seansi", price: 150_000 },
-      { name: "Massaj", price: 100_000 },
-      { name: "ABA terapiya", price: 180_000 },
-    ],
-  });
+  // Xizmatlar: har birining o'z narxi va o'z ulushi. Demo'da har yo'nalishga
+  // bittadan — mijoz shu xizmat bilan yoziladi, abonement ham shunga bog'lanadi.
+  const SERVICE_NAME: Record<string, string> = {
+    ABA: "ABA terapiya",
+    LOGOPED: "Logoped seansi",
+    AFK: "AFK mashg'uloti",
+    MASSAGE: "Massaj",
+    PSYCHOLOGIST: "Psixolog seansi",
+    SENSORY: "Sensor integratsiya",
+  };
+  const SERVICE_PERCENT: Record<string, number> = { MASSAGE: 50, AFK: 45 };
+  const serviceOf: Record<string, { id: string; salaryPercent: number }> = {};
+  for (const [key, name] of Object.entries(SERVICE_NAME)) {
+    serviceOf[key] = await prisma.sessionType.create({
+      data: { name, price: PRICE[key], salaryPercent: SERVICE_PERCENT[key] ?? 40 },
+      select: { id: true, salaryPercent: true },
+    });
+  }
 
   const pwd = hashPassword(DEMO_PASSWORD);
 
@@ -311,6 +322,12 @@ async function main() {
         await prisma.assignment.create({
           data: { clientId: client.id, specialistId: sp.id },
         });
+        const service = serviceOf[sp.specialization];
+        await prisma.clientService.upsert({
+          where: { clientId_sessionTypeId: { clientId: client.id, sessionTypeId: service.id } },
+          create: { clientId: client.id, sessionTypeId: service.id },
+          update: {},
+        });
 
         const pricePerSession = PRICE[sp.specialization];
         // 6 seanslik paketlar ham bor — real markazda abonement tugab turadi
@@ -323,7 +340,7 @@ async function main() {
         const pkg = isPackage ? await prisma.package.create({
           data: {
             clientId: client.id,
-            specialization: sp.specialization,
+            sessionTypeId: service.id,
             totalSessions,
             pricePerSession,
             purchasedAt,
@@ -409,11 +426,12 @@ async function main() {
               specialistId: sp.id,
               branchId: branch.id,
               packageId: pkg?.id ?? null,
+              sessionTypeId: service.id,
               startsAt: starts,
               durationMin: sp.specialization === "MASSAGE" ? 30 : 45,
               status,
               price: counts ? pricePerSession : 0,
-              salaryPercent: counts ? sp.salaryPercent : null,
+              salaryPercent: counts ? service.salaryPercent : null,
               note: status === "CANCELLED_CLIENT" ? "Bola kasal bo'lib qoldi" : null,
             },
           });

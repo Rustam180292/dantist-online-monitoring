@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { packageName } from "@/lib/packages";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
@@ -66,7 +67,7 @@ export default async function PaymentsPage({
       include: {
         client: { select: { id: true, fullName: true, status: true } },
         branch: { select: { name: true } },
-        package: { select: { specialization: true } },
+        package: { select: { specialization: true, sessionType: { select: { name: true } } } },
       },
     }),
     user.role === "OWNER" ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } }) : Promise.resolve([]),
@@ -367,7 +368,7 @@ export default async function PaymentsPage({
                       {!branchId ? <td className={td}>{p.branch.name}</td> : null}
                       <td className={td}>
                         {p.package
-                          ? t(SPECIALIZATIONS[p.package.specialization as Specialization])
+                          ? packageName(p.package, t)
                           : <span className="text-slate-400">—</span>}
                       </td>
                       <td className={td}>
@@ -513,7 +514,7 @@ export default async function PaymentsPage({
                       {d.clientName}
                     </Link>
                     <p className="truncate text-xs text-slate-400">
-                      {t(SPECIALIZATIONS[d.specialization as Specialization])} · {d.parentPhone}
+                      {packageName(d, t)} · {d.parentPhone}
                     </p>
                   </div>
                   <span className="shrink-0 text-sm font-semibold tabular-nums text-rose-600 dark:text-rose-400">

@@ -46,29 +46,6 @@ async function updateCenterImpl(formData: FormData) {
   await setFlash("Markaz ma'lumoti saqlandi.", "ok");
 }
 
-/** Standart seans narxi va ulush foizi */
-async function updatePricingImpl(formData: FormData) {
-  await requireOwner();
-
-  const defaultPrice = num(formData, "defaultPrice");
-  const defaultSalaryPercent = num(formData, "defaultSalaryPercent");
-
-  if (!Number.isFinite(defaultPrice) || defaultPrice <= 0) {
-    throw new Error("Seans narxi to'g'ri kiritilmagan.");
-  }
-  if (!Number.isInteger(defaultSalaryPercent) || defaultSalaryPercent < 0 || defaultSalaryPercent > 100) {
-    throw new Error("Ulush foizi 0 dan 100 gacha bo'lishi kerak.");
-  }
-
-  await prisma.settings.upsert({
-    where: { id: "main" },
-    create: { id: "main", defaultPrice, defaultSalaryPercent },
-    update: { defaultPrice, defaultSalaryPercent },
-  });
-
-  refresh();
-  await setFlash("Narx va ulush saqlandi.", "ok");
-}
 
 /**
  * Ish vaqti.
@@ -219,23 +196,6 @@ async function removeLogoImpl() {
   await setFlash("Logotip olib tashlandi.", "ok");
 }
 
-/**
- * Yakka logopedning o'z seans narxi.
- *
- * Markaz egasi narxni "Narx va ulush" da hamma uchun qo'yadi, yakka logopedda
- * esa markaz yo'q — narx uning o'ziniki (`Specialist.defaultPrice`) va yangi
- * seansga shu yerdan olinadi. O'tib bo'lgan seanslar narxi o'zgarmaydi: narx
- * seans bilan birga saqlanadi.
- */
-async function updateSoloPriceImpl(formData: FormData) {
-  const user = await requireUser();
-  if (!isSolo(user) || !user.specialistId) throw new Error("Sizda bu amal uchun ruxsat yo'q.");
-  const price = Math.round(Number(String(formData.get("price") ?? "").replace(/[^\d]/g, "")));
-  if (!Number.isFinite(price) || price <= 0) throw new Error("Seans narxi to'g'ri kiritilmagan.");
-  await prisma.specialist.update({ where: { id: user.specialistId }, data: { defaultPrice: price } });
-  revalidatePath("/settings");
-  await setFlash("Seans narxi saqlandi.", "ok");
-}
 
 /* ---------------- Seans turlari va narxlari ---------------- */
 
@@ -248,23 +208,34 @@ async function requireTypeManager() {
   return user;
 }
 
-function typeFields(formData: FormData) {
+function typeFields(formData: FormData, solo: boolean) {
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const price = num(formData, "price");
-  if (!name) throw new Error("Seans turining nomini kiriting.");
+  if (!name) throw new Error("Xizmat nomini kiriting.");
   if (!Number.isFinite(price) || price <= 0) throw new Error("Seans narxi to'g'ri kiritilmagan.");
-  return { name, price };
+  // Yakka logopedda boshqa xodim yo'q — pulning hammasi o'ziniki
+  if (solo) return { name, price, salaryPercent: 100 };
+  const raw = String(formData.get("salaryPercent") ?? "").trim();
+  const salaryPercent = Number(raw);
+  if (raw === "" || !Number.isInteger(salaryPercent) || salaryPercent < 0 || salaryPercent > 100) {
+    throw new Error("Ulush foizi 0 dan 100 gacha bo'lishi kerak.");
+  }
+  return { name, price, salaryPercent };
 }
 
 /** Boshqa markazning (yoki yakka logopedning) turiga tegib bo'lmasin */
 async function ownType(formData: FormData) {
   const user = await requireTypeManager();
+  return { user, id: await ownTypeId(user, formData) };
+}
+
+async function ownTypeId(user: Awaited<ReturnType<typeof requireUser>>, formData: FormData) {
   const id = String(formData.get("typeId") ?? "");
   const type = await prisma.sessionType.findFirst({
     where: { id, ...sessionTypeScope(user) },
     select: { id: true },
   });
-  if (!type) throw new Error("Seans turi topilmadi.");
+  if (!type) throw new Error("Xizmat topilmadi.");
   return type.id;
 }
 
@@ -276,16 +247,16 @@ function refreshTypes() {
 
 async function addSessionTypeImpl(formData: FormData) {
   const user = await requireTypeManager();
-  const { name, price } = typeFields(formData);
+  const { name, price, salaryPercent } = typeFields(formData, isSolo(user));
   const scope = sessionTypeScope(user);
   const clash = await prisma.sessionType.findFirst({
     where: { ...scope, isActive: true, name: { equals: name, mode: "insensitive" } },
     select: { id: true },
   });
-  if (clash) throw new Error("Bunday nomli seans turi allaqachon bor.");
-  await prisma.sessionType.create({ data: { ...scope, name, price } });
+  if (clash) throw new Error("Bunday nomli xizmat allaqachon bor.");
+  await prisma.sessionType.create({ data: { ...scope, name, price, salaryPercent } });
   refreshTypes();
-  await setFlash("Seans turi qo'shildi.", "ok");
+  await setFlash("Xizmat qo'shildi.", "ok");
 }
 
 /**
@@ -293,11 +264,11 @@ async function addSessionTypeImpl(formData: FormData) {
  * narxi "O'tdi" belgilangan payt seansning o'ziga yozilgan.
  */
 async function updateSessionTypeImpl(formData: FormData) {
-  const id = await ownType(formData);
-  const { name, price } = typeFields(formData);
-  await prisma.sessionType.update({ where: { id }, data: { name, price } });
+  const { user, id } = await ownType(formData);
+  const data = typeFields(formData, isSolo(user));
+  await prisma.sessionType.update({ where: { id }, data });
   refreshTypes();
-  await setFlash("Seans turi saqlandi.", "ok");
+  await setFlash("Xizmat saqlandi.", "ok");
 }
 
 /**
@@ -305,10 +276,10 @@ async function updateSessionTypeImpl(formData: FormData) {
  * ko'rinib tursin, hisobotlar o'zgarmasin.
  */
 async function removeSessionTypeImpl(formData: FormData) {
-  const id = await ownType(formData);
+  const { id } = await ownType(formData);
   await prisma.sessionType.update({ where: { id }, data: { isActive: false } });
   refreshTypes();
-  await setFlash("Seans turi ro'yxatdan olindi.", "ok");
+  await setFlash("Xizmat ro'yxatdan olindi.", "ok");
 }
 
 export const addSessionType = withFlash(addSessionTypeImpl);
@@ -371,11 +342,9 @@ async function postChannelImpl(formData: FormData) {
 }
 
 export const postChannel = withFlash(postChannelImpl);
-export const updateSoloPrice = withFlash(updateSoloPriceImpl);
 export const uploadLogo = withFlash(uploadLogoImpl);
 export const removeLogo = withFlash(removeLogoImpl);
 export const backupNow = withFlash(backupNowImpl);
 export const updateCenter = withFlash(updateCenterImpl);
-export const updatePricing = withFlash(updatePricingImpl);
 export const updateWorkHours = withFlash(updateWorkHoursImpl);
 export const changePassword = withFlash(changePasswordImpl);

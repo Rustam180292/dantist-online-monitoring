@@ -121,12 +121,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 266 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 277 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, seans turlari (185)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement (196)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
@@ -188,15 +188,26 @@ Buni o'zgartirishdan oldin tushunib oling:
   to'laydi) yoki `PACKAGE` (abonement oladi). Kunlik mijozda abonement, qolgan seans
   va qarzdorlik tushunchasi yo'q — interfeys ham, eslatmalar ham unga bu narsalarni
   ko'rsatmaydi.
-- **Seans narxi** abonementdan olinadi; abonement bo'lmasa Sozlamalardagi standart
-  narx qo'llanadi. Narx ham seans bilan birga saqlanadi.
-- **Seans turlari** (`SessionType`, Sozlamalar → "Seans turlari va narxlari"):
-  "Logoped 45 daq", "Massaj" kabi erkin ro'yxat, har birining o'z narxi. Seans
-  yozilganda tur tanlanadi (`Session.sessionTypeId`, ixtiyoriy). "O'tdi"
-  belgilanganda narx zanjiri: seansda yozilgan → abonement → **seans turi** →
-  mutaxassisning o'z narxi → markaz standarti. Markaz turlari `branchId` bo'sh
-  (faqat ega boshqaradi), yakka logopedniki — uning filiali
-  (`src/lib/session-types.ts`). Tur o'chirilmaydi, `isActive=false` bo'ladi.
+- **Seans narxi** abonementdan, abonement bo'lmasa xizmatdan olinadi. Narx ham
+  seans bilan birga saqlanadi.
+- **Xizmatlar** (`SessionType`, Sozlamalar → "Xizmatlar, narx va ulush"):
+  nom + bitta seans narxi + mutaxassis ulushi (%). Bitta xodim ham logoped,
+  ham massaj qilsa, har biri o'z narxida va o'z foizida hisoblanadi.
+  Markaz xizmatlari `branchId` bo'sh (faqat ega boshqaradi), yakka
+  logopedniki — uning filiali, ulushi doim 100% (`src/lib/session-types.ts`).
+  Xizmat o'chirilmaydi, `isActive=false` bo'ladi.
+- **Mijozga xizmat biriktiriladi** (`ClientService`, mijoz kartasi). **Seans
+  faqat xizmat bilan yoziladi**: formada tanlanmasa mijozning xizmati olinadi
+  (bittasi bo'lsa), xizmati yo'q yoki bir nechta bo'lsa — xato.
+- **Abonement xizmatga bog'lanadi** (`Package.sessionTypeId`), narxi xizmatdan
+  olinadi va abonementda saqlanadi. Seans shu xizmat abonementidan yechiladi;
+  bunday abonement bo'lmasa — xizmatlardan oldin sotilgan, yo'nalishga
+  bog'langan eski abonementdan (`Package.specialization`, qolgan seanslar
+  kuymasin). Abonement nomi hamma joyda `packageName()` orqali.
+- **"O'tdi"/"Kelmadi"** belgilanganda: narx = seansda yozilgan → abonement →
+  xizmat → (eski seanslar uchun) mutaxassis narxi → `Settings.defaultPrice`;
+  ulush = xizmatniki → (eski seanslar uchun) `Specialist.salaryPercent`.
+  Standart narx va xodim foizi interfeysda yo'q, faqat eski ma'lumot uchun.
 - `billingType` ustuni keyin qo'shilgani uchun eski bazada hamma `DAILY` bo'lib
   qoladi. `npm run db:billing-type` abonementi borlarni bir marta `PACKAGE` ga
   o'tkazadi.

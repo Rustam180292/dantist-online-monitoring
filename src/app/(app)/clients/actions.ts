@@ -138,6 +138,14 @@ async function createClientImpl(formData: FormData) {
     });
   }
 
+  // Xizmat darhol biriktirilsa, mijozga keyin seans yozish uchun boshqa
+  // sahifaga o'tish shart emas
+  const sessionTypeId = String(formData.get("sessionTypeId") ?? "");
+  if (sessionTypeId) {
+    await serviceForClient(sessionTypeId, client);
+    await prisma.clientService.create({ data: { clientId: client.id, sessionTypeId } });
+  }
+
   revalidatePath("/clients");
   revalidatePath("/");
   redirect(`/clients/${client.id}`);
@@ -392,22 +400,73 @@ async function unassignSpecialistImpl(formData: FormData) {
   revalidatePath(`/clients/${clientId}`);
 }
 
-/** Abonement (seans paketi) sotish */
+/**
+ * Xizmat mijozning filialiga mosmi: markaz xizmati markaz mijoziga, yakka
+ * logoped xizmati faqat uning o'z mijoziga. Begona narx bilan abonement
+ * yoki seans yozib bo'lmasin.
+ */
+async function serviceForClient(sessionTypeId: string, client: { branchId: string }) {
+  const [type, branch] = await Promise.all([
+    prisma.sessionType.findUnique({
+      where: { id: sessionTypeId },
+      select: { id: true, name: true, price: true, branchId: true, isActive: true },
+    }),
+    prisma.branch.findUnique({ where: { id: client.branchId }, select: { id: true, isSolo: true } }),
+  ]);
+  if (!type || !type.isActive || !branch) throw new Error("Xizmat topilmadi.");
+  if ((branch.isSolo ? branch.id : null) !== type.branchId) throw new Error("Xizmat topilmadi.");
+  return type;
+}
+
+/** Mijozga xizmat biriktirish — seans yozilganda shu xizmat o'zi olinadi */
+async function assignServiceImpl(formData: FormData) {
+  const user = await requireFrontDesk();
+  const clientId = String(formData.get("clientId") ?? "");
+  const sessionTypeId = String(formData.get("sessionTypeId") ?? "");
+  if (!sessionTypeId) throw new Error("Xizmatni tanlang.");
+  const client = await assertClientAccess(user, clientId);
+  await serviceForClient(sessionTypeId, client);
+  await prisma.clientService.upsert({
+    where: { clientId_sessionTypeId: { clientId, sessionTypeId } },
+    create: { clientId, sessionTypeId },
+    update: {},
+  });
+  revalidatePath(`/clients/${clientId}`);
+  await setFlash("Xizmat biriktirildi.", "ok");
+}
+
+/** Xizmatni mijozdan olib tashlash (o'tgan seanslar va abonementlar qoladi) */
+async function unassignServiceImpl(formData: FormData) {
+  const user = await requireFrontDesk();
+  const clientId = String(formData.get("clientId") ?? "");
+  const sessionTypeId = String(formData.get("sessionTypeId") ?? "");
+  await assertClientAccess(user, clientId);
+  await prisma.clientService.deleteMany({ where: { clientId, sessionTypeId } });
+  revalidatePath(`/clients/${clientId}`);
+}
+
+/**
+ * Abonement (seans paketi) sotish.
+ *
+ * Abonement xizmatga bog'lanadi va narxi xizmatdan olinadi: "Massaj: 10
+ * seans" sotilsa, massaj seanslari shu abonementdan yechiladi. Narx
+ * abonementda saqlanadi — keyin xizmat narxi o'zgarsa ham, ota-ona to'lagan
+ * narx o'zgarmaydi.
+ */
 async function addPackageImpl(formData: FormData) {
   const user = await requireFrontDesk();
   const clientId = String(formData.get("clientId") ?? "");
-  const specialization = String(formData.get("specialization") ?? "") as Specialization;
-  if (!SPECIALIZATION_KEYS.includes(specialization)) {
-    throw new Error("Mutaxassislik turini tanlang.");
-  }
+  const sessionTypeId = String(formData.get("sessionTypeId") ?? "");
+  if (!sessionTypeId) throw new Error("Xizmatni tanlang.");
 
   const totalSessions = Number(formData.get("totalSessions") ?? 0);
   if (!Number.isInteger(totalSessions) || totalSessions < 1 || totalSessions > 100) {
     throw new Error("Seans soni 1 dan 100 gacha bo'lishi kerak.");
   }
-  const pricePerSession = parseAmount(formData.get("pricePerSession"), "Seans narxi to'g'ri kiritilmagan.");
 
-  await assertClientAccess(user, clientId);
+  const client = await assertClientAccess(user, clientId);
+  const service = await serviceForClient(sessionTypeId, client);
+  const pricePerSession = service.price;
 
   const expiresAtRaw = String(formData.get("expiresAt") ?? "");
   const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : null;
@@ -415,11 +474,19 @@ async function addPackageImpl(formData: FormData) {
   const pkg = await prisma.package.create({
     data: {
       clientId,
-      specialization,
+      sessionTypeId,
       totalSessions,
       pricePerSession,
       expiresAt: expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt : null,
     },
+  });
+
+  // Abonement olingan xizmat mijozga biriktirilgan bo'lsin — seans yozishda
+  // aynan shu xizmat taklif qilinadi
+  await prisma.clientService.upsert({
+    where: { clientId_sessionTypeId: { clientId, sessionTypeId } },
+    create: { clientId, sessionTypeId },
+    update: {},
   });
 
   // Darhol to'lov kiritilgan bo'lsa, shu abonementga yozamiz
@@ -626,6 +693,8 @@ export const deleteClient = withFlash(deleteClientImpl);
 export const assignSpecialist = withFlash(assignSpecialistImpl);
 export const unassignSpecialist = withFlash(unassignSpecialistImpl);
 export const addPackage = withFlash(addPackageImpl);
+export const assignService = withFlash(assignServiceImpl);
+export const unassignService = withFlash(unassignServiceImpl);
 export const addPayment = withFlash(addPaymentImpl);
 export const deletePayment = withFlash(deletePaymentImpl);
 export const updatePayment = withFlash(updatePaymentImpl);

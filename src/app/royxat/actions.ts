@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, startSession } from "@/lib/auth";
 import { withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
-import { SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
+import { SPECIALIZATIONS, SPECIALIZATION_KEYS, type Specialization } from "@/lib/constants";
 import { getSettings } from "@/lib/settings";
 
 /**
@@ -82,6 +82,11 @@ async function registerSoloImpl(formData: FormData) {
         // Yakka ishlaydi — pulning hammasi o'ziniki, markaz ulushi yo'q
         salaryPercent: 100,
       },
+    });
+    // Seans faqat xizmat bilan yoziladi — birinchi xizmat darhol tayyor tursin,
+    // keyin Sozlamalardan qo'shadi yoki o'zgartiradi
+    await tx.sessionType.create({
+      data: { branchId: branch.id, name: SPECIALIZATIONS[specialization], price, salaryPercent: 100 },
     });
     return created;
   });
