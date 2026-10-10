@@ -1,3 +1,4 @@
+import { getSessionTypes } from "@/lib/session-types";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireUser, sessionScope, clientScope, NOT_SOLO } from "@/lib/auth";
@@ -46,7 +47,7 @@ export default async function SchedulePage({
   const specialistFilter =
     user.role === "SPECIALIST" ? user.specialistId : (sp.s || null);
 
-  const [sessions, branches, specialists, clients] = await Promise.all([
+  const [sessions, branches, specialists, clients, sessionTypes] = await Promise.all([
     prisma.session.findMany({
       where: {
         ...sessionScope(user),
@@ -59,6 +60,7 @@ export default async function SchedulePage({
         client: { select: { id: true, fullName: true } },
         specialist: { include: { user: { select: { fullName: true } } } },
         branch: { select: { name: true } },
+        sessionType: { select: { name: true } },
       },
     }),
     user.role === "OWNER"
@@ -78,6 +80,7 @@ export default async function SchedulePage({
           orderBy: [{ branch: { name: "asc" } }, { fullName: "asc" }],
         })
       : Promise.resolve([]),
+    canEdit ? getSessionTypes(user) : Promise.resolve([]),
   ]);
 
   // Mutaxassis o'ziga seans qo'shishi uchun ro'yxat
@@ -291,7 +294,23 @@ export default async function SchedulePage({
                 className={input}
               />
             </div>
-            <div className="lg:col-span-3">
+            {sessionTypes.length > 0 ? (
+              <div className="lg:col-span-2">
+                <label className={label} htmlFor="sessionTypeId">
+                  {t("Seans turi")}
+                </label>
+                {/* Tanlanmasa narx avvalgidek: abonementdan yoki standart narxdan */}
+                <select id="sessionTypeId" name="sessionTypeId" defaultValue="" className={input}>
+                  <option value="">{t("— tanlanmagan —")}</option>
+                  {sessionTypes.map((st) => (
+                    <option key={st.id} value={st.id}>
+                      {st.name} · {money(st.price)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <div className={sessionTypes.length > 0 ? "" : "lg:col-span-3"}>
               <label className={label} htmlFor="note">
                 {t("Izoh (ixtiyoriy)")}
               </label>
@@ -339,6 +358,11 @@ export default async function SchedulePage({
                           {t(SPECIALIZATIONS[s.specialist.specialization as Specialization])}
                           {!branchFilter ? ` · ${s.branch.name}` : ""} · {t("{n} daq.", { n: s.durationMin })}
                         </p>
+                        {s.sessionType ? (
+                          <p className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                            {s.sessionType.name}
+                          </p>
+                        ) : null}
                         {s.note ? (
                           <p className="text-xs text-slate-400">{s.note}</p>
                         ) : null}

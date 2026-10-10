@@ -113,12 +113,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 257 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 266 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq (176)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, seans turlari (185)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip (33)
@@ -182,6 +182,13 @@ Buni o'zgartirishdan oldin tushunib oling:
   ko'rsatmaydi.
 - **Seans narxi** abonementdan olinadi; abonement bo'lmasa Sozlamalardagi standart
   narx qo'llanadi. Narx ham seans bilan birga saqlanadi.
+- **Seans turlari** (`SessionType`, Sozlamalar → "Seans turlari va narxlari"):
+  "Logoped 45 daq", "Massaj" kabi erkin ro'yxat, har birining o'z narxi. Seans
+  yozilganda tur tanlanadi (`Session.sessionTypeId`, ixtiyoriy). "O'tdi"
+  belgilanganda narx zanjiri: seansda yozilgan → abonement → **seans turi** →
+  mutaxassisning o'z narxi → markaz standarti. Markaz turlari `branchId` bo'sh
+  (faqat ega boshqaradi), yakka logopedniki — uning filiali
+  (`src/lib/session-types.ts`). Tur o'chirilmaydi, `isActive=false` bo'ladi.
 - `billingType` ustuni keyin qo'shilgani uchun eski bazada hamma `DAILY` bo'lib
   qoladi. `npm run db:billing-type` abonementi borlarni bir marta `PACKAGE` ga
   o'tkazadi.

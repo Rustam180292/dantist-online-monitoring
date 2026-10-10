@@ -1,3 +1,4 @@
+import { getSessionTypes } from "@/lib/session-types";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
@@ -36,7 +37,7 @@ export default async function SlotsPage({
 
   const branchId = user.role === "OWNER" ? (sp.b || null) : user.branchId;
 
-  const [specialists, sessions, branches] = await Promise.all([
+  const [specialists, sessions, branches, sessionTypes] = await Promise.all([
     prisma.specialist.findMany({
       where: { isActive: true, ...branchWhere(branchId) },
       include: { user: { select: { fullName: true } }, branch: { select: { name: true } } },
@@ -53,6 +54,7 @@ export default async function SlotsPage({
     user.role === "OWNER"
       ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } })
       : Promise.resolve([]),
+    getSessionTypes(user),
   ]);
 
   /**
@@ -274,6 +276,21 @@ export default async function SlotsPage({
                       </option>
                     ))}
                   </select>
+                  {sessionTypes.length > 0 ? (
+                    <select
+                      name="sessionTypeId"
+                      defaultValue=""
+                      aria-label={t("Seans turi")}
+                      className={`${input} mt-2`}
+                    >
+                      <option value="">{t("Seans turi")}: {t("— tanlanmagan —")}</option>
+                      {sessionTypes.map((st) => (
+                        <option key={st.id} value={st.id}>
+                          {st.name} · {t.money(st.price)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                   <div className="mt-2 flex items-center gap-2">
                     <input
                       name="durationMin"

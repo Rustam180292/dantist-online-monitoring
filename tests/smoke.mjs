@@ -1125,6 +1125,14 @@ if (await payRow.count()) {
   await page.goto(`${BASE}/settings`);
   await page.waitForSelector("#soloPrice", { timeout: 15000 });
   check("Yakka ham kanalga e'lon qila oladi", (await page.locator("#channel").count()) === 1);
+  {
+    const soloTypes = await page.locator('[data-testid="session-types"]').innerText();
+    check(
+      "Yakka o'z seans turlarini boshqaradi, markaznikini ko'rmaydi",
+      (await page.locator('[data-testid="session-types"]').count()) === 1 &&
+        !soloTypes.includes("Logoped seansi") && !soloTypes.includes("Massaj"),
+    );
+  }
   await page.fill("#soloPrice", "210000");
   await page.locator("form:has(#soloPrice) button[type=submit]").click();
   check(
@@ -1802,6 +1810,105 @@ check(
   page.url(),
 );
 
+/* 10s. Seans turlari va narxlari */
+{
+  const tag = String(Date.now()).slice(-6);
+  const typeName = `Sinov turi ${tag}`;
+  await login(owner.phone);
+  await page.goto(`${BASE}/settings`);
+  await page.waitForSelector('[data-testid="session-types"]', { timeout: 15000 });
+  const seeded = await page.locator('[data-testid="session-type-row"]').count();
+  check("Sozlamalarda seans turlari ro'yxati bor", seeded >= 1, `${seeded} ta`);
+
+  await page.fill("#newTypeName", typeName);
+  await page.fill("#newTypePrice", "123000");
+  await page.locator("form:has(#newTypeName) button[type=submit]").click();
+  const added = await waitUntil(
+    async () => (await count("SELECT COUNT(*) AS n FROM SessionType WHERE name = ? AND branchId IS NULL AND price = 123000", typeName)) === 1,
+  );
+  check("Ega seans turini narxi bilan qo'sha oladi", added);
+  const type = await one("SELECT id FROM SessionType WHERE name = ?", typeName);
+
+  // Takroriy nom ikkinchi tur bo'lib yozilmaydi
+  await page.goto(`${BASE}/settings`);
+  await page.waitForSelector("#newTypeName");
+  await page.fill("#newTypeName", typeName.toUpperCase());
+  await page.fill("#newTypePrice", "1000");
+  await page.locator("form:has(#newTypeName) button[type=submit]").click();
+  await page.waitForTimeout(1500);
+  check(
+    "Bir xil nomli tur ikki marta qo'shilmaydi",
+    (await count("SELECT COUNT(*) AS n FROM SessionType WHERE lower(name) = lower(?) AND isActive = true", typeName)) === 1,
+  );
+
+  // Narxni tahrirlash
+  await page.goto(`${BASE}/settings`);
+  const row = page.locator(`[data-testid="session-type-row"]:has(input[name="typeId"][value="${type.id}"])`);
+  await row.locator('input[name="price"]').fill("124000");
+  await row.locator('form:has(input[name="price"]) button[type=submit]').click();
+  check(
+    "Seans turining narxi tahrirlanadi",
+    await waitUntil(async () => Number((await one("SELECT price FROM SessionType WHERE id = ?", type.id)).price) === 124000),
+  );
+
+  // Abonementi yo'q mijozga shu tur bilan seans yoziladi va "O'tdi" da narx turdan olinadi
+  const pair = await one(`
+    SELECT c.id AS clientId, c.fullName AS clientName, s.id AS specialistId
+      FROM Client c
+      JOIN Branch b ON b.id = c.branchId AND b.isSolo = false
+      JOIN Specialist s ON s.branchId = c.branchId AND s.isActive = true
+     WHERE c.status = 'ACTIVE'
+       AND NOT EXISTS (SELECT 1 FROM Package p WHERE p.clientId = c.id)
+     LIMIT 1`);
+  if (!pair) {
+    check("Seans turi bilan seans yoziladi", false, "abonementsiz mijoz topilmadi");
+  } else {
+    const when = new Date();
+    when.setDate(when.getDate() + 1);
+    when.setHours(7, 5, 0, 0);
+    const pad = (n) => String(n).padStart(2, "0");
+    const local = `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())}T07:05`;
+    await page.goto(`${BASE}/schedule?yangi=${pair.clientId}`);
+    await page.waitForSelector("#sessionTypeId", { timeout: 15000 });
+    await page.selectOption("#specialistId", pair.specialistId);
+    await page.fill("#startsAt", local);
+    await page.selectOption("#sessionTypeId", type.id);
+    await page.locator('form:has(#sessionTypeId) button[type="submit"]').click();
+    const created = await waitUntil(
+      async () => (await count("SELECT COUNT(*) AS n FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, type.id)) === 1,
+    );
+    check("Seans turi bilan seans yoziladi", created);
+    const sess = await one("SELECT id, startsAt FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, type.id);
+
+    if (sess) {
+      const mondayOf = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+      const offset = Math.round((mondayOf(sess.startsAt) - mondayOf(new Date())) / (7 * 86400000));
+      await page.goto(`${BASE}/schedule?w=${offset}`);
+      await page.waitForLoadState("networkidle");
+      const li = page.locator(`li:has(input[name="sessionId"][value="${sess.id}"])`).first();
+      check("Jadvalda seans turi nomi ko'rinadi", (await li.innerText()).includes(typeName));
+      await li.locator('form button:has-text("O\'tdi")').first().click();
+      check(
+        "O'tdi belgilansa narx seans turidan olinadi",
+        await waitUntil(async () => Number((await one("SELECT price FROM Session WHERE id = ?", sess.id)).price) === 124000),
+        String((await one("SELECT price FROM Session WHERE id = ?", sess.id)).price),
+      );
+    }
+
+    // Tur ro'yxatdan olinadi, lekin seans va uning narxi joyida qoladi
+    await page.goto(`${BASE}/settings`);
+    await page.locator(`[data-testid="session-type-row"]:has(input[name="typeId"][value="${type.id}"]) form:not(:has(input[name="price"])) button`).click();
+    const removed = await waitUntil(async () => (await one("SELECT isActive FROM SessionType WHERE id = ?", type.id)).isActive === false);
+    const kept = sess ? await one("SELECT sessionTypeId, price FROM Session WHERE id = ?", sess.id) : null;
+    check(
+      "O'chirilgan tur ro'yxatdan yo'qoladi, seans narxi saqlanadi",
+      removed && kept?.sessionTypeId === type.id && Number(kept?.price) === 124000,
+    );
+    if (sess) await all("DELETE FROM Session WHERE id = ?", sess.id);
+  }
+  await all("DELETE FROM SessionType WHERE id = ?", type.id);
+}
+
 /* 10a. Telegram kanalga e'lon: ega ko'radi, xato sababi aytiladi */
 {
   await login(owner.phone);
@@ -1849,7 +1956,11 @@ if (!reception) {
 
   await page.goto(`${BASE}/settings`);
   await page.waitForLoadState("networkidle");
-  check("Qabulxonada kanalga e'lon bo'limi yo'q", (await page.locator("#channel").count()) === 0);
+  check(
+    "Qabulxonada kanalga e'lon va seans turlari bo'limi yo'q",
+    (await page.locator("#channel").count()) === 0 &&
+      (await page.locator('[data-testid="session-types"]').count()) === 0,
+  );
 
   await page.goto(`${BASE}/reports`);
   await denied("Qabulxona hisobotlarni ko'ra olmaydi", "/reports", "Filiallar kesimi");

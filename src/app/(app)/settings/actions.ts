@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { ActionError, withFlash } from "@/lib/action";
 import { postToChannel } from "@/lib/telegram";
+import { sessionTypeScope } from "@/lib/session-types";
 import { setFlash } from "@/lib/flash";
 import { prisma } from "@/lib/prisma";
 import { hashPassword, isSolo, requireUser, verifyPassword } from "@/lib/auth";
@@ -235,6 +236,84 @@ async function updateSoloPriceImpl(formData: FormData) {
   revalidatePath("/settings");
   await setFlash("Seans narxi saqlandi.", "ok");
 }
+
+/* ---------------- Seans turlari va narxlari ---------------- */
+
+/** Markaz turlarini ega, yakka logoped esa o'z turlarini boshqaradi */
+async function requireTypeManager() {
+  const user = await requireUser();
+  if (user.role !== "OWNER" && !isSolo(user)) {
+    throw new Error("Bu amalni faqat markaz egasi bajara oladi.");
+  }
+  return user;
+}
+
+function typeFields(formData: FormData) {
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+  const price = num(formData, "price");
+  if (!name) throw new Error("Seans turining nomini kiriting.");
+  if (!Number.isFinite(price) || price <= 0) throw new Error("Seans narxi to'g'ri kiritilmagan.");
+  return { name, price };
+}
+
+/** Boshqa markazning (yoki yakka logopedning) turiga tegib bo'lmasin */
+async function ownType(formData: FormData) {
+  const user = await requireTypeManager();
+  const id = String(formData.get("typeId") ?? "");
+  const type = await prisma.sessionType.findFirst({
+    where: { id, ...sessionTypeScope(user) },
+    select: { id: true },
+  });
+  if (!type) throw new Error("Seans turi topilmadi.");
+  return type.id;
+}
+
+function refreshTypes() {
+  revalidatePath("/settings");
+  revalidatePath("/schedule");
+  revalidatePath("/slots");
+}
+
+async function addSessionTypeImpl(formData: FormData) {
+  const user = await requireTypeManager();
+  const { name, price } = typeFields(formData);
+  const scope = sessionTypeScope(user);
+  const clash = await prisma.sessionType.findFirst({
+    where: { ...scope, isActive: true, name: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (clash) throw new Error("Bunday nomli seans turi allaqachon bor.");
+  await prisma.sessionType.create({ data: { ...scope, name, price } });
+  refreshTypes();
+  await setFlash("Seans turi qo'shildi.", "ok");
+}
+
+/**
+ * Narx o'zgarsa faqat yangi seanslarga ta'sir qiladi: o'tib bo'lgan seans
+ * narxi "O'tdi" belgilangan payt seansning o'ziga yozilgan.
+ */
+async function updateSessionTypeImpl(formData: FormData) {
+  const id = await ownType(formData);
+  const { name, price } = typeFields(formData);
+  await prisma.sessionType.update({ where: { id }, data: { name, price } });
+  refreshTypes();
+  await setFlash("Seans turi saqlandi.", "ok");
+}
+
+/**
+ * Butunlay o'chirilmaydi, ro'yxatdan olinadi: eski seanslarda tur nomi
+ * ko'rinib tursin, hisobotlar o'zgarmasin.
+ */
+async function removeSessionTypeImpl(formData: FormData) {
+  const id = await ownType(formData);
+  await prisma.sessionType.update({ where: { id }, data: { isActive: false } });
+  refreshTypes();
+  await setFlash("Seans turi ro'yxatdan olindi.", "ok");
+}
+
+export const addSessionType = withFlash(addSessionTypeImpl);
+export const updateSessionType = withFlash(updateSessionTypeImpl);
+export const removeSessionType = withFlash(removeSessionTypeImpl);
 
 /**
  * "@kanal", "kanal", "t.me/kanal" — hammasi "@kanal" ga keltiriladi.
