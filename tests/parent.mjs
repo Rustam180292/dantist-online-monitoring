@@ -451,6 +451,29 @@ if (!cookieMatch) {
       shown === Math.min(paid, 50) && (paid === 0 ? main.includes("Hali to'lov qilinmagan") : main.includes("Jami to'langan")),
       `${shown} / ${paid}`,
     );
+
+    // Hisob-kitob: jami to'langan, seanslar uchun va qoldiq — bazadagi bilan teng
+    const paidSum = await count("SELECT COALESCE(SUM(amount), 0) AS n FROM Payment WHERE clientId = ?", target.clientId);
+    const earnedSum = await count(
+      "SELECT COALESCE(SUM(price), 0) AS n FROM Session WHERE clientId = ? AND status IN ('DONE','NO_SHOW')",
+      target.clientId,
+    );
+    const fmt = (n) => `${String(Math.abs(n)).replace(/\B(?=(\d{3})+(?!\d))/g, " ")} so'm`;
+    const box = (await page.locator('[data-testid="parent-balance"]').innerText()).replace(/\s/g, " ");
+    const bal = paidSum - earnedSum;
+    check(
+      "Ota-ona jami to'lovi, seanslar uchun va qoldiqni ko'radi",
+      box.includes(`Jami to'langan ${fmt(paidSum)}`) &&
+        box.includes(`Seanslar uchun ${fmt(earnedSum)}`) &&
+        box.includes(`Qoldiq ${bal > 0 ? "+" : bal < 0 ? "−" : ""}${fmt(bal)}`),
+      `${box} | ${paidSum} ${earnedSum}`,
+    );
+    await page.goto(`${BASE}/tg/app`);
+    await page.waitForLoadState("networkidle");
+    check(
+      "Farzandim bo'limida qoldiq ko'rinadi",
+      (await page.locator('[data-testid="parent-balance-short"]').innerText()).replace(/\s/g, " ").endsWith(fmt(bal)),
+    );
   }
 
   /* 13. Mutaxassislar va qo'ng'iroq */

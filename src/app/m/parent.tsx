@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import {
+  BILLABLE_STATUSES,
   PARENT_CANCEL_MIN_HOURS,
   PAYMENT_METHODS,
   SESSION_STATUSES,
@@ -50,7 +51,7 @@ export async function ParentApp({
   // Hamma narsa bitta to'lqinda va hamma farzand uchun birdaniga olinadi:
   // baza uzoqda, har bir ketma-ket so'rov kabinetni sekinlashtiradi.
   // Farzand tanlangach qolgani xotirada ajratiladi (bolalar 1-2 ta bo'ladi).
-  const [children, upcomingAll, historyAll, paymentsAll, teamAll, doneAll] =
+  const [children, upcomingAll, historyAll, paymentsAll, teamAll, doneAll, paidAll, earnedAll] =
     await Promise.all([
       prisma.client.findMany({
         where: { parentUserId: userId },
@@ -92,6 +93,14 @@ export async function ParentApp({
         where: { ...mine, status: "DONE" },
         _count: { _all: true },
       }),
+      // Hisob-kitob: ro'yxat 150 ta to'lov bilan cheklangan, jami esa aniq bo'lsin
+      prisma.payment.groupBy({ by: ["clientId"], where: mine, _sum: { amount: true } }),
+      // Seanslar uchun — "O'tdi"/"Kelmadi" narxi; markaz panelidagi hisob bilan bir xil
+      prisma.session.groupBy({
+        by: ["clientId"],
+        where: { ...mine, status: { in: BILLABLE_STATUSES } },
+        _sum: { price: true },
+      }),
     ]);
 
   if (children.length === 0) {
@@ -119,6 +128,16 @@ export async function ParentApp({
 
   // So'rov 60 ta bilan cheklangan — ota-onaga aniq son emas, umumiy manzara kerak
   const plannedCount = ofChild(upcomingAll).length;
+  const paidTotal = paidAll.find((r) => r.clientId === child.id)?._sum.amount ?? 0;
+  const earnedTotal = earnedAll.find((r) => r.clientId === child.id)?._sum.price ?? 0;
+  // Musbat — oldindan to'langan (keyingi seanslarga), manfiy — to'lanmagan qism
+  const balance = paidTotal - earnedTotal;
+  const balanceView = (
+    <span className={balance < 0 ? "text-rose-600" : balance > 0 ? "text-emerald-600" : ""}>
+      {balance > 0 ? "+" : balance < 0 ? "−" : ""}
+      {money(Math.abs(balance))}
+    </span>
+  );
   const next = upcoming[0] ?? null;
 
   const link = (params: Record<string, string>) => {
@@ -197,6 +216,20 @@ export async function ParentApp({
               <p className="mt-1 text-base font-bold tabular-nums">{plannedCount}</p>
             </div>
           </div>
+
+          <section className="app-card p-3">
+            <p className="text-xs app-muted">{t("Qoldiq")}</p>
+            <p className="mt-1 text-base font-bold tabular-nums" data-testid="parent-balance-short">
+              {balanceView}
+            </p>
+            <p className="text-[11px] app-muted">
+              {balance < 0
+                ? t("to'lanmagan qism")
+                : balance > 0
+                  ? t("oldindan to'langan — keyingi mashg'ulotlarga")
+                  : t("hisob teng")}
+            </p>
+          </section>
 
           <section className="app-card p-3">
             <p className="text-xs app-muted">{t("Tug'ilgan sana")}</p>
@@ -323,6 +356,22 @@ export async function ParentApp({
       </TabPanel>
 
       <TabPanel name="payments">
+        {/* Hisob-kitob — to'lov bo'lmasa ham ko'rinadi: seans o'tgan bo'lsa,
+            ota-ona qancha to'lashi kerakligini shu yerdan biladi */}
+        <section className="app-card mb-2 divide-y divide-black/5 text-sm" data-testid="parent-balance">
+          <div className="flex items-center justify-between p-3">
+            <span className="app-muted">{t("Jami to'langan")}</span>
+            <span className="font-semibold tabular-nums">{money(paidTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between p-3">
+            <span className="app-muted">{t("Seanslar uchun")}</span>
+            <span className="font-semibold tabular-nums">{money(earnedTotal)}</span>
+          </div>
+          <div className="flex items-center justify-between p-3">
+            <span className="font-semibold">{t("Qoldiq")}</span>
+            <span className="text-base font-bold tabular-nums">{balanceView}</span>
+          </div>
+        </section>
         {(
         payments.length === 0 ? (
           <p className="app-card px-4 py-8 text-center text-sm app-muted">
@@ -330,12 +379,6 @@ export async function ParentApp({
           </p>
         ) : (
           <>
-            <div className="app-card mb-2 flex items-center justify-between p-3">
-              <p className="text-xs app-muted">{t("Jami to'langan")}</p>
-              <p className="text-base font-bold tabular-nums">
-                {money(payments.reduce((sum, p) => sum + p.amount, 0))}
-              </p>
-            </div>
             <ul className="space-y-2">
               {payments.map((p) => (
                 <li key={p.id} className="app-card flex items-center justify-between gap-3 p-3" data-testid="parent-payment">

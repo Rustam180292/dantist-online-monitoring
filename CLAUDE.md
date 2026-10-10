@@ -121,14 +121,14 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 325 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 327 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
 node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi, ish vaqti va tushlik, Google Sheets zaxira (jonli), mijozlar puli va holati (233)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (19)
-node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q, yakka logoped mijozi (32)
+node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q, yakka logoped mijozi, hisob-kitob (34)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
 ```
 
@@ -235,6 +235,8 @@ Buni o'zgartirishdan oldin tushunib oling:
   *Xizmatlar uchun* = "O'tdi"/"Kelmadi" seanslar narxi (rejadagisi
   sanalmaydi), *Qoldiq* = farqi (musbat — oldindan to'langan, manfiy — qarz).
   Konsultatsiya puli bunga kirmaydi — u mijozga emas, qabulga yoziladi.
+  Ota-ona kabinetida ham xuddi shu uch raqam ko'rinadi (To'lovlar bo'limi,
+  Farzandim'da qoldiq) — hisob bir xil bo'lishi kerak.
 - **Qabul (konsultatsiya) puli** `Payment` jadvaliga tushmaydi (qabul hali mijoz
   emas) — summa `Intake.price` da turadi. Lekin u ham kassaga tushgan pul, shuning
   uchun `getOverview().collected` ga qo'shiladi va To'lovlar sahifasida alohida
