@@ -24,7 +24,7 @@ const parent = await one(
     WHERE u.role = 'PARENT' GROUP BY u.phone LIMIT 1`,
 );
 const specialist = await one("SELECT phone FROM User WHERE role='SPECIALIST' LIMIT 1");
-const owner = await one("SELECT phone FROM User WHERE role='OWNER' LIMIT 1");
+const owner = await one("SELECT phone FROM User WHERE role='OWNER' AND isActive = true ORDER BY createdAt LIMIT 1");
 const reception = await one("SELECT phone, fullName FROM User WHERE role='RECEPTION' AND isActive = true LIMIT 1");
 
 
@@ -202,12 +202,25 @@ check("Yangi seans qo'shildi", sessGrew, `${sessBefore} -> ${await count("SELECT
 /* 6. Mijozlar ro'yxati va kartasi */
 await page.goto(`${BASE}/clients`);
 check("Mijozlar ro'yxati to'ldi", (await page.locator("tbody tr").count()) > 0);
-// Abonement bo'limi faqat abonementchi mijozda bo'ladi — ataylab o'shanaqasini
-// ochamiz, pastdagi to'lov va abonement tekshiruvlari shu kartada ishlaydi
+// Ataylab ilgari abonement olgan mijozni ochamiz: markazda abonement yo'q,
+// eski abonementi bo'lsa ham kartada hech qanday abonement izi ko'rinmasin
 const pkgClient = await one("SELECT id FROM Client WHERE billingType = 'PACKAGE' LIMIT 1");
 await page.goto(`${BASE}/clients/${pkgClient.id}`);
 await page.waitForLoadState("networkidle");
-check("Mijoz kartasi ochildi", (await page.content()).includes("Abonementlar"), page.url());
+{
+  const cardText = await page.locator("main").innerText();
+  check("Mijoz kartasi ochildi", cardText.includes("Seanslar tarixi"), page.url());
+  check(
+    "Mijoz kartasida abonement, qolgan seans va qarzdorlik yo'q",
+    // To'lov izohlarida (odam yozgan matn) "abonement" so'zi qolishi mumkin —
+    // shuning uchun interfeysning o'z yozuvlari tekshiriladi
+    !cardText.includes("Abonementlar") &&
+      !cardText.includes("Abonement sotish") &&
+      !cardText.includes("Qolgan seans") &&
+      !cardText.includes("Qarzdorlik") &&
+      (await page.locator("#packageId").count()) === 0,
+  );
+}
 
 /* 7. To'lov qabul qilish */
 const payBefore = await count("SELECT COUNT(*) AS n FROM Payment");
@@ -221,30 +234,11 @@ const payGrew = await waitUntil(
 );
 check("To'lov qabul qilindi", payGrew, `${payBefore} -> ${await count("SELECT COUNT(*) AS n FROM Payment")}`);
 
-/* 8. Abonement sotish */
-const pkgBefore = await count("SELECT COUNT(*) AS n FROM Package");
-await page.click('summary:has-text("Abonement sotish")');
-// Narx so'ralmaydi — xizmatdan olinadi
-check("Abonement formasida narx maydoni yo'q", (await page.locator("#pricePerSession").count()) === 0);
-const soldService = await page.inputValue("#packageService");
-await page.click('form button:has-text("Sotish")');
-const pkgGrew = await waitUntil(
-  async () => await count("SELECT COUNT(*) AS n FROM Package") === pkgBefore + 1,
+/* 8. Abonement sotib bo'lmaydi */
+check(
+  "Mijoz kartasida 'Abonement sotish' yo'q",
+  (await page.locator('summary:has-text("Abonement sotish")').count()) === 0,
 );
-check("Abonement sotildi", pkgGrew, `${pkgBefore} -> ${await count("SELECT COUNT(*) AS n FROM Package")}`);
-{
-  const sold = await one(
-    `SELECT p.sessionTypeId, p.pricePerSession, st.price AS "servicePrice"
-       FROM Package p JOIN SessionType st ON st.id = p.sessionTypeId
-      WHERE p.clientId = ? ORDER BY p.purchasedAt DESC LIMIT 1`,
-    pkgClient.id,
-  );
-  check(
-    "Abonement xizmatga bog'lanadi, narxi xizmatdan",
-    sold?.sessionTypeId === soldService && Number(sold.pricePerSession) === Number(sold.servicePrice),
-    JSON.stringify(sold),
-  );
-}
 
 /* 9. Qolgan sahifalar ochiladi */
 for (const [path, marker] of [
@@ -562,23 +556,29 @@ if (await payRow.count()) {
   await page.waitForLoadState("networkidle");
   const all = await page.locator("tbody tr").count();
 
-  // "Kam (1-2)" ba'zan bo'sh bo'ladi (abonementchilar kam), "Yetarli (3+)" esa
-  // doim bo'ladi — filtr ishlayotganini shu bilan tekshiramiz
-  await page.selectOption("select[aria-label=\"Qolgan seans bo'yicha filtr\"]", "ok");
-  const inUrl = await waitUntil(async () => page.url().includes("rem=ok"));
+  // Markazda abonement yo'q — "qolgan seans" filtri ham, ustuni ham yo'q
+  check(
+    "Mijozlar jadvalida 'Qolgan seans' va 'Qarz' yo'q",
+    (await page.locator("select[aria-label=\"Qolgan seans bo'yicha filtr\"]").count()) === 0 &&
+      !/Qolgan seans|Qarz/.test(await page.locator("thead tr").first().innerText()),
+  );
+
+  // Seed'da to'xtatilgan mijozlar ham bor — "Faol" filtri ro'yxatni qisqartiradi
+  await page.selectOption("select[aria-label=\"Holat bo'yicha filtr\"]", "ACTIVE");
+  const inUrl = await waitUntil(async () => page.url().includes("st=ACTIVE"));
   await page.waitForLoadState("networkidle");
   const few = await page.locator("tbody tr").count();
 
   check("Filtr manzilga yoziladi (havolani ulashish mumkin)", inUrl, page.url());
   check(
-    "Qolgan seans bo'yicha filtr ro'yxatni qisqartiradi",
+    "Holat bo'yicha filtr ro'yxatni qisqartiradi",
     few > 0 && few < all,
     `${all} -> ${few}`,
   );
 
   // "Tozalash" hammasini qaytaradi
   await page.click('button:has-text("Tozalash")');
-  const cleared = await waitUntil(async () => !page.url().includes("rem="));
+  const cleared = await waitUntil(async () => !page.url().includes("st="));
   await page.waitForLoadState("networkidle");
   check(
     "Tozalash filtrlarni olib tashlaydi",
@@ -809,16 +809,8 @@ if (await payRow.count()) {
   await page.goto(`${BASE}/clients?n=${encodeURIComponent("Kunlik Bola " + uniq)}`);
   await page.waitForSelector("tbody tr", { timeout: 15000 });
   check(
-    "Abonementsiz mijoz 'kunlik' deb ko'rsatiladi",
-    (await page.locator("tbody").first().innerText()).includes("kunlik"),
-  );
-
-  // "Tugagan (0)" filtri unga tegmasligi kerak — uning abonementi yo'q
-  await page.goto(`${BASE}/clients?rem=0`);
-  await page.waitForLoadState("networkidle");
-  check(
-    "Kunlik mijoz 'tugagan' ro'yxatiga tushmaydi",
-    !(await page.locator("main").innerText()).includes(`Kunlik Bola ${uniq}`),
+    "Yangi mijoz ro'yxatda ko'rinadi",
+    (await page.locator("tbody").first().innerText()).includes(`Kunlik Bola ${uniq}`),
   );
 
   // Abonement yo'q — "To'lov turi" filtri ham kerak emas
@@ -833,8 +825,8 @@ if (await payRow.count()) {
   const cardText = await page.locator("main").innerText();
   check(
     "Kunlik mijoz kartasida abonement sotish taklif qilinmaydi",
-    cardText.includes("har bir seans alohida hisoblanadi") &&
-      !cardText.includes("+ Abonement sotish") &&
+    cardText.includes("Seanslar tarixi") &&
+      !cardText.includes("Abonement sotish") &&
       !cardText.includes("To'lov turi"),
   );
   check(
@@ -1092,10 +1084,18 @@ if (await payRow.count()) {
       page.locator(`form[data-testid="payment-edit-form"]:has(input[name="paymentId"][value="${pay.id}"])`);
     await page.goto(`${BASE}/payments`);
     await page.waitForLoadState("networkidle");
-    check(
-      "To'lovlar jadvalida \"Yo'nalish\" o'rniga \"Abonement\" ustuni",
-      !(await page.locator("thead").first().innerText()).includes("YO'NALISH"),
-    );
+    {
+      // Markazda abonement yo'q: jadvalda "Abonement" ustuni, sahifada
+      // qarzdorlik va qarzdorlar ro'yxati ko'rinmaydi
+      const head = (await page.locator("thead").first().innerText()).toUpperCase();
+      const body = await page.locator("main").innerText();
+      check(
+        "To'lovlar sahifasida abonement va qarzdorlik yo'q",
+        !head.includes("ABONEMENT") && !head.includes("YO'NALISH") &&
+          !body.includes("Qarzdor") && !/abonement/i.test(body),
+        head,
+      );
+    }
 
     // Summani tuzatish
     await editForm().locator("xpath=ancestor::details[1]").locator("summary").click();
@@ -1850,7 +1850,12 @@ if (await payRow.count()) {
   await pw3.locator('input[name="newPassword"]').fill(PASSWORD);
   await pw3.locator('input[name="repeatPassword"]').fill(PASSWORD);
   await pw3.locator('button:has-text("Parolni o\'zgartirish")').click();
-  await page.waitForLoadState("networkidle");
+  // Amal tugashini kutamiz: login() cookie'larni tozalaydi va tugallanmagan
+  // amal uzilib, parol yangisida qolib ketardi (keyingi testlar kira olmasdi)
+  await waitUntil(async () => {
+    const note = await page.getByRole("alert").filter({ hasText: "Parol o'zgartirildi" }).count();
+    return note > 0;
+  });
   await login(owner.phone);
   check("Parol eski holiga qaytariladi", !page.url().includes("/login"), page.url());
 }
@@ -1940,7 +1945,7 @@ check(
   !navText.includes("Hisobotlar") && !navText.includes("To'lovlar"),
   navText.replace(/\n/g, " | "),
 );
-await denied("Mutaxassis /payments ga kira olmaydi", "/payments", "Qarzdorlar");
+await denied("Mutaxassis /payments ga kira olmaydi", "/payments", "To'lovlar ro'yxati");
 await denied("Mutaxassis /intakes ga kira olmaydi", "/intakes", "Yangi qabul");
 
 await page.goto(`${BASE}/earnings`);
@@ -2190,7 +2195,8 @@ if (!reception) {
   check("Qabulxona to'lov qabul qila oladi", recPaid);
 
   // Mijoz kartasida to'lovni o'chirish tugmasi ko'rinmasligi kerak.
-  // Abonement bo'limi faqat abonementchi mijozda bo'ladi — o'shani ochamiz.
+  // To'lovi bor (eski abonementchi) mijozni ochamiz — o'chirish tugmasi
+  // bo'ladigan joy bo'sh bo'lmasin.
   const recPkg = await one(
     `SELECT c.id FROM Client c JOIN User u ON u.branchId = c.branchId
       WHERE u.phone = ? AND c.billingType = 'PACKAGE' LIMIT 1`,
@@ -2200,8 +2206,8 @@ if (!reception) {
   await page.waitForLoadState("networkidle");
   const cardHtml = await page.content();
   check(
-    "Qabulxona abonement sotishi mumkin",
-    cardHtml.includes("Abonement sotish"),
+    "Qabulxona mijoz kartasidan to'lov qabul qila oladi",
+    cardHtml.includes("To'lov qabul qilish") && !cardHtml.includes("Abonement sotish"),
   );
   check(
     "Qabulxona to'lovni o'chira olmaydi",

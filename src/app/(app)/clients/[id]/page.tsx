@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { packageName } from "@/lib/packages";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser, NOT_SOLO, isFrontDesk, isSolo } from "@/lib/auth";
@@ -18,7 +17,6 @@ import {
   type SessionStatus,
   type Specialization,
 } from "@/lib/constants";
-import { getClientPackages } from "@/lib/stats";
 import { dateShort, dateTimeUz, timeUz, toDateInput } from "@/lib/format";
 import {
   Badge,
@@ -35,7 +33,6 @@ import {
   th,
 } from "@/components/ui";
 import {
-  addPackage,
   addPayment,
   anonymizeClient,
   assignService,
@@ -52,8 +49,6 @@ import { getT } from "@/lib/i18n/server";
 const NOTIFICATION_KINDS: Record<string, string> = {
   SESSION_REMINDER: "Ertangi mashg'ulot eslatmasi",
   SESSION_DONE: "Mashg'ulot o'tdi",
-  PACKAGE_LOW: "Abonement tugayapti",
-  DEBT: "To'lov eslatmasi",
 };
 
 export default async function ClientPage({
@@ -105,12 +100,7 @@ export default async function ClientPage({
 
   if (!client) notFound();
 
-  // Kunlik to'laydigan mijozda abonement tushunchasi yo'q — ekranlar shunga qarab
-  // o'zgaradi
-  const daily = client.billingType !== "PACKAGE";
-
-  const [packages, freeSpecialists, notifications, branches, sessionCount, branchServices] = await Promise.all([
-    getClientPackages(client.id),
+  const [freeSpecialists, notifications, branches, sessionCount, branchServices] = await Promise.all([
     canManage
       ? prisma.specialist.findMany({
           where: {
@@ -124,7 +114,8 @@ export default async function ClientPage({
       : Promise.resolve([]),
     canManage
       ? prisma.notification.findMany({
-          where: { clientId: client.id },
+          // Abonement/qarz eslatmalari endi yuborilmaydi — eskilari ham ko'rinmasin
+          where: { clientId: client.id, kind: { notIn: ["PACKAGE_LOW", "DEBT"] } },
           orderBy: { createdAt: "desc" },
           take: 8,
         })
@@ -145,15 +136,7 @@ export default async function ClientPage({
   ]);
   const myServiceIds = new Set(client.services.map((x) => x.sessionTypeId));
   const freeServices = branchServices.filter((x) => !myServiceIds.has(x.id));
-  // Abonement formasida mijozning o'z xizmatlari birinchi turadi
-  const packageServices = [
-    ...branchServices.filter((x) => myServiceIds.has(x.id)),
-    ...freeServices,
-  ];
-
   const totalPaid = client.payments.reduce((s, p) => s + p.amount, 0);
-  const totalDebt = packages.reduce((s, p) => s + p.debt, 0);
-  const remaining = packages.reduce((s, p) => s + (p.isActive ? p.remaining : 0), 0);
   const doneCount = client.sessions.filter((s) => s.status === "DONE").length;
 
   return (
@@ -162,7 +145,7 @@ export default async function ClientPage({
         title={client.fullName}
         subtitle={`${t.age(client.birthDate)} · ${client.branch.name} · ${
           t(CLIENT_STATUSES[client.status as ClientStatus])
-        }${daily ? "" : ` · ${t("Abonement")}`}`}
+        }`}
         action={
           <Link href="/clients" className={btn}>
             ← {t("Mijozlar")}
@@ -172,138 +155,9 @@ export default async function ClientPage({
 
       <div className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
-          <Card
-            title={daily ? t("Hisob-kitob") : t("Abonementlar")}
-            subtitle={
-              daily
-                ? t("har bir seans alohida hisoblanadi")
-                : t("qolgan seanslar va to'lov holati")
-            }
-          >
-            {/* Markazda abonement yo'q — har seans alohida hisoblanadi.
-                Abonement ro'yxati faqat ilgari abonement olgan mijozlarda
-                qoladi, ulardagi qolgan seanslar yo'qolmasin. */}
-            {daily ? (
-              <div className="p-4 text-sm text-slate-600 dark:text-slate-400">
-                <p>
-                  {t("Seans narxi mijozga biriktirilgan xizmatdan olinadi. Qolgan seans va qarzdorlik hisoblanmaydi.")}
-                </p>
-              </div>
-            ) : packages.length === 0 ? (
-              <Empty>{t("Abonement sotilmagan.")}</Empty>
-            ) : (
-              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                {packages.map((p) => {
-                  const pct = Math.min(Math.round((p.used / p.totalSessions) * 100), 100);
-                  return (
-                    <li key={p.id} className="px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                          {packageName(p, t)}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            className={
-                              p.remaining === 0
-                                ? "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900"
-                                : p.remaining <= 2
-                                  ? "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:ring-amber-900"
-                                  : "bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900"
-                            }
-                          >
-                            {t("{n} seans qoldi", { n: p.remaining })}
-                          </Badge>
-                          {p.debt > 0 ? (
-                            <Badge className="bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-950 dark:text-rose-300 dark:ring-rose-900">
-                              {t("qarz {sum}", { sum: t.money(p.debt) })}
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-900">
-                              {t("to'langan")}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                        <div
-                          className="h-full rounded-full bg-indigo-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400">
-                        {t("{used}/{total} seans ishlatilgan", { used: p.used, total: p.totalSessions })} ·{" "}
-                        {t("seans narxi {sum}", { sum: t.money(p.pricePerSession) })} ·{" "}
-                        {t("jami {sum}", { sum: t.money(p.cost) })} ·{" "}
-                        {t("to'langan {sum}", { sum: t.money(p.paid) })}
-                        {p.expiresAt ? ` · ${t("amal qiladi {date} gacha", { date: dateShort(p.expiresAt) })}` : ""}
-                      </p>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-
-            {canManage && !daily ? (
-              <details
-                id="abonement"
-                open={ochiq === "abonement"}
-                className="border-t border-slate-200 p-4 dark:border-slate-800"
-              >
-                <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  + {t("Abonement sotish")}
-                </summary>
-                <form action={addPackage} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <input type="hidden" name="clientId" value={client.id} />
-                  <div>
-                    <label className={label} htmlFor="packageService">
-                      {t("Xizmat")}
-                    </label>
-                    {/* Narx so'ralmaydi — xizmat narxidan olinadi */}
-                    <select id="packageService" name="sessionTypeId" className={input} required>
-                      {packageServices.map((x) => (
-                        <option key={x.id} value={x.id}>
-                          {x.name} · {t.money(x.price)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={label} htmlFor="totalSessions">
-                      {t("Seans soni")}
-                    </label>
-                    <input
-                      id="totalSessions"
-                      name="totalSessions"
-                      type="number"
-                      min={1}
-                      max={100}
-                      defaultValue={12}
-                      className={input}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className={label} htmlFor="prepaid">
-                      {t("Darhol to'landi ({currency})", { currency: t.currency })}
-                    </label>
-                    <input id="prepaid" name="prepaid" inputMode="numeric" className={input} />
-                  </div>
-                  <div>
-                    <label className={label} htmlFor="expiresAt">
-                      {t("Amal qilish muddati")}
-                    </label>
-                    <input id="expiresAt" name="expiresAt" type="date" className={input} />
-                  </div>
-                  <div className="flex items-end">
-                    <button type="submit" className={`${btnPrimary} w-full`}>
-                      {t("Sotish")}
-                    </button>
-                  </div>
-                </form>
-              </details>
-            ) : null}
-          </Card>
-
+          {/* Markazda abonement yo'q — har seans alohida, kelganda to'lanadi.
+              Ilgari sotilgan abonementlar bazada qoladi (seans narxi ulardan
+              olinadi), lekin hech qayerda ko'rsatilmaydi. */}
           <Card
             title={t("Seanslar tarixi")}
             subtitle={t("oxirgi 30 ta")}
@@ -453,21 +307,6 @@ export default async function ClientPage({
                         className={input}
                       />
                     </div>
-                    <div>
-                      <label className={label} htmlFor="packageId">
-                        {t("Abonement")}
-                      </label>
-                      <select id="packageId" name="packageId" className={input}>
-                        <option value="">{t("Avtomatik — qarzi bor abonementga")}</option>
-                        {packages.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {packageName(p, t)} ·{" "}
-                            {t("{n} seans", { n: p.totalSessions })}
-                            {p.debt > 0 ? ` (${t("qarz {sum}", { sum: t.money(p.debt) })})` : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                     <div className="sm:col-span-2">
                       <label className={label} htmlFor="paymentNote">
                         {t("Izoh")}
@@ -505,8 +344,6 @@ export default async function ClientPage({
               />
               <Row k={t("Tashxis")} v={client.diagnosis ?? "—"} />
               <Row k={t("Izoh")} v={client.note ?? "—"} />
-              <Row k={t("Qolgan seans")} v={String(remaining)} />
-              <Row k={t("Qarzdorlik")} v={totalDebt > 0 ? t.money(totalDebt) : t("yo'q")} />
               <Row k={t("O'tgan seans (oxirgi 30)")} v={String(doneCount)} />
               <Row
                 k="Telegram"
@@ -515,7 +352,7 @@ export default async function ClientPage({
             </dl>
           </Card>
 
-          <Card title={t("Xizmatlar")} subtitle={t("seans va abonement shu xizmat narxida yoziladi")}>
+          <Card title={t("Xizmatlar")} subtitle={t("seans shu xizmat narxida yoziladi")}>
             <div data-testid="client-services">
               {client.services.length === 0 ? (
                 <Empty>{t("Xizmat biriktirilmagan — seans yozishdan oldin qo'shing.")}</Empty>
@@ -713,11 +550,10 @@ export default async function ClientPage({
                   </p>
                   <p className="mt-1 text-slate-600 dark:text-slate-400">
                     {t(
-                      "Mijoz bilan birga {sessions} ta seans, {payments} ta to'lov va {packages} ta abonement o'chadi. O'tgan oylardagi hisobot raqamlari ham o'zgaradi.",
+                      "Mijoz bilan birga {sessions} ta seans va {payments} ta to'lov o'chadi. O'tgan oylardagi hisobot raqamlari ham o'zgaradi.",
                       {
                         sessions: sessionCount,
                         payments: client.payments.length,
-                        packages: packages.length,
                       },
                     )}
                   </p>

@@ -1,16 +1,13 @@
 import { Fragment } from "react";
-import { packageName } from "@/lib/packages";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
 import {
   PAYMENT_METHODS,
   PAYMENT_METHOD_KEYS,
-  SPECIALIZATIONS,
   type PaymentMethod,
-  type Specialization,
 } from "@/lib/constants";
-import { getClientAlerts, monthRange } from "@/lib/stats";
+import { monthRange } from "@/lib/stats";
 import { dateTimeUz, toDateInput } from "@/lib/format";
 import {
   Badge,
@@ -53,7 +50,7 @@ export default async function PaymentsPage({
   // Bitta bolaning to'lovlarini topish eng ko'p so'raladigan narsa
   const nameFilter = (sp.q ?? "").trim();
 
-  const [payments, branches, alerts, clients, intakes] = await Promise.all([
+  const [payments, branches, clients, intakes] = await Promise.all([
     prisma.payment.findMany({
       where: {
         paidAt: { gte: from, lt: to },
@@ -67,11 +64,9 @@ export default async function PaymentsPage({
       include: {
         client: { select: { id: true, fullName: true, status: true } },
         branch: { select: { name: true } },
-        package: { select: { specialization: true, sessionType: { select: { name: true } } } },
       },
     }),
     user.role === "OWNER" ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } }) : Promise.resolve([]),
-    getClientAlerts({ branchId }),
     prisma.client.findMany({
       where: { status: "ACTIVE", ...branchWhere(branchId) },
       select: { id: true, fullName: true, branch: { select: { name: true } } },
@@ -103,12 +98,6 @@ export default async function PaymentsPage({
       payments.filter((p) => p.method === m).reduce((s, p) => s + p.amount, 0) +
       intakes.filter((i) => i.method === m).reduce((s, i) => s + i.price, 0),
   }));
-  const totalDebt = alerts.debtors.reduce((s, d) => s + d.debt, 0);
-
-  const debtByClient = new Map<string, number>();
-  for (const d of alerts.debtors) {
-    debtByClient.set(d.clientId, (debtByClient.get(d.clientId) ?? 0) + d.debt);
-  }
 
   // Egasi barcha filiallarni ko'radi — ro'yxatni filial bo'yicha guruhlaymiz
   const clientGroups = new Map<string, typeof clients>();
@@ -117,10 +106,6 @@ export default async function PaymentsPage({
     list.push(c);
     clientGroups.set(c.branch.name, list);
   }
-  const clientLabel = (c: (typeof clients)[number]) => {
-    const debt = debtByClient.get(c.id) ?? 0;
-    return debt > 0 ? `${c.fullName} — ${t("qarz {sum}", { sum: t.money(debt) })}` : c.fullName;
-  };
 
   /** Mijoz ro'yxati: egasi hamma filialni ko'rsa — filial bo'yicha guruhlangan */
   const clientOptions = () =>
@@ -129,14 +114,14 @@ export default async function PaymentsPage({
           <optgroup key={branchName} label={branchName}>
             {items.map((c) => (
               <option key={c.id} value={c.id}>
-                {clientLabel(c)}
+                {c.fullName}
               </option>
             ))}
           </optgroup>
         ))
       : clients.map((c) => (
           <option key={c.id} value={c.id}>
-            {clientLabel(c)}
+            {c.fullName}
           </option>
         ));
 
@@ -179,7 +164,7 @@ export default async function PaymentsPage({
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label={t("Jami tushum")}
           value={t.money(total)}
@@ -189,12 +174,6 @@ export default async function PaymentsPage({
         {byMethod.map((m) => (
           <StatCard key={m.method} label={t(PAYMENT_METHODS[m.method])} value={t.money(m.sum)} />
         ))}
-        <StatCard
-          label={t("Qarzdorlik")}
-          value={t.money(totalDebt)}
-          hint={t("{n} ta abonement", { n: alerts.debtors.length })}
-          tone={totalDebt > 0 ? "bad" : "default"}
-        />
       </div>
 
       <form method="get" className={`${card} my-5 flex flex-wrap items-end gap-3 p-4`}>
@@ -322,15 +301,12 @@ export default async function PaymentsPage({
                 </button>
               </div>
             </form>
-            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-              {t("Summa mijozning qarzi bor abonementlariga eng eskisidan boshlab taqsimlanadi. Ortgan qismi oldindan to'lov sifatida yoziladi. Aniq bir abonementga yozmoqchi bo'lsangiz — mijoz kartasidan kiriting.")}
-            </p>
           </>
         )}
       </details>
 
-      <div className="grid gap-5 xl:grid-cols-3">
-        <Card className="xl:col-span-2" title={t("To'lovlar ro'yxati")}>
+      <div className="space-y-5">
+        <Card title={t("To'lovlar ro'yxati")}>
           {payments.length === 0 ? (
             <Empty>{t("Bu davrda to'lov yo'q.")}</Empty>
           ) : (
@@ -341,10 +317,6 @@ export default async function PaymentsPage({
                     <th className={th}>{t("Sana")}</th>
                     <th className={th}>{t("Mijoz")}</th>
                     {!branchId ? <th className={th}>{t("Filial")}</th> : null}
-                    {/* Pul qaysi abonementga yozilgani. Abonement tanlanmasa, summa
-                        mijozning qarzi bor abonementiga o'zi taqsimlanadi; "—" —
-                        abonementsiz (kunlik yoki oldindan) to'lov */}
-                    <th className={th} title={t("Pul qaysi abonementga yozilgani")}>{t("Abonement")}</th>
                     <th className={th}>{t("Usul")}</th>
                     <th className={th}>{t("Summa")}</th>
                   </tr>
@@ -367,18 +339,13 @@ export default async function PaymentsPage({
                       </td>
                       {!branchId ? <td className={td}>{p.branch.name}</td> : null}
                       <td className={td}>
-                        {p.package
-                          ? packageName(p.package, t)
-                          : <span className="text-slate-400">—</span>}
-                      </td>
-                      <td className={td}>
                         <Badge>{t(PAYMENT_METHODS[p.method as PaymentMethod])}</Badge>
                       </td>
                       <td className={`${td} font-semibold tabular-nums`}>{t.money(p.amount)}</td>
                     </tr>
                     {canEditPayment(p) ? (
                       <tr>
-                        <td colSpan={branchId ? 5 : 6} className="px-4 pb-2">
+                        <td colSpan={branchId ? 4 : 5} className="px-4 pb-2">
                           <details data-autoclose>
                             <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                               ✎ {t("Tahrirlash")}
@@ -452,7 +419,6 @@ export default async function PaymentsPage({
 
         {intakes.length > 0 ? (
           <Card
-            className="xl:col-span-2"
             title={t("Konsultatsiyalar")}
             subtitle={t("qabullardan tushgan pul")}
             action={
@@ -496,35 +462,6 @@ export default async function PaymentsPage({
           </Card>
         ) : null}
 
-        <Card title={t("Qarzdorlar")} subtitle={t("to'liq to'lanmagan abonementlar")}>
-          {alerts.debtors.length === 0 ? (
-            <Empty>{t("Qarzdor yo'q.")}</Empty>
-          ) : (
-            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-              {alerts.debtors.map((d) => (
-                <li
-                  key={d.packageId}
-                  className="flex items-center justify-between gap-2 px-4 py-2.5"
-                >
-                  <div className="min-w-0">
-                    <Link
-                      href={`/clients/${d.clientId}`}
-                      className="block truncate text-sm font-medium text-slate-800 hover:underline dark:text-slate-200"
-                    >
-                      {d.clientName}
-                    </Link>
-                    <p className="truncate text-xs text-slate-400">
-                      {packageName(d, t)} · {d.parentPhone}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-rose-600 dark:text-rose-400">
-                    {t.money(d.debt)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
       </div>
     </>
   );

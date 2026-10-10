@@ -15,7 +15,7 @@ const { chromium } = playwright;
 const BASE = process.env.BASE_URL ?? "http://localhost:3100";
 const PASSWORD = process.env.SMOKE_PASSWORD ?? "parol123";
 
-const owner = await one("SELECT phone FROM User WHERE role='OWNER' AND isActive = true LIMIT 1");
+const owner = await one("SELECT phone FROM User WHERE role='OWNER' AND isActive = true ORDER BY createdAt LIMIT 1");
 const reception = await one("SELECT phone FROM User WHERE role='RECEPTION' AND isActive = true LIMIT 1");
 
 const ok = [];

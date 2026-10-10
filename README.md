@@ -14,15 +14,15 @@ mutaxassisning **o'z mijozlari** bor.
 
 | Bo'lim | Imkoniyat |
 |---|---|
-| **Panel** | Oylik ko'rsatkichlar: faol mijozlar, o'tgan seanslar, davomat %, kassa, xizmat qiymati, mutaxassis haqi, markaz ulushi, qarzdorlik. Bugungi jadval. Abonementi tugayotganlar ro'yxati. |
+| **Panel** | Oylik ko'rsatkichlar: faol mijozlar, o'tgan seanslar, davomat %, kassa, xizmat qiymati, mutaxassis haqi, markaz ulushi. Bugungi jadval. |
 | **Jadval** | Haftalik jadval, oldinga/orqaga o'tish, filial va mutaxassis bo'yicha filtr. Bir bosishda davomat: **O'tdi / Kelmadi / Bekor**. Yangi seans qo'shish (mutaxassisning band vaqti tekshiriladi). |
-| **Mijozlar** | Qidiruv va filtr, qolgan seans va qarz ustunlari. Mijoz kartasi: abonementlar (progress bilan), seanslar tarixi, to'lovlar, biriktirilgan mutaxassislar, holat (Faol / To'xtatilgan / Arxiv). |
+| **Mijozlar** | Qidiruv va filtr. Mijoz kartasi: xizmatlar, seanslar tarixi, to'lovlar, biriktirilgan mutaxassislar, holat (Faol / To'xtatilgan / Arxiv). |
 | **Xodimlar** | Oylik natijalar: mijoz soni, o'tdi/kelmadi/rejada, xizmat qiymati, ish haqi foizi va hisoblangan ish haqi. Yangi mutaxassis (login bilan) qo'shish, foizni o'zgartirish, ishdan bo'shatish/qaytarish. **Ish haqi hisob-kitobi**: hisoblangan − to'langan = qolgan, bir bosishda to'lab berish. |
 | **Pulim** (mutaxassis) | Mutaxassisning o'z kabineti: qolgan (olishim kerak), shu oyda hisoblangan, jami hisoblangan va to'langan; har bir seansdan qancha tekkani va qo'lga tekkan to'lovlar tarixi. |
-| **To'lovlar** | Oy bo'yicha tushum, usul kesimi (naqd/karta/o'tkazma), to'lovlar ro'yxati va qarzdorlar. |
+| **To'lovlar** | Oy bo'yicha tushum, usul kesimi (naqd/karta/o'tkazma), to'lovlar ro'yxati, konsultatsiyalar. |
 | **Hisobotlar** | Oylik hisobot: filiallar kesimi, mutaxassislar kesimi, yo'nalishlar kesimi, markaz ulushi. |
-| **Ota-ona kabineti** | Ota-ona faqat o'z farzandini ko'radi: keyingi mashg'ulotlar, qolgan seans, abonement holati, davomat tarixi, qarzdorlik. Telegram Mini App ko'rinishi ham bor (bir nechta farzand bo'lsa — almashtirib ko'radi). |
-| **Avtomatik eslatmalar** | Ota-onaga Telegram orqali: ertangi mashg'ulot, mashg'ulot o'tgani, abonement tugayotgani, to'lanmagan qarz. Bir xil xabar ikki marta ketmaydi. |
+| **Ota-ona kabineti** | Ota-ona faqat o'z farzandini ko'radi: keyingi mashg'ulotlar, davomat tarixi, to'lovlar, mutaxassislar. Telegram Mini App ko'rinishi ham bor (bir nechta farzand bo'lsa — almashtirib ko'radi). |
+| **Avtomatik eslatmalar** | Ota-onaga Telegram orqali: ertangi mashg'ulot va mashg'ulot o'tgani. Bir xil xabar ikki marta ketmaydi. |
 | **Ko'rinish va til** | Tun va kun rejimi (kunduzgisi oq, mentol va havo rang tusida). Interfeys tili: o'zbekcha, inglizcha, ruscha — menyu pastida, Sozlamalarda va kirish sahifasida tanlanadi; tanlov shu qurilmada saqlanadi. Markaz egasi Sozlamalardan logotip yuklaydi — u menyuda va kirish sahifasida ko'rinadi. |
 
 ## Rollar va ko'rish doirasi
@@ -31,7 +31,7 @@ mutaxassisning **o'z mijozlari** bor.
 |---|---|
 | `OWNER` — markaz egasi | Barcha filiallar, barcha bo'limlar. Markazni ikki kishi birga yuritsa, **Xodimlar** bo'limidan ikkinchi egalik akkaunti ochiladi |
 | `BRANCH_ADMIN` — filial admini | Faqat o'z filiali, barcha bo'limlar |
-| `RECEPTION` — qabulxona xodimi | O'z filialida **Jadval, Qabullar, Mijozlar, To'lovlar**. Mijoz qabul qiladi, abonement sotadi, to'lov oladi, davomat belgilaydi. Maosh, xodimlar va hisobotlar ko'rinmaydi; yozilgan to'lovni o'chira olmaydi |
+| `RECEPTION` — qabulxona xodimi | O'z filialida **Jadval, Qabullar, Mijozlar, To'lovlar**. Mijoz qabul qiladi, to'lov oladi, davomat belgilaydi. Maosh, xodimlar va hisobotlar ko'rinmaydi; yozilgan to'lovni o'chira olmaydi |
 | `SPECIALIST` — mutaxassis | Faqat o'ziga biriktirilgan mijozlar va o'z seanslari; davomat belgilaydi. To'lov/hisobot bo'limlari yopiq |
 | `PARENT` — ota-ona | Faqat o'z farzandi, o'zgartirish huquqisiz |
 
@@ -59,25 +59,24 @@ bo'lsagina sessiya ochadi. Ya'ni kabinetga Telegram orqali tasdiqlangan odam
 kiradi, parol kiritish shart emas.
 
 **Mutaxassis** Mini App'da ko'radigan bo'limlar: **Bugun** (davomat belgilash),
-**Hafta**, **Mijozlarim** (qolgan seans, keyingi mashg'ulot, ota-ona telefoni),
+**Hafta**, **Mijozlarim** (keyingi mashg'ulot, ota-ona telefoni),
 **Pulim** (qolgan / hisoblangan / to'langan).
 
-**Ota-ona** ko'radigan bo'limlar: keyingi mashg'ulot (eng yuqorida), qolgan seans
-va qarzdorlik, **Jadval** (rejadagi mashg'ulotlar), **Davomat** (tarix),
-**Abonement** (har bir yo'nalish bo'yicha holat va to'lov). Bir nechta farzandi
+**Ota-ona** ko'radigan bo'limlar: keyingi mashg'ulot (eng yuqorida),
+**Farzandim** (o'tgan va rejadagi mashg'ulotlar soni), **Jadval** (rejadagi
+mashg'ulotlar), **Davomat** (tarix), **To'lovlar**, **Mutaxassislar**. Bir nechta farzandi
 bo'lsa, yuqoridan almashtirib ko'radi. Pastda filial manzili va telefoni —
 bosib qo'ng'iroq qilsa bo'ladi.
 
 ### Avtomatik eslatmalar
 
-Ota-onaga to'rt xil xabar boradi:
+Ota-onaga ikki xil xabar boradi (markazda abonement yo'q — abonement tugashi
+va qarz eslatmalari yuborilmaydi):
 
 | Xabar | Qachon |
 |---|---|
 | 🔔 Ertangi mashg'ulot | Cron har kuni ishga tushganda, ertangi rejadagi seanslar uchun |
-| ✅ Mashg'ulot o'tdi | Mutaxassis "O'tdi" deb belgilagan zahoti (abonementda qolgan seans bilan) |
-| ⏳ Abonement tugayapti | 2 va kamroq seans qolganda (2 → 1 → 0 da qayta eslatadi) |
-| 💳 To'lov eslatmasi | Qarz bo'lsa, haftada bir marta |
+| ✅ Mashg'ulot o'tdi | Mutaxassis "O'tdi" deb belgilagan zahoti |
 
 Har bir xabarning o'z `dedupeKey` si bor — **bir xil xabar ikki marta
 yuborilmaydi**. Yuborilmagan xabar (masalan, internet uzilgan bo'lsa) navbatda
@@ -141,7 +140,7 @@ ikonka paydo bo'ladi va brauzer satrisiz, to'liq ekranda ochiladi.
 | Kim | Nima ochiladi |
 |---|---|
 | Mutaxassis | Telefon kabineti (`/m`): Bugun, Hafta, Mijozlarim, Pulim |
-| Ota-ona | Telefon kabineti (`/m`): keyingi mashg'ulot, jadval, davomat, abonement |
+| Ota-ona | Telefon kabineti (`/m`): keyingi mashg'ulot, jadval, davomat, to'lovlar |
 | Markaz egasi / filial admini | To'liq boshqaruv paneli (katta jadvallar va hisobotlar) |
 
 Mutaxassis va ota-ona kabineti — Telegram Mini App bilan **aynan bir xil
@@ -252,7 +251,7 @@ src/
   lib/
     auth.ts            sessiya, parol, rol bo'yicha ko'rish doirasi
     prisma.ts          baza ulanishi
-    stats.ts           davomat, daromad, ish haqi, abonement hisob-kitobi
+    stats.ts           davomat, daromad, ish haqi
     constants.ts       rollar, mutaxassisliklar, holatlar (o'zbekcha nomlar)
     action.ts          amal xatolarini foydalanuvchiga xabar qilib yetkazish
     flash.ts           qisqa xabar cookie'si
@@ -263,15 +262,16 @@ src/
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
   db.mjs               testlar uchun bazaga kichik ulanish
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement, egani tahrirlash, mijoz formasi (206 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi (205 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (19 ta)
   parent.mjs           ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30 ta)
 ```
 
 ## Hisob-kitob mantig'i
 
-- Seans **"O'tdi"** yoki **"Kelmadi (sababsiz)"** bo'lsa — abonementdan yechiladi
-  va xizmat qiymatiga qo'shiladi (`BILLABLE_STATUSES`). Bekor qilingani
+- Markazda abonement yo'q: har seans alohida, xizmat narxida hisoblanadi.
+- Seans **"O'tdi"** yoki **"Kelmadi (sababsiz)"** bo'lsa — xizmat qiymatiga
+  qo'shiladi (`BILLABLE_STATUSES`). Bekor qilingani
   yechilmaydi.
 - **Mutaxassis haqi** = har bir o'tgan seans qiymati × o'sha seansdagi foiz.
   Foiz seans "o'tdi/kelmadi" deb belgilangan paytda seansga yozib qo'yiladi
@@ -280,9 +280,9 @@ tests/
 - **Mutaxassisning qolgan puli** = unga boshidan beri hisoblangan − unga
   to'lab berilgan (`SalaryPayout`).
 - **Markaz ulushi** = xizmat qiymati − mutaxassis haqi.
-- **Qarzdorlik** = abonement to'liq qiymati − shu abonementga tushgan to'lovlar.
-- **Kassaga tushgan** — davr ichidagi to'lovlar (xizmat qiymatidan farq qiladi:
-  abonement oldindan to'lanadi, seans keyin o'tadi).
+- **Kassaga tushgan** — davr ichidagi to'lovlar va konsultatsiyalar (xizmat
+  qiymatidan farq qilishi mumkin: to'lov seans kunidan oldin yoki keyin
+  yozilishi mumkin).
 
 ## Tekshiruv
 
@@ -293,13 +293,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 296 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 295 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement, egani tahrirlash, mijoz formasi (206)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi (205)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (19)
 node tests/parent.mjs     # Ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # Tun/kun rejimi, til (uz/en/ru), tarjima to'liqligi, logotip, tepa panel (41)

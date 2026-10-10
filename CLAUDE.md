@@ -121,12 +121,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 296 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 295 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement, egani tahrirlash, mijoz formasi (206)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi (205)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (19)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
@@ -187,9 +187,14 @@ Buni o'zgartirishdan oldin tushunib oling:
 - **Mijozning to'lov turi** `Client.billingType`: `DAILY` (standart — har kelganida
   to'laydi) yoki `PACKAGE` (abonement oladi). Kunlik mijozda abonement, qolgan seans
   va qarzdorlik tushunchasi yo'q — interfeys ham, eslatmalar ham unga bu narsalarni
-  ko'rsatmaydi. Markazda abonement ishlatilmaydi: yangi mijoz doim `DAILY`,
-  formalarda "To'lov turi" yo'q. `PACKAGE` faqat ilgari abonement olganlarda
-  qoladi (qolgan seanslari yo'qolmasin), tahrirlash uni o'zgartirmaydi.
+  ko'rsatmaydi.
+- **Markazda abonement ishlatilmaydi** — har seans alohida hisoblanadi.
+  Yangi mijoz doim `DAILY`, formalarda "To'lov turi" yo'q. Abonement, qolgan
+  seans va qarzdorlik interfeysning **hech qayerida** ko'rinmaydi (panel,
+  mijozlar, mijoz kartasi, to'lovlar, mutaxassis va ota-ona kabineti), abonement
+  sotish formasi yo'q, abonement/qarz eslatmalari yuborilmaydi. Eski
+  `Package` yozuvlari bazada qoladi: seans narxi va to'lov taqsimoti ularga
+  hali ham tayanadi (pastdagi bandlar) — bu kod faqat eski ma'lumot uchun.
 - **Seans narxi** abonementdan, abonement bo'lmasa xizmatdan olinadi. Narx ham
   seans bilan birga saqlanadi.
 - **Xizmatlar** (`SessionType`, Sozlamalar → "Xizmatlar, narx va ulush"):
@@ -205,7 +210,7 @@ Buni o'zgartirishdan oldin tushunib oling:
   olinadi va abonementda saqlanadi. Seans shu xizmat abonementidan yechiladi;
   bunday abonement bo'lmasa — xizmatlardan oldin sotilgan, yo'nalishga
   bog'langan eski abonementdan (`Package.specialization`, qolgan seanslar
-  kuymasin). Abonement nomi hamma joyda `packageName()` orqali.
+  kuymasin).
 - **"O'tdi"/"Kelmadi"** belgilanganda: narx = seansda yozilgan → abonement →
   xizmat → (eski seanslar uchun) mutaxassis narxi → `Settings.defaultPrice`;
   ulush = xizmatniki → (eski seanslar uchun) `Specialist.salaryPercent`.
@@ -215,7 +220,6 @@ Buni o'zgartirishdan oldin tushunib oling:
   o'tkazadi.
 - **Foiz seans bilan birga saqlanadi** (`Session.salaryPercent`). Keyin mutaxassisning
   foizi o'zgarsa, o'tib bo'lgan seanslarning hisobi o'zgarmaydi. Buni buzmang.
-- Abonement tugashi va qarzdorlik `src/lib/stats.ts` da hisoblanadi.
 - **Qabul (konsultatsiya) puli** `Payment` jadvaliga tushmaydi (qabul hali mijoz
   emas) — summa `Intake.price` da turadi. Lekin u ham kassaga tushgan pul, shuning
   uchun `getOverview().collected` ga qo'shiladi va To'lovlar sahifasida alohida
@@ -239,7 +243,7 @@ beradi.
 
 Ota-ona botga `/start` yuborib raqamini ulashadi, "Kabinetni ochish" tugmasi
 `/tg` orqali `/m` ga olib boradi (`src/app/m/parent.tsx`). Bo'limlar: Farzandim,
-Jadval, Davomat, To'lovlar, Abonement, Mutaxassislar.
+Jadval, Davomat, To'lovlar, Mutaxassislar.
 
 - **Ota-ona akkaunti mijoz qo'shilganda doim ochiladi** (parolsiz,
   `passwordHash: ""`) — bot raqamni foydalanuvchilar orasidan qidiradi.

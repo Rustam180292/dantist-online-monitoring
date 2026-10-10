@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, isSolo } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import {
-  BILLABLE_STATUSES,
   SESSION_STATUSES,
   SPECIALIZATIONS,
   type SessionStatus,
@@ -234,11 +233,6 @@ function MarkButton({
 
 async function MyClients({ specialistId }: { specialistId: string }) {
   const t = await getT();
-  const specialist = await prisma.specialist.findUniqueOrThrow({
-    where: { id: specialistId },
-    select: { specialization: true },
-  });
-
   const assignments = await prisma.assignment.findMany({
     where: { specialistId },
     include: {
@@ -248,10 +242,6 @@ async function MyClients({ specialistId }: { specialistId: string }) {
           fullName: true,
           parentPhone: true,
           status: true,
-          packages: {
-            where: { specialization: specialist.specialization, isActive: true },
-            select: { totalSessions: true, sessions: { select: { status: true } } },
-          },
           sessions: {
             where: { specialistId, startsAt: { gte: new Date() }, status: "PLANNED" },
             orderBy: { startsAt: "asc" },
@@ -268,22 +258,13 @@ async function MyClients({ specialistId }: { specialistId: string }) {
   }
 
   const rows = assignments
-    .map((a) => {
-      const remaining = a.client.packages.reduce((sum, p) => {
-        const used = p.sessions.filter((s) =>
-          BILLABLE_STATUSES.includes(s.status as SessionStatus),
-        ).length;
-        return sum + Math.max(p.totalSessions - used, 0);
-      }, 0);
-      return {
-        id: a.client.id,
-        name: a.client.fullName,
-        phone: a.client.parentPhone,
-        status: a.client.status,
-        remaining,
-        next: a.client.sessions[0]?.startsAt ?? null,
-      };
-    })
+    .map((a) => ({
+      id: a.client.id,
+      name: a.client.fullName,
+      phone: a.client.parentPhone,
+      status: a.client.status,
+      next: a.client.sessions[0]?.startsAt ?? null,
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
@@ -307,17 +288,6 @@ async function MyClients({ specialistId }: { specialistId: string }) {
                 {c.phone}
               </a>
             </div>
-            <span
-              className={`shrink-0 rounded-lg px-2 py-0.5 text-xs font-semibold tabular-nums ${
-                c.remaining === 0
-                  ? "bg-rose-100 text-rose-700"
-                  : c.remaining <= 2
-                    ? "bg-amber-100 text-amber-700"
-                    : "bg-emerald-100 text-emerald-700"
-              }`}
-            >
-              {t("{n} seans", { n: c.remaining })}
-            </span>
           </div>
         </li>
       ))}
@@ -397,10 +367,10 @@ async function MyMoney({
                         {money(s.price)} × {pct}%
                       </p>
                     ) : (
-                      // Narx abonementdan olinadi: faol abonement bo'lmasa 0 bo'lib
+                      // Narx xizmatdan olinadi: xizmatsiz eski seansda 0 bo'lib
                       // qoladi va ulush ham 0 chiqadi. Jim turmasin.
                       <p className="text-xs font-medium text-amber-600">
-                        {t("narx belgilanmagan (abonement yo'q)")}
+                        {t("narx belgilanmagan")}
                       </p>
                     )}
                   </div>

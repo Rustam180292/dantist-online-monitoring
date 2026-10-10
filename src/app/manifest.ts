@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "Logopedik markaz CRM",
     short_name: "Logoped CRM",
     description:
-      "Logopedik markaz boshqaruvi: jadval, davomat, mijozlar, abonementlar va to'lovlar.",
+      "Logopedik markaz boshqaruvi: jadval, davomat, mijozlar va to'lovlar.",
     lang: "uz",
     start_url: "/",
     scope: "/",

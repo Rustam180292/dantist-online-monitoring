@@ -9,10 +9,8 @@ import { requireUser, type CurrentUser, isFrontDesk, isSolo } from "@/lib/auth";
 import {
   CLIENT_STATUS_KEYS,
   PAYMENT_METHOD_KEYS,
-  SPECIALIZATION_KEYS,
   type ClientStatus,
   type PaymentMethod,
-  type Specialization,
 } from "@/lib/constants";
 
 /**
@@ -440,74 +438,6 @@ async function unassignServiceImpl(formData: FormData) {
   revalidatePath(`/clients/${clientId}`);
 }
 
-/**
- * Abonement (seans paketi) sotish.
- *
- * Abonement xizmatga bog'lanadi va narxi xizmatdan olinadi: "Massaj: 10
- * seans" sotilsa, massaj seanslari shu abonementdan yechiladi. Narx
- * abonementda saqlanadi — keyin xizmat narxi o'zgarsa ham, ota-ona to'lagan
- * narx o'zgarmaydi.
- */
-async function addPackageImpl(formData: FormData) {
-  const user = await requireFrontDesk();
-  const clientId = String(formData.get("clientId") ?? "");
-  const sessionTypeId = String(formData.get("sessionTypeId") ?? "");
-  if (!sessionTypeId) throw new Error("Xizmatni tanlang.");
-
-  const totalSessions = Number(formData.get("totalSessions") ?? 0);
-  if (!Number.isInteger(totalSessions) || totalSessions < 1 || totalSessions > 100) {
-    throw new Error("Seans soni 1 dan 100 gacha bo'lishi kerak.");
-  }
-
-  const client = await assertClientAccess(user, clientId);
-  const service = await serviceForClient(sessionTypeId, client);
-  const pricePerSession = service.price;
-
-  const expiresAtRaw = String(formData.get("expiresAt") ?? "");
-  const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : null;
-
-  const pkg = await prisma.package.create({
-    data: {
-      clientId,
-      sessionTypeId,
-      totalSessions,
-      pricePerSession,
-      expiresAt: expiresAt && !Number.isNaN(expiresAt.getTime()) ? expiresAt : null,
-    },
-  });
-
-  // Abonement olingan xizmat mijozga biriktirilgan bo'lsin — seans yozishda
-  // aynan shu xizmat taklif qilinadi
-  await prisma.clientService.upsert({
-    where: { clientId_sessionTypeId: { clientId, sessionTypeId } },
-    create: { clientId, sessionTypeId },
-    update: {},
-  });
-
-  // Darhol to'lov kiritilgan bo'lsa, shu abonementga yozamiz
-  const prepaidRaw = String(formData.get("prepaid") ?? "").replace(/[^\d]/g, "");
-  if (prepaidRaw && Number(prepaidRaw) > 0) {
-    const client = await prisma.client.findUniqueOrThrow({
-      where: { id: clientId },
-      select: { branchId: true },
-    });
-    await prisma.payment.create({
-      data: {
-        clientId,
-        branchId: client.branchId,
-        packageId: pkg.id,
-        amount: Math.round(Number(prepaidRaw)),
-        method: "CASH",
-        note: `${totalSessions} seanslik abonement uchun`,
-      },
-    });
-  }
-
-  revalidatePath(`/clients/${clientId}`);
-  revalidatePath("/payments");
-  revalidatePath("/");
-}
-
 /** To'lov qabul qilish */
 /**
  * Summani mijozning qarzi bor abonementlariga eng eskisidan boshlab bo'ladi.
@@ -687,7 +617,6 @@ export const anonymizeClient = withFlash(anonymizeClientImpl);
 export const deleteClient = withFlash(deleteClientImpl);
 export const assignSpecialist = withFlash(assignSpecialistImpl);
 export const unassignSpecialist = withFlash(unassignSpecialistImpl);
-export const addPackage = withFlash(addPackageImpl);
 export const assignService = withFlash(assignServiceImpl);
 export const unassignService = withFlash(unassignServiceImpl);
 export const addPayment = withFlash(addPaymentImpl);
