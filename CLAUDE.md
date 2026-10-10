@@ -121,12 +121,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 320 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 323 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi, ish vaqti va tushlik, Google Sheets zaxira, mijozlar puli va holati (230)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi, ish vaqti va tushlik, Google Sheets zaxira (jonli), mijozlar puli va holati (233)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (19)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
@@ -316,9 +316,13 @@ Jadval, Davomat, To'lovlar, Mutaxassislar.
 - **Google Sheets zaxirasi** (`src/lib/sheets.ts`). Foydalanuvchi o'z
   jadvaliga tayyor Apps Script qo'yib, "Web app" manzilini Sozlamalarga
   yozadi (`Settings.sheetsUrl`, yakka logopedda `Branch.sheetsUrl`) — Google
-  Cloud kaliti kerak emas. Har kuni eslatmalar yoki zaxira cron'i bilan
-  (`runDailySheets`, 20 soatda bir martadan ko'p emas) har bir varaq
-  tozalanib qaytadan yoziladi. Markaz jadvaliga yakka logopedlarning
+  Cloud kaliti kerak emas. **Har bir server action'dan keyin** (`withFlash`
+  → `after` → `syncAfterChange`) jadval o'zi yangilanadi; bir vaqtda ikki
+  yozuv to'qnashmasligi uchun `sheetsDirtyAt` belgi va `sheetsLockAt` qulf
+  bor (`sheetsChanged`). Bundan tashqari kuniga bir marta eslatmalar yoki
+  zaxira cron'i bilan (`runDailySheets`, 20 soatda bir martadan ko'p emas).
+  Har safar varaq tozalanib qaytadan yoziladi. Mijozlar varag'ida
+  to'langan / xizmatlar uchun / qoldiq — Mijozlar sahifasidagi bilan bir xil. Markaz jadvaliga yakka logopedlarning
   ma'lumoti tushmaydi, yakkaga — faqat o'ziniki. Parol va Telegram id
   yuborilmaydi; "=", "+" bilan boshlangan matn oldiga "'" qo'yiladi (formula
   bo'lib qolmasin). Manzil faqat `script.google.com/macros/.../exec`

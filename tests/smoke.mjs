@@ -2225,7 +2225,51 @@ if (await payRow.count()) {
   await cron();
   await page.waitForTimeout(1500);
   check("Bir kunda ikki marta yozilmaydi", sheetsHits.length === cronAgain);
-  await all("UPDATE Settings SET sheetsUrl = NULL, sheetsSyncedAt = NULL, sheetsError = NULL WHERE id = 'main'");
+
+  // O'zgarish bo'lishi bilan jadval o'zi yangilanadi (kunni kutmaydi)
+  {
+    const target = await one(
+      `SELECT c.id, c.fullName FROM Client c JOIN Branch b ON b.id = c.branchId
+        WHERE b.isSolo = false AND c.status = 'ACTIVE'
+          AND (SELECT COUNT(*) FROM Client c2 WHERE c2.fullName = c.fullName) = 1
+        ORDER BY c.fullName LIMIT 1`,
+    );
+    const amount = 123000 + Math.floor(Math.random() * 900);
+    const liveBefore = sheetsHits.length;
+    await page.goto(`${BASE}/payments`);
+    await page.waitForLoadState("networkidle");
+    await page.click('summary:has-text("To\'lov qabul qilish")');
+    await page.selectOption("#clientId", target.id);
+    await page.fill("#amount", String(amount));
+    await page.click('form button:has-text("Qabul qilish")');
+    const fresh = () =>
+      sheetsHits.slice(liveBefore).find((h) =>
+        (h.data?.sheets?.["To'lovlar"] ?? []).some((r) => r[3] === amount),
+      );
+    const live = await waitUntil(async () => Boolean(fresh()), 20000);
+    check("To'lov qo'shilishi bilan Google jadval o'zi yangilanadi", live);
+
+    const sheets = fresh()?.data?.sheets;
+    const head = sheets?.Mijozlar?.[0] ?? [];
+    const row = (sheets?.Mijozlar ?? []).find((r) => r[0] === target.fullName) ?? [];
+    const col = (name) => row[head.indexOf(name)];
+    const paidDb = await count("SELECT COALESCE(SUM(amount), 0) AS n FROM Payment WHERE clientId = ?", target.id);
+    const earnedDb = await count(
+      "SELECT COALESCE(SUM(price), 0) AS n FROM Session WHERE clientId = ? AND status IN ('DONE','NO_SHOW')",
+      target.id,
+    );
+    check(
+      "Mijozlar varag'ida to'langan, xizmatlar uchun va qoldiq bor",
+      ["To'langan", "Xizmatlar uchun", "Qoldiq"].every((h) => head.includes(h)) &&
+        col("To'langan") === paidDb && col("Xizmatlar uchun") === earnedDb &&
+        col("Qoldiq") === paidDb - earnedDb,
+      `${col("To'langan")}/${paidDb} ${col("Xizmatlar uchun")}/${earnedDb} ${col("Qoldiq")}`,
+    );
+    const lock = await one("SELECT sheetsLockAt FROM Settings WHERE id='main'");
+    check("Yozib bo'lgach qulf bo'shatiladi", await waitUntil(async () =>
+      !(await one("SELECT sheetsLockAt FROM Settings WHERE id='main'"))?.sheetsLockAt), JSON.stringify(lock));
+  }
+  await all("UPDATE Settings SET sheetsUrl = NULL, sheetsSyncedAt = NULL, sheetsError = NULL, sheetsLockAt = NULL WHERE id = 'main'");
 }
 
 /* 9p. Avtomatik zaxira (Telegram orqali) */

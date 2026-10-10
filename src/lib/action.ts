@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
+import { after } from "next/server";
 import { setFlash } from "@/lib/flash";
 import type { Vars } from "@/lib/i18n";
 
@@ -32,6 +33,18 @@ export function withFlash<T extends unknown[]>(
   fn: (...args: T) => Promise<void>,
 ): (...args: T) => Promise<void> {
   return async (...args: T) => {
+    // Google jadval har o'zgarishdan keyin yangilansin. Javob ketgandan keyin
+    // bajariladi — foydalanuvchi kutmaydi. Xato bo'lsa (masalan tekshiruv
+    // o'tmasa) ham ishlaydi: o'zgarmagan ma'lumotni qayta yozish zararsiz,
+    // redirect qiladigan amallarni esa boshqacha ushlab bo'lmaydi.
+    after(async () => {
+      try {
+        const { syncAfterChange } = await import("@/lib/sheets");
+        await syncAfterChange();
+      } catch (e) {
+        console.error("Google jadvalga yozilmadi:", e);
+      }
+    });
     try {
       await fn(...args);
     } catch (error) {

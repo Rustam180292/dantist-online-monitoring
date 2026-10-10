@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
+  BILLABLE_STATUSES,
   CLIENT_STATUSES,
   INTAKE_RESULTS,
   INTAKE_STATUSES,
@@ -10,6 +11,7 @@ import {
   SPECIALIZATIONS,
 } from "@/lib/constants";
 import { timeUz, toDateInput } from "@/lib/format";
+import { getCurrentUser } from "@/lib/auth";
 
 /**
  * Google Sheets zaxirasi.
@@ -76,7 +78,7 @@ const label = (map: Record<string, string>, key: string) => map[key] ?? key;
 export async function buildSheets(soloBranchId: string | null): Promise<Record<string, Sheet>> {
   const branch = soloBranchId ? { branchId: soloBranchId } : { branch: { isSolo: false } };
 
-  const [clients, sessions, payments, intakes, staff, services, payouts] = await Promise.all([
+  const [clients, sessions, payments, intakes, staff, services, payouts, paidRows, earnedRows] = await Promise.all([
     prisma.client.findMany({
       where: branch,
       orderBy: { fullName: "asc" },
@@ -141,13 +143,23 @@ export async function buildSheets(soloBranchId: string | null): Promise<Record<s
             branch: { select: { name: true } },
           },
         }),
+    // Mijozlar varag'idagi pul — Mijozlar sahifasidagi bilan bir xil hisob
+    prisma.payment.groupBy({ by: ["clientId"], where: branch, _sum: { amount: true } }),
+    prisma.session.groupBy({
+      by: ["clientId"],
+      where: { ...branch, status: { in: BILLABLE_STATUSES } },
+      _sum: { price: true },
+    }),
   ]);
+  const paidBy = new Map(paidRows.map((r) => [r.clientId, r._sum.amount ?? 0]));
+  const earnedBy = new Map(earnedRows.map((r) => [r.clientId, r._sum.price ?? 0]));
 
   const sheets: Record<string, Sheet> = {
     Mijozlar: [
       [
         "Bola", "Tug'ilgan sana", "Jinsi", "Filial", "Ota-ona", "Telefon",
-        "Mutaxassis", "Xizmat", "Tashxis", "Izoh", "Holat", "Qo'shilgan",
+        "Mutaxassis", "Xizmat", "Tashxis", "Izoh", "Holat",
+        "To'langan", "Xizmatlar uchun", "Qoldiq", "Qo'shilgan",
       ],
       ...clients.map((c) => [
         cell(c.fullName),
@@ -161,6 +173,10 @@ export async function buildSheets(soloBranchId: string | null): Promise<Record<s
         cell(c.diagnosis),
         cell(c.note),
         label(CLIENT_STATUSES, c.status),
+        paidBy.get(c.id) ?? 0,
+        earnedBy.get(c.id) ?? 0,
+        // Musbat — oldindan to'langan, manfiy — qarz
+        (paidBy.get(c.id) ?? 0) - (earnedBy.get(c.id) ?? 0),
         day(c.createdAt),
       ]),
     ],
@@ -333,4 +349,86 @@ export async function runDailySheets(now: Date = new Date()): Promise<number> {
     if ((await syncSheets(b.id)).ok) done++;
   }
   return done;
+}
+
+/* ---------- Har o'zgarishdan keyin ---------- */
+
+const LOCK_STALE_MS = 2 * 60_000;
+
+type Target = { solo: string | null };
+
+async function setFields(t: Target, data: { sheetsDirtyAt?: Date; sheetsLockAt?: Date | null }) {
+  return t.solo
+    ? prisma.branch.updateMany({ where: { id: t.solo, isSolo: true }, data })
+    : prisma.settings.updateMany({ where: { id: "main" }, data });
+}
+
+/** Faqat bitta yozuvchi: band bo'lmasa (yoki egasi 2 daqiqadan beri qotib qolgan bo'lsa) olamiz */
+async function tryLock(t: Target): Promise<boolean> {
+  const now = new Date();
+  const free = { OR: [{ sheetsLockAt: null }, { sheetsLockAt: { lt: new Date(now.getTime() - LOCK_STALE_MS) } }] };
+  const res = t.solo
+    ? await prisma.branch.updateMany({ where: { id: t.solo, isSolo: true, sheetsUrl: { not: null }, ...free }, data: { sheetsLockAt: now } })
+    : await prisma.settings.updateMany({ where: { id: "main", sheetsUrl: { not: null }, ...free }, data: { sheetsLockAt: now } });
+  return res.count === 1;
+}
+
+async function dirtySince(t: Target, since: Date): Promise<boolean> {
+  const row = t.solo
+    ? await prisma.branch.findUnique({ where: { id: t.solo }, select: { sheetsDirtyAt: true } })
+    : await prisma.settings.findUnique({ where: { id: "main" }, select: { sheetsDirtyAt: true } });
+  return Boolean(row?.sheetsDirtyAt && row.sheetsDirtyAt > since);
+}
+
+/**
+ * Ma'lumot o'zgardi — jadvalni yangilaymiz.
+ *
+ * Bir necha o'zgarish ketma-ket kelsa (to'lov, keyin seans), har biri
+ * alohida yozuv boshlasa, sekinroq ketgan eski nusxa yangisining ustidan
+ * yozib qo'yishi mumkin edi. Shuning uchun: o'zgarish "belgi" qo'yadi,
+ * yozishni esa faqat qulfni olgan bitta jarayon qiladi va belgi yangilanib
+ * turgan ekan, qaytadan yozadi. Qulfni ololmagan jarayon belgini qo'yib
+ * ketadi — ish egasi uni ko'radi.
+ */
+export async function sheetsChanged(solo: string | null): Promise<void> {
+  const t: Target = { solo };
+  await setFields(t, { sheetsDirtyAt: new Date() });
+
+  for (let round = 0; round < 5; round++) {
+    if (!(await tryLock(t))) return;
+    let again = false;
+    try {
+      // Belgi shu lahzadan keyin qo'yilsa — yana bir marta yozamiz
+      const startedAt = new Date();
+      await syncSheets(solo);
+      again = await dirtySince(t, startedAt);
+      while (again && round < 4) {
+        round++;
+        const next = new Date();
+        await syncSheets(solo);
+        again = await dirtySince(t, next);
+      }
+    } finally {
+      await setFields(t, { sheetsLockAt: null });
+    }
+    // Qulf bo'shagandan keyin yana tekshiramiz: o'sha orada kelgan va qulfni
+    // ololmagan o'zgarish yo'qolib qolmasin
+    if (!again && !(await dirtySince(t, new Date(Date.now() - 1000)))) return;
+  }
+}
+
+/**
+ * Server action'dan keyin (`withFlash`): kim o'zgartirgan bo'lsa, o'sha
+ * jadval yangilanadi — yakka logoped yoki uning mijozi bo'lsa o'zinikida,
+ * qolganlari markaznikida. Jadval ulanmagan bo'lsa hech narsa qilinmaydi.
+ */
+export async function syncAfterChange(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) return;
+  const solo = user.isSolo && user.branchId ? user.branchId : null;
+  const configured = solo
+    ? await prisma.branch.findFirst({ where: { id: solo, isSolo: true, sheetsUrl: { not: null } }, select: { id: true } })
+    : await prisma.settings.findFirst({ where: { id: "main", sheetsUrl: { not: null } }, select: { id: true } });
+  if (!configured) return;
+  await sheetsChanged(solo);
 }

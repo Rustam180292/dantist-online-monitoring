@@ -30,8 +30,8 @@ export async function SheetsCard({
       title={t("Google Sheets zaxira")}
       subtitle={
         solo
-          ? t("ma'lumotlaringiz har kuni Google jadvalga yozib boriladi")
-          : t("markaz ma'lumoti har kuni Google jadvalga yozib boriladi")
+          ? t("ma'lumotlaringiz Google jadvalga yozib boriladi")
+          : t("markaz ma'lumoti Google jadvalga yozib boriladi")
       }
       className={className}
     >
@@ -99,7 +99,7 @@ export async function SheetsCard({
           </div>
         ) : null}
         <p className="text-xs text-slate-500 dark:text-slate-400">
-          {t("Har kuni o'zi yangilanadi: varaqlar tozalanib, eng so'nggi ma'lumot yoziladi.")}
+          {t("Har o'zgarishdan keyin (bir necha soniyada) o'zi yangilanadi: varaqlar tozalanib, eng so'nggi ma'lumot yoziladi. Bundan tashqari kuniga bir marta ham yoziladi.")}
         </p>
       </div>
     </Card>
