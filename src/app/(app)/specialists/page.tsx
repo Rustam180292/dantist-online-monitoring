@@ -209,7 +209,7 @@ export default async function SpecialistsPage() {
                   </tr>
                   <tr className="border-b border-slate-100 dark:border-slate-800">
                     <td colSpan={branchId ? 10 : 11} className="px-4 pb-2">
-                      <details>
+                      <details data-autoclose>
                         <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                           ✎ {t("Tahrirlash")}
                         </summary>
@@ -419,7 +419,7 @@ export default async function SpecialistsPage() {
                   <p className="truncate text-xs text-slate-400">{o.phone}</p>
 
                   {/* Qabulxona xodimlaridagidek: ism, login va parolni shu yerda tuzatish */}
-                  <details className="mt-1" data-testid="owner-edit">
+                  <details data-autoclose className="mt-1" data-testid="owner-edit">
                     <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                       ✎ {t("Tahrirlash")}
                     </summary>
@@ -541,7 +541,7 @@ export default async function SpecialistsPage() {
                     <p className="text-xs text-amber-600 dark:text-amber-400">{t("Telegram yo'q")}</p>
                   )}
 
-                  <details className="mt-1">
+                  <details data-autoclose className="mt-1">
                     <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                       ✎ {t("Tahrirlash")}
                     </summary>

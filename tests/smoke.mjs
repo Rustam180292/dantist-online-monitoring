@@ -529,6 +529,10 @@ if (await payRow.count()) {
       return r.fullName === "Ikkinchi Ega (tahrir)" && r.phone === newPhone;
     });
     check("Markaz egasi tahrirlanadi", saved, newPhone);
+    check(
+      "Saqlangach tahrirlash bo'limi o'zi yopiladi",
+      await waitUntil(async () => !(await editBox.evaluate((el) => el.open)), 6000),
+    );
 
     // Yangi raqam va parol bilan kiradi
     await login(newPhone, "yangi123");
@@ -546,6 +550,9 @@ if (await payRow.count()) {
       "Ega tahririda band raqam qabul qilinmaydi",
       (await one("SELECT phone FROM User WHERE id = ?", target.id)).phone === newPhone,
     );
+    const stillOpen = await editBox.evaluate((el) => el.open);
+    const typed = await editBox.locator('input[name="phone"]').inputValue();
+    check("Xato bo'lsa tahrirlash bo'limi ochiq qoladi", stillOpen, `qiymat: ${typed}`);
   }
 }
 

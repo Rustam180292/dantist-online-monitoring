@@ -121,12 +121,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 288 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 290 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement, egani tahrirlash (199)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement, egani tahrirlash (201)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
@@ -269,6 +269,9 @@ Jadval, Davomat, To'lovlar, Abonement, Mutaxassislar.
 - **Amal xatolari.** Server action'lar `withFlash` bilan o'raladi (`src/lib/action.ts`).
   Usiz Next.js production'da xato matnini yashiradi va foydalanuvchi sababni
   bilmaydi. Yangi action yozsangiz, uni ham o'rang.
+- **Tahrirlash bo'limlari** `<details data-autoclose>` bo'lsin: ichidagi forma
+  saqlangach (yashil xabar kelsa) bo'lim o'zi yopiladi, xatoda ochiq qoladi
+  (`src/components/auto-close.tsx`, `Flash` ning `app:flash` hodisasi).
 - **Bajarilgani ham ko'rinsin.** Natijasi ekranda darhol bilinmaydigan amal
   (tahrirlash, to'lov) `setFlash(xabar, "ok")` bilan yashil xabar qoldirsin.
   Aks holda foydalanuvchi "ishlamadi" deb o'ylaydi — ayniqsa yozuv ro'yxatdan
