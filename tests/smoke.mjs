@@ -2120,12 +2120,24 @@ if (await payRow.count()) {
   const text = await page.locator("main").innerText();
   check("Bo'sh vaqtlar sahifasi ochiladi", text.includes("Bo'sh vaqtlar"), page.url());
 
-  const cells = await page.locator('tbody a[href*="sp="]').count();
+  // O'tib ketgan vaqtlar sanalmaydi: hafta oxirida (masalan shanba kechqurun)
+  // joriy haftada bitta ham bo'sh vaqt qolmaydi. Shunda keyingi haftaga
+  // o'tamiz — tekshiruv kunning qaysi payti ishga tushishiga bog'liq bo'lmasin.
+  const slotLinks = () => page.locator('tbody a[href*="sp="]');
+  let cells = await slotLinks().count();
+  if (cells === 0) {
+    await page.click('a:has-text("Keyingi hafta")');
+    // Manzil almashishini kutamiz: sahifa yumshoq (RSC) ko'chadi va
+    // networkidle eski haftani o'qib qolishi mumkin
+    await page.waitForURL(/\?w=/, { timeout: 15000 });
+    await page.waitForLoadState("networkidle");
+    cells = await slotLinks().count();
+  }
   check("Haftalik jadvalda bo'sh vaqtlar soni ko'rinadi", cells > 0, `${cells} ta katak`);
 
   // Katakni bosib vaqtlarni ochamiz va seans yozamiz
   const before = await count("SELECT COUNT(*) AS n FROM Session");
-  await page.locator('tbody a[href*="sp="]').first().click();
+  await slotLinks().first().click();
   // Katak bosilganda sahifa qayta chiziladi — forma paydo bo'lishini kutamiz
   // (networkidle bu yerda yetarli emas, RSC javobi keyinroq chiziladi).
   const slotForm = page.locator('form:has(select[name="clientId"])').first();
@@ -2221,6 +2233,12 @@ if (await payRow.count()) {
     fetch(`${BASE}/api/backup`, { headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" } });
   await cron();
   check("Kunlik cron Google jadvalga o'zi yozadi", await waitUntil(async () => sheetsHits.length > cronBefore, 20000));
+  // Jadval so'rovi yetib kelgani yozuv tugaganini bildirmaydi: `sheetsSyncedAt`
+  // keyinroq yoziladi. Uni kutmasak, ikkinchi cron hali "hech qachon
+  // yozilmagan" degan bazani ko'rib, qaytadan yozib yuboradi.
+  await waitUntil(async () =>
+    Boolean((await one("SELECT sheetsSyncedAt FROM Settings WHERE id='main'"))?.sheetsSyncedAt),
+  );
   const cronAgain = sheetsHits.length;
   await cron();
   await page.waitForTimeout(1500);
