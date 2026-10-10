@@ -161,12 +161,22 @@ async function main() {
   await prisma.linkCode.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.session.deleteMany();
+  await prisma.sessionType.deleteMany();
   await prisma.package.deleteMany();
   await prisma.assignment.deleteMany();
   await prisma.client.deleteMany();
   await prisma.specialist.deleteMany();
   await prisma.user.deleteMany();
   await prisma.branch.deleteMany();
+
+  // Har xil mashg'ulotning narxi har xil — demo'da ham bir nechta tur bo'lsin
+  await prisma.sessionType.createMany({
+    data: [
+      { name: "Logoped seansi", price: 150_000 },
+      { name: "Massaj", price: 100_000 },
+      { name: "ABA terapiya", price: 180_000 },
+    ],
+  });
 
   const pwd = hashPassword(DEMO_PASSWORD);
 

@@ -30,6 +30,7 @@ model Branch {
   payments    Payment[]
   payouts     SalaryPayout[]
   intakes     Intake[]
+  sessionTypes SessionType[]
 }
 
 /// Tizim foydalanuvchisi. role: OWNER | BRANCH_ADMIN | SPECIALIST | PARENT
@@ -162,6 +163,9 @@ model Session {
   specialistId String
   branchId     String
   packageId    String?
+  /// Seans turi (Sozlamalardagi ro'yxatdan). Bo'sh bo'lishi mumkin — turlar
+  /// qo'shilishidan oldingi seanslar va tur tanlanmagan seanslar uchun.
+  sessionTypeId String?
   startsAt     DateTime
   durationMin  Int      @default(45)
   status       String   @default("PLANNED")
@@ -178,6 +182,8 @@ model Session {
   specialist Specialist @relation(fields: [specialistId], references: [id])
   branch     Branch     @relation(fields: [branchId], references: [id])
   package    Package?   @relation(fields: [packageId], references: [id])
+  // Tur o'chirilsa seans qoladi — uning narxi seansning o'zida saqlangan
+  sessionType SessionType? @relation(fields: [sessionTypeId], references: [id], onDelete: SetNull)
 
   @@index([startsAt])
   @@index([specialistId, startsAt])
@@ -317,4 +323,24 @@ model Notification {
 
   @@index([sentAt, attempts])
   @@index([userId, createdAt])
+}
+
+/// Seans turi va narxi: "Logoped 45 daq", "Massaj" va h.k. Har xil
+/// mashg'ulotning narxi har xil — bitta standart narx yetmaydi.
+/// branchId bo'sh — markazniki (hamma filialda); yakka mutaxassisda — uning
+/// o'z filiali (markaz turlari unga, uning turlari markazga ko'rinmaydi).
+model SessionType {
+  id        String   @id @default(cuid())
+  branchId  String?
+  name      String
+  /// Bitta seans narxi, so'mda
+  price     Int
+  /// O'chirilgan tur ro'yxatdan yo'qoladi, lekin eski seanslarda nomi qoladi
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  branch   Branch?   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@index([branchId])
 }

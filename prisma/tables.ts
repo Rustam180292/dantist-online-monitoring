@@ -12,6 +12,7 @@ export const TABLES = [
   { name: "Client", delegate: "client" },
   { name: "Assignment", delegate: "assignment" },
   { name: "Package", delegate: "package" },
+  { name: "SessionType", delegate: "sessionType" },
   { name: "Session", delegate: "session" },
   { name: "Payment", delegate: "payment" },
   { name: "Intake", delegate: "intake" },

@@ -7,6 +7,7 @@ import { getT } from "@/lib/i18n/server";
 import { Card, PageHeader, btn, btnDanger, btnPrimary, input, label } from "@/components/ui";
 import { BrandMark } from "@/components/brand";
 import { LogoInput } from "@/components/logo-upload";
+import { SessionTypesCard } from "./session-types-card";
 import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
 import {
   backupNow,
@@ -83,6 +84,8 @@ export default async function SettingsPage() {
           </form>
         </Card>
       ) : null}
+
+      {solo ? <SessionTypesCard user={user} className="mb-5" /> : null}
 
       {isOwner ? (
         <>
@@ -189,6 +192,8 @@ export default async function SettingsPage() {
               </div>
             </form>
           </Card>
+
+          <SessionTypesCard user={user} className="mt-5" />
 
           <Card
             title={t("Ish vaqti")}

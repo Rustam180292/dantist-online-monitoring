@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { SESSION_STATUS_KEYS, type SessionStatus } from "@/lib/constants";
 import { queueSessionDone, sendPending } from "@/lib/notify";
 import { getSettings } from "@/lib/settings";
+import { assertTypeFitsBranch } from "@/lib/session-types";
 
 /** Seansni o'zgartirishga ruxsat bormi? */
 async function assertCanEdit(sessionId: string) {
@@ -46,6 +47,7 @@ async function setSessionStatusImpl(formData: FormData) {
     where: { id: sessionId },
     include: {
       package: { select: { pricePerSession: true } },
+      sessionType: { select: { price: true } },
       specialist: { select: { salaryPercent: true, defaultPrice: true } },
     },
   });
@@ -58,12 +60,14 @@ async function setSessionStatusImpl(formData: FormData) {
   // abonementi yo'q — narx markazning standart narxidan olinadi. Aks holda
   // narx 0 bo'lib qolardi va mutaxassis o'sha seansdan hech narsa olmasdi.
   const billable = status === "DONE" || status === "NO_SHOW";
-  // Narx: seansda yozilgani -> abonement narxi -> mutaxassisning o'z narxi ->
-  // markazning standart narxi. Yakka mutaxassisning narxi markaznikiga bog'liq
-  // emas, shuning uchun u markaz narxidan oldin keladi.
+  // Narx: seansda yozilgani -> abonement narxi -> seans turining narxi ->
+  // mutaxassisning o'z narxi -> markazning standart narxi. Abonement turdan
+  // oldin: ota-ona abonementni o'sha narxda to'lagan. Yakka mutaxassisning
+  // narxi markaznikiga bog'liq emas, shuning uchun u markaz narxidan oldin.
   const price = billable
     ? session.price ||
       session.package?.pricePerSession ||
+      session.sessionType?.price ||
       session.specialist.defaultPrice ||
       (await getSettings()).defaultPrice
     : 0;
@@ -108,6 +112,7 @@ async function createSessionImpl(formData: FormData) {
   const specialistId = String(formData.get("specialistId") ?? "");
   const startsAtRaw = String(formData.get("startsAt") ?? "");
   const durationMin = Number(formData.get("durationMin") ?? 45);
+  const sessionTypeId = String(formData.get("sessionTypeId") ?? "") || null;
 
   if (!clientId || !specialistId || !startsAtRaw) {
     throw new Error("Mijoz, mutaxassis va vaqtni to'liq kiriting.");
@@ -134,6 +139,8 @@ async function createSessionImpl(formData: FormData) {
   if (client.branchId !== specialist.branchId) {
     throw new Error("Mijoz va mutaxassis bitta filialda bo'lishi kerak.");
   }
+  // Begona (boshqa markaz yoki yakka logoped) turi bilan narx qo'yib bo'lmasin
+  if (sessionTypeId) await assertTypeFitsBranch(sessionTypeId, client.branchId);
 
   // Shu vaqtda mutaxassis band emasmi?
   const end = new Date(startsAt.getTime() + durationMin * 60_000);
@@ -163,6 +170,7 @@ async function createSessionImpl(formData: FormData) {
       specialistId,
       branchId: client.branchId,
       packageId: pkg?.id ?? null,
+      sessionTypeId,
       startsAt,
       durationMin,
       status: "PLANNED",
