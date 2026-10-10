@@ -308,6 +308,37 @@ async function toggleOwnerActiveImpl(formData: FormData) {
   revalidatePath("/specialists");
 }
 
+/**
+ * Egalik akkauntini tahrirlash: ism, telefon (login), parol.
+ *
+ * Har qanday ega boshqa egani ham, o'zini ham tahrirlay oladi — huquqlari
+ * teng. Parol bo'sh qoldirilsa eskisi qoladi. Rol va filial o'zgarmaydi:
+ * egani oddiy xodimga aylantirish ataylab yo'q (markaz egasiz qolmasin).
+ */
+async function updateOwnerImpl(formData: FormData) {
+  await requireOwner();
+  const userId = String(formData.get("userId") ?? "");
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!target || target.role !== "OWNER") throw new Error("Egalik akkaunti topilmadi.");
+  if (!fullName || !phone) throw new Error("Ism va telefon majburiy.");
+  if (password && password.length < 5) throw new Error("Parol kamida 5 belgidan bo'lsin.");
+
+  const taken = await prisma.user.findUnique({ where: { phone }, select: { id: true } });
+  if (taken && taken.id !== userId) throw new Error("Bu telefon raqam allaqachon ro'yxatda.");
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { fullName, phone, ...(password ? { passwordHash: hashPassword(password) } : {}) },
+  });
+  revalidatePath("/specialists");
+  revalidatePath("/", "layout");
+  await setFlash("{name} saqlandi.", "ok", { name: fullName });
+}
+
 /** Qabulxona xodimi uchun akkaunt ochish */
 async function createReceptionImpl(formData: FormData) {
   const user = await requireAdmin();
@@ -364,5 +395,6 @@ export const paySalary = withFlash(paySalaryImpl);
 export const deletePayout = withFlash(deletePayoutImpl);
 export const createOwner = withFlash(createOwnerImpl);
 export const toggleOwnerActive = withFlash(toggleOwnerActiveImpl);
+export const updateOwner = withFlash(updateOwnerImpl);
 export const createReception = withFlash(createReceptionImpl);
 export const toggleReceptionActive = withFlash(toggleReceptionActiveImpl);

@@ -326,12 +326,16 @@ const PNG = Buffer.from(
     .catch(() => false);
   check("Tepa paneldan til almashadi", switched);
   await bar.locator('[data-testid="lang-uz"]').click();
-  await page.waitForFunction(() => document.documentElement.lang === "uz");
+  // Sahifa o'zbekchada qayta chizilib bo'lishini kutamiz — aks holda menyu
+  // tugmasi qayta chizilish paytida bosilib, ochilmay qolishi mumkin
+  await page.waitForFunction(() => document.querySelector("aside")?.textContent?.includes("Mijozlar"), null, { timeout: 10000 });
+  await page.waitForLoadState("networkidle");
 
   // Menyu ochiladi, tashqariga bosilsa yopiladi, Chiqish ishlaydi
   await bar.locator('[data-testid="user-menu"]').click();
   const menu = page.locator('[role="menu"]');
-  check("Foydalanuvchi menyusi ochiladi", (await menu.innerText()).includes("Chiqish"));
+  const opened = await menu.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false);
+  check("Foydalanuvchi menyusi ochiladi", opened && (await menu.innerText()).includes("Chiqish"));
   await page.mouse.click(600, 500);
   check("Tashqariga bosilsa menyu yopiladi", (await menu.count()) === 0);
   await bar.locator('[data-testid="user-menu"]').click();
