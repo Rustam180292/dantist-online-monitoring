@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { runDailySheets } from "@/lib/sheets";
 import { sendBackupToOwners } from "@/lib/backup-send";
 
 /**
@@ -28,6 +29,8 @@ async function handle(request: Request) {
   }
 
   const result = await sendBackupToOwners();
+  // Zaxira cron'i sozlangan bo'lsa, Google Sheets ham shu yerda (kuniga bir marta)
+  after(() => runDailySheets().catch(() => 0));
   return NextResponse.json(result, { status: result.ok ? 200 : 500 });
 }
 

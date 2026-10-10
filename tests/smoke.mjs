@@ -10,6 +10,7 @@
  *
  * Manzilni o'zgartirish:  BASE_URL=http://localhost:3000 node tests/smoke.mjs
  */
+import http from "node:http";
 import playwright from "playwright";
 import { all, closeDb, count, one } from "./db.mjs";
 
@@ -26,6 +27,31 @@ const parent = await one(
 const specialist = await one("SELECT phone FROM User WHERE role='SPECIALIST' LIMIT 1");
 const owner = await one("SELECT phone FROM User WHERE role='OWNER' AND isActive = true ORDER BY createdAt LIMIT 1");
 const reception = await one("SELECT phone, fullName FROM User WHERE role='RECEPTION' AND isActive = true LIMIT 1");
+
+// Google Sheets'dagi Apps Script o'rniga lokal soxta server: sinov muhitidan
+// Google'ga chiqib bo'lmaydi. Server nima kelganini yozib boradi;
+// manzilida "xato" bo'lsa — Google ruxsatsiz skriptdagidek HTML qaytaradi.
+const sheetsHits = [];
+const sheetsServer = http.createServer((req, res) => {
+  let body = "";
+  req.on("data", (c) => (body += c));
+  req.on("end", () => {
+    if (req.url.includes("xato")) {
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end("<html>Sign in</html>");
+      return;
+    }
+    try {
+      sheetsHits.push({ url: req.url, data: JSON.parse(body) });
+    } catch {
+      sheetsHits.push({ url: req.url, data: null });
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end('{"ok":true}');
+  });
+});
+await new Promise((r) => sheetsServer.listen(0, "127.0.0.1", r));
+const SHEETS_MOCK = `http://127.0.0.1:${sheetsServer.address().port}`;
 
 
 /**
@@ -1359,6 +1385,65 @@ if (await payRow.count()) {
     await login(soloPhone);
   }
 
+  /* --- Yakka: o'z ish vaqti va tushligi, o'z Google jadvali --- */
+  {
+    const centerHours = await one("SELECT workStartHour, workEndHour, lunchStartMin FROM Settings WHERE id='main'");
+    await page.goto(`${BASE}/settings`);
+    await page.waitForLoadState("networkidle");
+    const f = page.locator('[data-testid="work-hours"]');
+    // Faqat dushanba-juma
+    for (const d of [6, 7]) {
+      const box = f.locator(`input[name="workDays"][value="${d}"]`);
+      if (await box.isChecked()) await box.uncheck();
+    }
+    await f.locator('input[name="workStartHour"]').fill("10");
+    await f.locator('input[name="workEndHour"]').fill("16");
+    await f.locator('input[name="slotMinutes"]').fill("60");
+    await f.locator('input[name="lunchStart"]').fill("12:00");
+    await f.locator('input[name="lunchEnd"]').fill("13:00");
+    await f.locator('button:has-text("Saqlash")').click();
+    const soloHours = await waitUntil(async () => {
+      const r = await one(
+        "SELECT workStartHour, workEndHour, workDays, lunchStartMin, lunchEndMin FROM Branch WHERE id = ?",
+        solo.branchId,
+      );
+      return r?.workStartHour === 10 && r?.workEndHour === 16 && r?.workDays === "1,2,3,4,5" &&
+        r?.lunchStartMin === 720 && r?.lunchEndMin === 780;
+    });
+    const centerAfter = await one("SELECT workStartHour, workEndHour, lunchStartMin FROM Settings WHERE id='main'");
+    check(
+      "Yakka o'z ish kunlari, vaqti va tushligini saqlaydi — markaznikiga tegmaydi",
+      soloHours && JSON.stringify(centerAfter) === JSON.stringify(centerHours),
+      JSON.stringify(centerAfter),
+    );
+    await page.goto(`${BASE}/slots`);
+    await page.waitForLoadState("networkidle");
+    check(
+      "Yakkaning bo'sh vaqtlari o'z ish vaqti bo'yicha",
+      (await page.locator("main").innerText()).includes("10:00–16:00 · tushlik 12:00–13:00"),
+    );
+
+    // O'z Google jadvali: faqat o'z ma'lumoti, markazniki va xodimlar yo'q
+    await all("UPDATE Branch SET sheetsUrl = ? WHERE id = ?", `${SHEETS_MOCK}/yakka/exec`, solo.branchId);
+    await page.goto(`${BASE}/settings`);
+    await page.waitForLoadState("networkidle");
+    const before = sheetsHits.length;
+    await page.locator('[data-testid="sheets"] button:has-text("Hozir yozish")').click();
+    const got = await waitUntil(async () => sheetsHits.length > before);
+    const sheets = got ? sheetsHits.at(-1).data?.sheets : null;
+    const centerKid = await one(
+      "SELECT c.fullName FROM Client c JOIN Branch b ON b.id = c.branchId WHERE b.isSolo = false LIMIT 1",
+    );
+    const ownClients = await count("SELECT COUNT(*) AS n FROM Client WHERE branchId = ?", solo.branchId);
+    check(
+      "Yakka Google jadvaliga faqat o'z ma'lumoti yoziladi",
+      Boolean(sheets) && !sheets.Xodimlar && !sheets["Ish haqi"] &&
+        sheets.Mijozlar.length - 1 === ownClients &&
+        !JSON.stringify(sheets).includes(centerKid.fullName),
+      sheets ? Object.keys(sheets).join(",") : "kelmadi",
+    );
+  }
+
   // Qabulda "kim ko'radi" so'ralmaydi — doim o'zi
   const soloIntake = `Yakka Qabul ${tag}`;
   await page.goto(`${BASE}/intakes`);
@@ -1855,12 +1940,34 @@ if (await payRow.count()) {
   await hours.locator('input[name="workStartHour"]').fill("8");
   await hours.locator('input[name="workEndHour"]').fill("20");
   await hours.locator('input[name="slotMinutes"]').fill("45");
+  await hours.locator('input[name="lunchStart"]').fill("13:00");
+  await hours.locator('input[name="lunchEnd"]').fill("14:00");
   await hours.locator('button:has-text("Saqlash")').click();
   const hoursSaved = await waitUntil(async () => {
     const r = await one("SELECT workStartHour, workEndHour, slotMinutes FROM Settings WHERE id='main'");
     return r && r.workStartHour === 8 && r.workEndHour === 20 && r.slotMinutes === 45;
   });
   check("Ish vaqti saqlanadi", hoursSaved);
+  {
+    const r = await one("SELECT lunchStartMin, lunchEndMin FROM Settings WHERE id='main'");
+    check("Tushlik vaqti saqlanadi", r?.lunchStartMin === 780 && r?.lunchEndMin === 840, JSON.stringify(r));
+  }
+
+  // Tushlik ish vaqtidan tashqarida bo'lsa rad etiladi
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  {
+    const f = page.locator('[data-testid="work-hours"]');
+    await f.locator('input[name="lunchStart"]').fill("21:00");
+    await f.locator('input[name="lunchEnd"]').fill("22:00");
+    await f.locator('button:has-text("Saqlash")').click();
+    check(
+      "Ish vaqtidan tashqaridagi tushlik rad etiladi",
+      await page.getByRole("alert").filter({ hasText: "ish vaqti ichida" })
+        .waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false) &&
+        (await one("SELECT lunchStartMin FROM Settings WHERE id='main'"))?.lunchStartMin === 780,
+    );
+  }
 
   // Noto'g'ri qiymat rad etiladi.
   // Sahifani qaytadan ochamiz: saqlashdan keyin forma qayta chiziladi va
@@ -1978,6 +2085,21 @@ if (await payRow.count()) {
     .then(() => true)
     .catch(() => false);
   check("Tanlangan kunning bo'sh vaqtlari chiqadi", hasSlots, page.url());
+  {
+    // Tushlik 13:00–14:00, oraliq 45 daqiqa: 12:30 (13:15 gacha) va 13:15
+    // tushlikka kirib qoladi — taklif qilinmasligi kerak
+    const starts = await page.locator('input[name="startsAt"]').evaluateAll((els) => els.map((e) => e.value));
+    const inLunch = starts.filter((v) => {
+      const [h, m] = v.slice(11, 16).split(":").map(Number);
+      const min = h * 60 + m;
+      return min < 840 && min + 45 > 780;
+    });
+    check(
+      "Bo'sh vaqtlarda tushlik vaqti taklif qilinmaydi",
+      inLunch.length === 0 && (await page.locator("main").innerText()).includes("tushlik 13:00–14:00"),
+      inLunch.join(", "),
+    );
+  }
 
   if (hasSlots) {
     await slotForm.locator('select[name="clientId"]').selectOption({ index: 1 });
@@ -1989,6 +2111,72 @@ if (await payRow.count()) {
     );
     check("Bo'sh vaqtdan seans yoziladi", booked);
   }
+}
+
+/* 9p0. Google Sheets zaxirasi (markaz) */
+{
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  check("Sozlamalarda Google Sheets zaxira bo'limi va skript bor", (await page.locator('[data-testid="sheets"]').innerText()).includes("doPost"));
+
+  // Faqat Apps Script manzili qabul qilinadi
+  await page.fill("#sheetsUrl", "https://example.com/hook");
+  await page.locator('form:has(#sheetsUrl) button[type=submit]').click();
+  check(
+    "Google Apps Script'dan boshqa manzil qabul qilinmaydi",
+    await page.getByRole("alert").filter({ hasText: "script.google.com" })
+      .waitFor({ state: "visible", timeout: 8000 }).then(() => true).catch(() => false) &&
+      !(await one("SELECT sheetsUrl FROM Settings WHERE id='main'"))?.sheetsUrl,
+  );
+
+  // Haqiqiy Google o'rniga lokal server (formadan o'tmaydi — bazaga yozamiz)
+  await all("UPDATE Settings SET sheetsUrl = ?, sheetsSyncedAt = NULL, sheetsError = NULL WHERE id = 'main'", `${SHEETS_MOCK}/markaz/exec`);
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  const hitsBefore = sheetsHits.length;
+  await page.locator('button:has-text("Hozir yozish")').click();
+  const got = await waitUntil(async () => sheetsHits.length > hitsBefore);
+  const sheets = got ? sheetsHits.at(-1).data?.sheets : null;
+  const centerClients = await count(
+    "SELECT COUNT(*) AS n FROM Client c JOIN Branch b ON b.id = c.branchId WHERE b.isSolo = false",
+  );
+  check(
+    "Markaz ma'lumoti Google jadvalga yoziladi (varaqlar va mijozlar soni)",
+    Boolean(sheets) &&
+      ["Mijozlar", "Seanslar", "To'lovlar", "Qabullar", "Xizmatlar", "Xodimlar", "Ish haqi"].every((k) => Array.isArray(sheets[k])) &&
+      sheets.Mijozlar.length - 1 === centerClients,
+    sheets ? `${sheets.Mijozlar.length - 1} / ${centerClients}` : "kelmadi",
+  );
+  check(
+    "Jadvalga parol yuborilmaydi, telefon matn bo'lib qoladi",
+    !JSON.stringify(sheets ?? {}).includes("passwordHash") &&
+      (sheets?.Mijozlar ?? []).slice(1).every((r) => String(r[5]).startsWith("'+") || !String(r[5]).startsWith("+")),
+  );
+  const synced = await one("SELECT sheetsSyncedAt, sheetsError FROM Settings WHERE id='main'");
+  check("Oxirgi yozilgan vaqt belgilanadi", Boolean(synced?.sheetsSyncedAt) && !synced?.sheetsError);
+
+  // Skript noto'g'ri joylangan bo'lsa — sababi Sozlamalarda ko'rinadi
+  await all("UPDATE Settings SET sheetsUrl = ? WHERE id = 'main'", `${SHEETS_MOCK}/xato/exec`);
+  await page.goto(`${BASE}/settings`);
+  await page.waitForLoadState("networkidle");
+  await page.locator('button:has-text("Hozir yozish")').click();
+  check(
+    "Google jadval javob bermasa xato ko'rsatiladi va saqlanadi",
+    await waitUntil(async () => Boolean((await one("SELECT sheetsError FROM Settings WHERE id='main'"))?.sheetsError)),
+  );
+
+  // Kunlik cron: oxirgi yozuvdan 20 soat o'tgan bo'lsa o'zi yozadi
+  await all("UPDATE Settings SET sheetsUrl = ?, sheetsSyncedAt = NULL, sheetsError = NULL WHERE id = 'main'", `${SHEETS_MOCK}/markaz/exec`);
+  const cronBefore = sheetsHits.length;
+  const cron = () =>
+    fetch(`${BASE}/api/backup`, { headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" } });
+  await cron();
+  check("Kunlik cron Google jadvalga o'zi yozadi", await waitUntil(async () => sheetsHits.length > cronBefore, 20000));
+  const cronAgain = sheetsHits.length;
+  await cron();
+  await page.waitForTimeout(1500);
+  check("Bir kunda ikki marta yozilmaydi", sheetsHits.length === cronAgain);
+  await all("UPDATE Settings SET sheetsUrl = NULL, sheetsSyncedAt = NULL, sheetsError = NULL WHERE id = 'main'");
 }
 
 /* 9p. Avtomatik zaxira (Telegram orqali) */
@@ -2355,6 +2543,7 @@ const ownFailures = [
 check("Ilovaning o'z resurslari yuklanadi", ownFailures.length === 0, ownFailures.join(", "));
 
 await browser.close();
+sheetsServer.close();
 
 await closeDb();
 

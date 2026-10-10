@@ -1,9 +1,9 @@
 import { getSessionTypes } from "@/lib/session-types";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireRole, NOT_SOLO, branchWhere } from "@/lib/auth";
+import { requireRole, NOT_SOLO, branchWhere, isSolo } from "@/lib/auth";
 import { SPECIALIZATIONS, type Specialization } from "@/lib/constants";
-import { daySlots, getSettings, isWorkDay } from "@/lib/settings";
+import { daySlots, getWorkHours, isWorkDay, minutesToTime } from "@/lib/settings";
 import { addDays, startOfDay } from "@/lib/stats";
 import { dateShort, timeUz } from "@/lib/format";
 import { getT } from "@/lib/i18n/server";
@@ -27,7 +27,8 @@ export default async function SlotsPage({
 }) {
   const user = await requireRole("OWNER", "BRANCH_ADMIN", "RECEPTION");
   const sp = await searchParams;
-  const settings = await getSettings();
+  // Yakka logoped o'z ish vaqti bo'yicha ishlaydi, markaz — umumiy ish vaqti bo'yicha
+  const settings = await getWorkHours(isSolo(user) ? user.branchId : null);
   const t = await getT();
 
   const weekOffset = Number.parseInt(sp.w ?? "0", 10) || 0;
@@ -127,7 +128,11 @@ export default async function SlotsPage({
         title={t("Bo'sh vaqtlar")}
         subtitle={`${dateShort(from)} — ${dateShort(addDays(from, 6))} · ${t("ish vaqti")} ${
           settings.workStartHour
-        }:00–${settings.workEndHour}:00`}
+        }:00–${settings.workEndHour}:00${
+          settings.lunchStartMin != null && settings.lunchEndMin != null
+            ? ` · ${t("tushlik")} ${minutesToTime(settings.lunchStartMin)}–${minutesToTime(settings.lunchEndMin)}`
+            : ""
+        }`}
         action={
           <div className="flex gap-2">
             <Link href={qs({ w: String(weekOffset - 1), sp: null, d: null })} className={btn}>
