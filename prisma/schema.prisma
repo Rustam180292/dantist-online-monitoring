@@ -21,6 +21,14 @@ model Branch {
   /// jadvali va mijozlar ro'yxati bunday filialni ko'rmaydi — ikkovi bitta
   /// bazada tursa ham bir-biriga aralashmaydi.
   isSolo    Boolean  @default(false)
+  /// Yakka logoped o'z ilovasiga qo'ygan nom va logotip (menyu tepasida).
+  /// Markazniki `Settings` da — yakka logoped uni o'zgartira olmaydi, chunki
+  /// u markazga tegishli emas. Bo'sh bo'lsa standart "Logoped CRM" va markaz
+  /// logotipi ko'rinadi.
+  brandName     String?
+  logoData      String?
+  logoMime      String?
+  logoUpdatedAt DateTime?
   createdAt DateTime @default(now())
 
   users       User[]

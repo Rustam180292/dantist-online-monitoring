@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { withFlash } from "@/lib/action";
+import { setFlash } from "@/lib/flash";
+import { dateTimeUz } from "@/lib/format";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
@@ -124,7 +126,10 @@ async function createSessionImpl(formData: FormData) {
   if (Number.isNaN(startsAt.getTime())) throw new Error("Vaqt formati noto'g'ri.");
 
   const [client, specialist] = await Promise.all([
-    prisma.client.findUnique({ where: { id: clientId }, select: { id: true, branchId: true } }),
+    prisma.client.findUnique({
+      where: { id: clientId },
+      select: { id: true, branchId: true, fullName: true },
+    }),
     prisma.specialist.findUnique({
       where: { id: specialistId },
       select: { id: true, branchId: true, specialization: true },
@@ -220,6 +225,12 @@ async function createSessionImpl(formData: FormData) {
   revalidatePath("/schedule");
   revalidatePath("/");
   revalidatePath(`/clients/${clientId}`);
+  // Yashil xabar qo'shish oynasini yopadi (AutoCloseEdits) — seans boshqa
+  // haftaga yozilgan bo'lsa ham bajarilgani bilinsin
+  await setFlash("Seans yozildi: {name} · {when}", "ok", {
+    name: client.fullName,
+    when: dateTimeUz(startsAt),
+  });
 }
 
 /** Seansni o'chirish (faqat rejadagisini) */

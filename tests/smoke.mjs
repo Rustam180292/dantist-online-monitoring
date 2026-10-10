@@ -198,6 +198,10 @@ const sessGrew = await waitUntil(
   async () => await count("SELECT COUNT(*) AS n FROM Session") === sessBefore + 1,
 );
 check("Yangi seans qo'shildi", sessGrew, `${sessBefore} -> ${await count("SELECT COUNT(*) AS n FROM Session")}`);
+check(
+  "Seans qo'shilgach qo'shish oynasi yopiladi",
+  await waitUntil(async () => !(await page.locator("details#yangi").evaluate((d) => d.open))),
+);
 
 /* 6. Mijozlar ro'yxati va kartasi */
 await page.goto(`${BASE}/clients`);
@@ -295,6 +299,12 @@ for (const [path, marker] of [
       "To'lovlar sahifasidan to'lov kiritiladi",
       paid,
       `${paymentsBefore} -> ${await count("SELECT COUNT(*) AS n FROM Payment")}`,
+    );
+    check(
+      "To'lov qo'shilgach qo'shish oynasi yopiladi va xabar chiqadi",
+      await waitUntil(async () =>
+        !(await page.locator('details:has(summary:has-text("To\'lov qabul qilish"))').evaluate((d) => d.open)),
+      ) && (await page.getByRole("alert").filter({ hasText: "To'lov qabul qilindi" }).count()) > 0,
     );
     check(
       "To'lov qarzni avtomatik yopadi",
@@ -1268,6 +1278,87 @@ if (await payRow.count()) {
     );
   }
 
+  /* --- Yakka: o'z ilova nomi, logotipi, ismi va telefoni --- */
+  {
+    const centerBefore = await one("SELECT centerName, logoUpdatedAt FROM Settings WHERE id = 'main'");
+
+    // Ilova nomi menyu tepasida ko'rinadi
+    const brand = `Nutq ${tag}`;
+    await page.fill("#brandName", brand);
+    await page.locator('[data-testid="solo-brand"] button[type=submit]').click();
+    const brandSaved = await waitUntil(
+      async () => (await one("SELECT brandName FROM Branch WHERE id = ?", solo.branchId))?.brandName === brand,
+    );
+    await page.goto(`${BASE}/settings`);
+    await page.waitForLoadState("networkidle");
+    check(
+      "Yakka ilova nomini o'zgartiradi — menyu tepasida ko'rinadi",
+      brandSaved && (await page.locator('[data-testid="brand-title"]').innerText()) === brand,
+    );
+
+    // Logotip o'z filialiga yoziladi, markaz logotipiga tegmaydi
+    const PNG = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await page.setInputFiles("#logo", { name: "logo.png", mimeType: "image/png", buffer: PNG });
+    await page.locator('form:has(#logo) button[type="submit"]').click();
+    const logoSaved = await waitUntil(
+      async () => (await one("SELECT logoMime FROM Branch WHERE id = ?", solo.branchId))?.logoMime === "image/png",
+    );
+    await page.goto(`${BASE}/settings`);
+    await page.waitForLoadState("networkidle");
+    const menuLogo = await page.locator("aside img").first().getAttribute("src").catch(() => null);
+    const logoRes = menuLogo ? await page.request.get(`${BASE}${menuLogo}`) : null;
+    const centerAfter = await one("SELECT centerName, logoUpdatedAt FROM Settings WHERE id = 'main'");
+    check(
+      "Yakka o'z logotipini qo'yadi — menyuda o'ziniki, markaznikiga tegmaydi",
+      logoSaved && Boolean(menuLogo?.includes(`b=${solo.branchId}`)) && logoRes?.status() === 200 &&
+        String(centerAfter?.logoUpdatedAt) === String(centerBefore?.logoUpdatedAt) &&
+        centerAfter?.centerName === centerBefore?.centerName,
+      `${menuLogo} ${logoRes?.status()}`,
+    );
+
+    // Ism parolsiz o'zgaradi, telefon esa faqat joriy parol bilan
+    const newName = `${soloName} Yangi`;
+    const newPhone = `+99890336${tag.slice(-4)}`;
+    const profile = page.locator('[data-testid="solo-profile"]');
+    await page.fill("#profileName", newName);
+    await page.fill("#profilePhone", newPhone);
+    await profile.locator("button[type=submit]").click();
+    await page.getByRole("alert").filter({ hasText: "joriy parol" }).waitFor({ timeout: 8000 }).catch(() => {});
+    check(
+      "Telefon joriy parolsiz o'zgarmaydi",
+      (await count("SELECT COUNT(*) AS n FROM User WHERE phone = ?", newPhone)) === 0 &&
+        (await one("SELECT fullName FROM User WHERE id = ?", solo.userId))?.fullName === soloName,
+    );
+
+    await page.goto(`${BASE}/settings`);
+    await page.waitForLoadState("networkidle");
+    await page.fill("#profileName", newName);
+    await page.fill("#profilePhone", newPhone);
+    await page.fill("#profilePassword", PASSWORD);
+    await page.locator('[data-testid="solo-profile"] button[type=submit]').click();
+    const profileSaved = await waitUntil(async () => {
+      const r = await one("SELECT fullName, phone FROM User WHERE id = ?", solo.userId);
+      return r?.fullName === newName && r?.phone === newPhone;
+    });
+    const soloBranch = await one("SELECT name, phone FROM Branch WHERE id = ?", solo.branchId);
+    check(
+      "Yakka ismi va telefonini o'zgartiradi (filial nomi va telefoni ham)",
+      profileSaved && soloBranch?.phone === newPhone && soloBranch?.name.startsWith(`${newName} (yakka)`),
+      JSON.stringify(soloBranch),
+    );
+
+    // Yangi raqam bilan kiriladi
+    await login(newPhone);
+    check("Yangi telefon bilan kiriladi", new URL(page.url()).pathname === "/", page.url());
+
+    // Qolgan tekshiruvlar eski ism va raqamga tayanadi — qaytaramiz
+    await all("UPDATE User SET fullName = ?, phone = ? WHERE id = ?", soloName, soloPhone, solo.userId);
+    await login(soloPhone);
+  }
+
   // Qabulda "kim ko'radi" so'ralmaydi — doim o'zi
   const soloIntake = `Yakka Qabul ${tag}`;
   await page.goto(`${BASE}/intakes`);
@@ -1289,6 +1380,12 @@ if (await payRow.count()) {
         "SELECT COUNT(*) AS n FROM Intake WHERE childName = ? AND specialistId = ? AND branchId = ?",
         soloIntake, solo.specialistId, solo.branchId,
       )) === 1,
+    ),
+  );
+  check(
+    "Qabul qo'shilgach qo'shish oynasi yopiladi",
+    await waitUntil(async () =>
+      !(await page.locator('details:has(summary:has-text("Yangi qabul"))').evaluate((d) => d.open)),
     ),
   );
 

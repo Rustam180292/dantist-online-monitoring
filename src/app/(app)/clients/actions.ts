@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
+import { getT } from "@/lib/i18n/server";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, type CurrentUser, isFrontDesk, isSolo } from "@/lib/auth";
@@ -41,6 +42,7 @@ async function assertClientAccess(user: CurrentUser, clientId: string) {
     where: { id: clientId },
     select: {
       id: true,
+      fullName: true,
       branchId: true,
       parentUserId: true,
       parentName: true,
@@ -142,6 +144,7 @@ async function createClientImpl(formData: FormData) {
 
   revalidatePath("/clients");
   revalidatePath("/");
+  await setFlash("{name} qo'shildi.", "ok", { name: fullName });
   redirect(`/clients/${client.id}`);
 }
 
@@ -519,6 +522,10 @@ async function addPaymentImpl(formData: FormData) {
   revalidatePath("/payments");
   revalidatePath("/");
   revalidatePath("/reports");
+  await setFlash("To'lov qabul qilindi: {name} · {sum}", "ok", {
+    name: client.fullName,
+    sum: (await getT()).money(amount),
+  });
 }
 
 /** To'lovni o'chirish (xato kiritilgan bo'lsa) */

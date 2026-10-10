@@ -163,7 +163,7 @@ export default async function ClientsPage({
       />
 
       {canManage ? (
-        <details className={`${card} mb-5 p-4`}>
+        <details data-autoclose className={`${card} mb-5 p-4`}>
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
             + {t("Yangi mijoz qo'shish")}
           </summary>

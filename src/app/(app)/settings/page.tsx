@@ -14,7 +14,9 @@ import {
   changePassword,
   postChannel,
   removeLogo,
+  updateBrand,
   updateCenter,
+  updateProfile,
   updateWorkHours,
   uploadLogo,
 } from "./actions";
@@ -32,12 +34,25 @@ export default async function SettingsPage() {
   const telegramLinked = Boolean(me?.telegramId);
   const solo = isSolo(user);
   const backupUrl = `${appUrl()}/api/backup?secret=<CRON_SECRET>`;
+  // Yakka logopedning o'z logotipi; qo'yilmagan bo'lsa markaznikini ko'radi
+  const soloLogoUrl =
+    solo && user.brandLogoAt && user.branchId
+      ? `/api/logo?b=${user.branchId}&v=${new Date(user.brandLogoAt).getTime()}`
+      : null;
+  const fileInput =
+    "block w-full max-w-xs text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 dark:text-slate-400 dark:file:bg-indigo-950 dark:file:text-indigo-300";
 
   return (
     <>
       <PageHeader
         title={t("Sozlamalar")}
-        subtitle={isOwner ? t("markaz sozlamalari va shaxsiy parol") : t("shaxsiy parol")}
+        subtitle={
+          isOwner
+            ? t("markaz sozlamalari va shaxsiy parol")
+            : solo
+              ? t("ma'lumotlaringiz, ilova nomi, xizmatlar va parol")
+              : t("shaxsiy parol")
+        }
       />
 
       {/* Ko'rinish va til — har bir foydalanuvchi o'zi uchun tanlaydi */}
@@ -54,7 +69,109 @@ export default async function SettingsPage() {
         </div>
       </Card>
 
-      {solo ? <SessionTypesCard user={user} className="mb-5" /> : null}
+      {solo ? (
+        <>
+          <Card
+            title={t("Mening ma'lumotlarim")}
+            subtitle={t("ism-familiya va telefon — telefon bilan tizimga kirasiz")}
+            className="mb-5"
+          >
+            <form action={updateProfile} className="grid gap-3 p-4 sm:grid-cols-3" data-testid="solo-profile">
+              <div>
+                <label className={label} htmlFor="profileName">
+                  {t("Ism familiya")} *
+                </label>
+                <input
+                  id="profileName"
+                  name="fullName"
+                  defaultValue={user.fullName}
+                  maxLength={80}
+                  className={input}
+                  required
+                />
+              </div>
+              <div>
+                <label className={label} htmlFor="profilePhone">
+                  {t("Telefon")} *
+                </label>
+                <input
+                  id="profilePhone"
+                  name="phone"
+                  type="tel"
+                  defaultValue={user.phone}
+                  className={input}
+                  required
+                />
+              </div>
+              <div>
+                <label className={label} htmlFor="profilePassword">
+                  {t("Joriy parol")}
+                </label>
+                <PasswordInput id="profilePassword" name="currentPassword" autoComplete="current-password" />
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {t("faqat telefonni o'zgartirsangiz kerak")}
+                </p>
+              </div>
+              <div className="sm:col-span-3">
+                <button type="submit" className={btnPrimary}>
+                  {t("Saqlash")}
+                </button>
+              </div>
+            </form>
+          </Card>
+
+          <Card
+            title={t("Ilova nomi va logotip")}
+            subtitle={t("menyu tepasida ko'rinadi")}
+            className="mb-5"
+          >
+            <div className="space-y-5 p-4">
+              <form action={updateBrand} className="flex flex-wrap items-end gap-3" data-testid="solo-brand">
+                <div className="min-w-[220px] flex-1">
+                  <label className={label} htmlFor="brandName">
+                    {t("Ilova nomi")}
+                  </label>
+                  <input
+                    id="brandName"
+                    name="brandName"
+                    defaultValue={user.brandName ?? ""}
+                    placeholder="Logoped CRM"
+                    maxLength={40}
+                    className={input}
+                  />
+                </div>
+                <button type="submit" className={btnPrimary}>
+                  {t("Saqlash")}
+                </button>
+              </form>
+              <p className="-mt-3 text-xs text-slate-500 dark:text-slate-400">
+                {t("Bo'sh qoldirsangiz \"Logoped CRM\" ko'rinadi.")}
+              </p>
+
+              <div className="flex flex-wrap items-start gap-4 border-t border-slate-100 pt-4 dark:border-slate-800">
+                <BrandMark logoUrl={soloLogoUrl ?? s.logoUrl} size="lg" />
+                <div className="min-w-0 flex-1 space-y-3">
+                  <form action={uploadLogo}>
+                    <LogoInput inputClassName={fileInput} />
+                  </form>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {t("PNG, JPG yoki WEBP. Katta rasm o'zi kichraytiriladi. Kvadrat rasm yaxshi ko'rinadi.")}
+                  </p>
+                  {soloLogoUrl ? (
+                    <form action={removeLogo}>
+                      <button type="submit" className={btnDanger}>
+                        {t("Logotipni olib tashlash")}
+                      </button>
+                    </form>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <SessionTypesCard user={user} className="mb-5" />
+        </>
+      ) : null}
 
       {isOwner ? (
         <>
@@ -101,7 +218,7 @@ export default async function SettingsPage() {
               <BrandMark logoUrl={s.logoUrl} size="lg" />
               <div className="min-w-0 flex-1 space-y-3">
                 <form action={uploadLogo}>
-                  <LogoInput inputClassName="block w-full max-w-xs text-sm text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-indigo-700 hover:file:bg-indigo-100 dark:text-slate-400 dark:file:bg-indigo-950 dark:file:text-indigo-300" />
+                  <LogoInput inputClassName={fileInput} />
                 </form>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {t("PNG, JPG yoki WEBP. Katta rasm o'zi kichraytiriladi. Kvadrat rasm yaxshi ko'rinadi.")}

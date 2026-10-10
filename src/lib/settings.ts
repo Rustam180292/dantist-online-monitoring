@@ -90,6 +90,16 @@ export async function getLogo(): Promise<{ data: Buffer; mime: string } | null> 
   return { data: Buffer.from(row.logoData, "base64"), mime: row.logoMime };
 }
 
+/** Yakka logopedning o'z logotipi. Markaz filiallarida bunday narsa yo'q */
+export async function getBranchLogo(branchId: string): Promise<{ data: Buffer; mime: string } | null> {
+  const row = await prisma.branch.findFirst({
+    where: { id: branchId, isSolo: true },
+    select: { logoData: true, logoMime: true },
+  });
+  if (!row?.logoData || !row.logoMime) return null;
+  return { data: Buffer.from(row.logoData, "base64"), mime: row.logoMime };
+}
+
 /** Sana ish kunimi (1=dushanba ... 7=yakshanba) */
 export function isWorkDay(date: Date, workDays: number[]): boolean {
   const iso = date.getDay() === 0 ? 7 : date.getDay();

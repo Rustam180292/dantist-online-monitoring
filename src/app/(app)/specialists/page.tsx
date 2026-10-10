@@ -90,7 +90,7 @@ export default async function SpecialistsPage() {
         })}
       />
 
-      <details className={`${card} mb-5 p-4`}>
+      <details data-autoclose className={`${card} mb-5 p-4`}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
           + {t("Yangi mutaxassis qo'shish")}
         </summary>
@@ -472,7 +472,7 @@ export default async function SpecialistsPage() {
             ))}
           </ul>
 
-          <details className="border-t border-slate-200 p-4 dark:border-slate-800">
+          <details data-autoclose className="border-t border-slate-200 p-4 dark:border-slate-800">
             <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
               + {t("Egalik akkaunti qo'shish")}
             </summary>
@@ -605,7 +605,7 @@ export default async function SpecialistsPage() {
           </ul>
         )}
 
-        <details className="border-t border-slate-200 p-4 dark:border-slate-800">
+        <details data-autoclose className="border-t border-slate-200 p-4 dark:border-slate-800">
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
             + {t("Qabulxona xodimi qo'shish")}
           </summary>

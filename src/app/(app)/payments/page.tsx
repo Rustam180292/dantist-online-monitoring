@@ -228,7 +228,7 @@ export default async function PaymentsPage({
         ) : null}
       </form>
 
-      <details className={`${card} mb-5 p-4`} open={payments.length === 0}>
+      <details data-autoclose className={`${card} mb-5 p-4`} open={payments.length === 0}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
           + {t("To'lov qabul qilish")}
         </summary>
