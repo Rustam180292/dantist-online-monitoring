@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "vercel-build": "node prisma/vercel-build.mjs",
     "start": "next start",
     "db:push": "prisma db push && prisma generate",
     "db:backup": "tsx prisma/backup.ts",

@@ -291,9 +291,27 @@ Keyin jadvalni ochib, vaqtlar avvalgidek turganini tekshiring.
 git push    # Vercel o'zi ko'radi va yangi versiyani chiqaradi
 ```
 
-Baza tuzilishi o'zgargan bo'lsa (yangi jadval yoki ustun), qo'shimcha:
+Baza tuzilishi o'zgargan bo'lsa (yangi jadval yoki ustun) — **hech narsa
+qilish shart emas.** Vercel haqiqiy saytni yig'ishdan oldin `prisma db push`
+ni o'zi bajaradi (`vercel-build` skripti, `prisma/vercel-build.mjs`):
+
+- faqat production'da — PR'larning preview versiyalari bazaga tegmaydi;
+- `db push` uchun to'g'ridan-to'g'ri manzil olinadi: `DIRECT_DATABASE_URL`
+  yoki `DATABASE_URL_UNPOOLED` bo'lsa o'sha, bo'lmasa `DATABASE_URL` dan
+  `-pooler` olib tashlanadi;
+- o'zgarish ma'lumot o'chirishni talab qilsa (ustun yoki jadvalni olib
+  tashlash), Prisma rad etadi va **chiqarish to'xtaydi** — eski versiya
+  ishlab turaveradi. Bunday o'zgarishni zaxira olib, qo'lda qiling:
 
 ```bash
-export DATABASE_URL="<Neon connection string>"
-npx prisma db push
+npm run db:backup
+export DATABASE_URL="<Neon direct connection string>"
+npx prisma db push      # nima o'chishini ko'rsatadi va tasdiq so'raydi
 ```
+
+Favqulodda holatda avtomatik yangilashni o'chirish: Vercel → Settings →
+Environment Variables → `SKIP_DB_PUSH` = `1`.
+
+Vercel loyihasida **Build Command** qo'lda o'zgartirilmagan bo'lishi kerak
+(Settings → Build and Deployment → Build Command — "Override" o'chiq). Shunda
+Vercel `package.json` dagi `vercel-build` ni o'zi ishlatadi.

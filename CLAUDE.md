@@ -67,6 +67,14 @@ npm run db:timezone   # bir martalik: eski vaqtlarni markaz zonasiga ko'chiradi
 npm run db:seed       # demo ma'lumot — DIQQAT, pastga qarang
 ```
 
+**Jonli bazaga `db push` Vercel'ning o'zida bajariladi** (`vercel-build` →
+`prisma/vercel-build.mjs`, faqat production): ustun yoki jadval qo'shgan PR
+merge qilinsa, baza saytdan oldin yangilanadi. Ma'lumot o'chiradigan
+o'zgarishni Prisma rad etadi va chiqarish to'xtaydi — uni zaxira olib qo'lda
+qiling. Shuning uchun ustunni o'chirish yoki nomini o'zgartirishni
+qo'shishdan alohida PR qiling. Skriptdan `--accept-data-loss` ni hech qachon
+qo'shmang.
+
 Prisma 7 da `prisma db push` Prisma mijozini **o'zi qayta yasamaydi** — shuning
 uchun `db:push` skriptiga `prisma generate` ham qo'shilgan. Uni olib tashlamang:
 usiz yangi ustun kodga ko'rinmaydi va "Unknown argument" xatosi chiqadi.
@@ -232,9 +240,7 @@ Jadval, Davomat, To'lovlar, Abonement, Mutaxassislar.
   Telegram sarlavhasi rejimga `src/app/m/tg-theme.tsx` orqali moslanadi.
 
 - `Session.note` — xodimlarning ichki izohi, ota-onaga hech qachon
-  ko'rsatilmaydi. (Ota-onaga izoh / uyga vazifa bir marta qo'shilib, jonli
-  bazaga `db:push` qilinmagani uchun Panel yiqilgan va olib tashlangan.
-  Qaytarilsa — yangi ustun bilan birga, merge'dan keyin darhol `db:push`.)
+  ko'rsatilmaydi.
 - **Ota-ona bekor qilishi** — holat `CANCELLED_CLIENT` (abonementdan
   yechilmaydi), sabab `note` ga qo'shiladi, mutaxassis va filial xodimlariga
   Telegram xabar boradi. Mashg'ulotga `PARENT_CANCEL_MIN_HOURS` dan kam qolsa
