@@ -25,6 +25,7 @@ import {
   deletePayout,
   paySalary,
   toggleOwnerActive,
+  updateOwner,
   toggleReceptionActive,
   toggleSpecialistActive,
   updateReception,
@@ -416,6 +417,41 @@ export default async function SpecialistsPage() {
                     ) : null}
                   </p>
                   <p className="truncate text-xs text-slate-400">{o.phone}</p>
+
+                  {/* Qabulxona xodimlaridagidek: ism, login va parolni shu yerda tuzatish */}
+                  <details className="mt-1" data-testid="owner-edit">
+                    <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+                      ✎ {t("Tahrirlash")}
+                    </summary>
+                    <form
+                      action={updateOwner}
+                      className="mt-2 grid gap-2 rounded-lg bg-slate-50 p-3 sm:grid-cols-2 lg:grid-cols-4 dark:bg-slate-900/60"
+                    >
+                      <input type="hidden" name="userId" value={o.id} />
+                      <div>
+                        <label className={label}>{t("F.I.Sh.")}</label>
+                        <input name="fullName" defaultValue={o.fullName} className={input} required />
+                      </div>
+                      <div>
+                        <label className={label}>{t("Telefon (login)")}</label>
+                        <input name="phone" type="tel" defaultValue={o.phone} className={input} required />
+                      </div>
+                      <div>
+                        <label className={label}>{t("Yangi parol")}</label>
+                        <input
+                          name="password"
+                          type="text"
+                          placeholder={t("o'zgartirmasangiz bo'sh qoldiring")}
+                          className={input}
+                        />
+                      </div>
+                      <div className="flex items-end">
+                        <button type="submit" className={`${btnPrimary} w-full`}>
+                          {t("Saqlash")}
+                        </button>
+                      </div>
+                    </form>
+                  </details>
                 </div>
                 {o.id === user.id ? null : (
                   <form action={toggleOwnerActive}>

@@ -481,7 +481,8 @@ if (await payRow.count()) {
 
   check(
     "O'z egalik akkauntini o'chirish tugmasi yo'q",
-    (await page.locator('li:has-text("(siz)") form button').count()) === 0,
+    // O'z qatorida faqat tahrirlash bor — "o'chirish" tugmasi bo'lmasligi kerak
+    (await page.locator('li:has-text("(siz)") form button:has-text("o\'chirish")').count()) === 0,
   );
 
   await page.click('summary:has-text("Egalik akkaunti")');
@@ -510,6 +511,42 @@ if (await payRow.count()) {
   );
 
   await login(owner.phone);
+
+  // Egalik akkauntini tahrirlash: ism, telefon va parol
+  if (added) {
+    const target = await one(`SELECT id FROM User WHERE phone='${phone}'`);
+    const newPhone = `+99895${String(Date.now()).slice(-7)}`;
+    await page.goto(`${BASE}/specialists`);
+    await page.waitForLoadState("networkidle");
+    const editBox = page.locator(`[data-testid="owner-edit"]:has(input[name="userId"][value="${target.id}"])`);
+    await editBox.locator("summary").click();
+    await editBox.locator('input[name="fullName"]').fill("Ikkinchi Ega (tahrir)");
+    await editBox.locator('input[name="phone"]').fill(newPhone);
+    await editBox.locator('input[name="password"]').fill("yangi123");
+    await editBox.locator('button[type="submit"]').click();
+    const saved = await waitUntil(async () => {
+      const r = await one("SELECT fullName, phone FROM User WHERE id = ?", target.id);
+      return r.fullName === "Ikkinchi Ega (tahrir)" && r.phone === newPhone;
+    });
+    check("Markaz egasi tahrirlanadi", saved, newPhone);
+
+    // Yangi raqam va parol bilan kiradi
+    await login(newPhone, "yangi123");
+    check("Ega yangi login va parol bilan kiradi", !page.url().includes("/login"), page.url());
+    await login(owner.phone);
+
+    // Band raqamni berib bo'lmaydi
+    await page.goto(`${BASE}/specialists`);
+    await page.waitForLoadState("networkidle");
+    await editBox.locator("summary").click();
+    await editBox.locator('input[name="phone"]').fill(owner.phone);
+    await editBox.locator('button[type="submit"]').click();
+    await page.waitForTimeout(1500);
+    check(
+      "Ega tahririda band raqam qabul qilinmaydi",
+      (await one("SELECT phone FROM User WHERE id = ?", target.id)).phone === newPhone,
+    );
+  }
 }
 
 /* 9g. Mijozlar jadvalidagi filtr qatori */
