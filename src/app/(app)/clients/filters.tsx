@@ -21,11 +21,17 @@ export function ClientFilters({
   specialists,
   statuses,
   ages,
+  moneyCols = 0,
+  showSpecialist = true,
 }: {
   branches: Option[];
   specialists: Option[];
   statuses: Option[];
   ages: number[];
+  /** Pul ustunlari (to'langan, xizmatlar, qoldiq) — ularda filtr yo'q */
+  moneyCols?: number;
+  /** Yakka logopedda mutaxassis ustuni yo'q — hamma mijoz o'ziniki */
+  showSpecialist?: boolean;
 }) {
   const t = useT();
   const router = useRouter();
@@ -106,21 +112,23 @@ export function ClientFilters({
           </select>
         </td>
       ) : null}
-      <td className="px-4 py-2">
-        <select
-          value={params.get("sp") ?? ""}
-          onChange={(e) => apply({ sp: e.target.value })}
-          aria-label={t("Mutaxassis bo'yicha filtr")}
-          className={cell}
-        >
-          <option value="">{t("Hammasi")}</option>
-          {specialists.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </td>
+      {showSpecialist ? (
+        <td className="px-4 py-2">
+          <select
+            value={params.get("sp") ?? ""}
+            onChange={(e) => apply({ sp: e.target.value })}
+            aria-label={t("Mutaxassis bo'yicha filtr")}
+            className={cell}
+          >
+            <option value="">{t("Hammasi")}</option>
+            {specialists.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </td>
+      ) : null}
       <td className="px-4 py-2">
         <input
           value={phone}
@@ -145,6 +153,9 @@ export function ClientFilters({
           <option value="yoq">{t("Ulanmagan")}</option>
         </select>
       </td>
+      {Array.from({ length: moneyCols }, (_, i) => (
+        <td key={`m${i}`} className="px-4 py-2" />
+      ))}
       <td className="px-4 py-2">
         <select
           value={params.get("st") ?? ""}

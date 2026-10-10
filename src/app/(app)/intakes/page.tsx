@@ -111,7 +111,7 @@ export default async function IntakesPage({
   return (
     <>
       <PageHeader
-        title={t("Qabullar")}
+        title={t("Konsultatsiya uchun qabullar")}
         subtitle={`${t.monthYear(from)} · ${t("{n} ta qabul", { n: intakes.length })}`}
         action={
           <div className="flex gap-2">

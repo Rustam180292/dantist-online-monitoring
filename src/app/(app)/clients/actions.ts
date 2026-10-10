@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireUser, type CurrentUser, isFrontDesk, isSolo } from "@/lib/auth";
 import {
+  CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   PAYMENT_METHOD_KEYS,
   type ClientStatus,
@@ -230,10 +231,20 @@ async function setClientStatusImpl(formData: FormData) {
   if (!CLIENT_STATUS_KEYS.includes(status)) throw new Error("Holat noto'g'ri.");
 
   await assertClientAccess(user, clientId);
-  await prisma.client.update({ where: { id: clientId }, data: { status } });
+  const client = await prisma.client.update({
+    where: { id: clientId },
+    data: { status },
+    select: { fullName: true },
+  });
 
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/clients");
+  // Ro'yxat holat bo'yicha saralangan — qator boshqa joyga ko'chib ketadi,
+  // xabarsiz "bosildimi?" degan savol qoladi
+  await setFlash("{name}: {status}", "ok", {
+    name: client.fullName,
+    status: (await getT())(CLIENT_STATUSES[status]),
+  });
 }
 
 /**

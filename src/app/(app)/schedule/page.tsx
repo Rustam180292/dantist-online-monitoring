@@ -144,7 +144,7 @@ export default async function SchedulePage({
   return (
     <>
       <PageHeader
-        title={t("Jadval")}
+        title={t("Seanslar jadvali")}
         subtitle={`${dateShort(from)} — ${dateShort(addDays(from, 6))} · ${t("{n} ta seans ({done} o'tdi, {planned} rejada)", { n: sessions.length, done, planned })}`}
         action={
           <div className="flex items-center gap-2">

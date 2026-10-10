@@ -2,8 +2,9 @@ import { getSessionTypes } from "@/lib/session-types";
 import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { clientScope, requireUser, NOT_SOLO, isFrontDesk } from "@/lib/auth";
+import { clientScope, requireUser, NOT_SOLO, isFrontDesk, isSolo } from "@/lib/auth";
 import {
+  BILLABLE_STATUSES,
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   SPECIALIZATIONS,
@@ -22,7 +23,7 @@ import {
   td,
   th,
 } from "@/components/ui";
-import { createClient } from "./actions";
+import { createClient, setClientStatus } from "./actions";
 import { ClientFilters } from "./filters";
 import { ClientEditForm } from "./edit-form";
 import { getT } from "@/lib/i18n/server";
@@ -62,6 +63,16 @@ const STATUS_STYLE: Record<ClientStatus, string> = {
   ARCHIVED: "bg-slate-100 text-slate-600 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700",
 };
 
+/** Holat tugmalari: nima bo'lishini aytadi ("Arxivga"), holat nomini emas */
+const STATUS_ACTION: Record<ClientStatus, string> = {
+  ACTIVE: "Faollashtirish",
+  PAUSED: "To'xtatish",
+  ARCHIVED: "Arxivga o'tkazish",
+};
+
+const statusBtn =
+  "inline-flex items-center rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800";
+
 export default async function ClientsPage({
   searchParams,
 }: {
@@ -87,7 +98,7 @@ export default async function ClientsPage({
       statusFilter || telegramFilter || sp.b,
   );
 
-  const [clients, branches, specialists, services] = await Promise.all([
+  const [clients, branches, specialists, services, paidRows, earnedRows] = await Promise.all([
     prisma.client.findMany({
       where: {
         ...clientScope(user),
@@ -148,12 +159,34 @@ export default async function ClientsPage({
       orderBy: { user: { fullName: "asc" } },
     }),
     getSessionTypes(user),
+    // Har bir mijoz bo'yicha pul: shu wave'da, mijozlar bilan bir vaqtda —
+    // har biri uchun alohida so'rov yuborilsa ro'yxat sekinlashadi
+    canManage
+      ? prisma.payment.groupBy({
+          by: ["clientId"],
+          where: { client: clientScope(user) },
+          _sum: { amount: true },
+        })
+      : Promise.resolve([]),
+    // Ko'rsatilgan xizmat — "O'tdi" va "Kelmadi" seanslar narxi (narx seans
+    // belgilangan paytda yoziladi; rejadagisi hali pul emas)
+    canManage
+      ? prisma.session.groupBy({
+          by: ["clientId"],
+          where: { client: clientScope(user), status: { in: BILLABLE_STATUSES } },
+          _sum: { price: true },
+        })
+      : Promise.resolve([]),
   ]);
+  const paidBy = new Map(paidRows.map((r) => [r.clientId, r._sum.amount ?? 0]));
+  const earnedBy = new Map(earnedRows.map((r) => [r.clientId, r._sum.price ?? 0]));
 
-  // Markazda abonement yo'q: "qolgan seans" va "qarz" ustunlari ham yo'q,
-  // har seans kelganda to'lanadi.
-  // Bola, yoshi, mutaxassis, ota-ona, holat (+ filial egada)
-  const colCount = user.role === "OWNER" ? 6 : 5;
+  // Bola, yoshi, mutaxassis, ota-ona, holat (+ filial egada, + pul ustunlari
+  // qabulxona/ega/yakkada; markazdagi mutaxassisga mijozning puli ko'rinmaydi)
+  const moneyCols = canManage ? 3 : 0;
+  // Yakka logopedning hamma mijozi o'ziniki — "Mutaxassis" ustuni joyni bekorga oladi
+  const showSpecialist = !isSolo(user);
+  const colCount = (user.role === "OWNER" ? 6 : 5) + moneyCols - (showSpecialist ? 0 : 1);
 
   return (
     <>
@@ -264,14 +297,25 @@ export default async function ClientsPage({
           <Empty>{t("Hali mijoz qo'shilmagan.")}</Empty>
         ) : (
           <div className="scroll-x">
-            <table className="w-full min-w-[860px]">
+            <table className="w-full min-w-[1000px]">
               <thead className="border-b border-slate-200 dark:border-slate-800">
                 <tr>
                   <th className={th}>{t("Bola")}</th>
                   <th className={th}>{t("Yoshi")}</th>
                   {user.role === "OWNER" ? <th className={th}>{t("Filial")}</th> : null}
-                  <th className={th}>{t("Mutaxassis")}</th>
+                  {showSpecialist ? <th className={th}>{t("Mutaxassis")}</th> : null}
                   <th className={th}>{t("Ota-ona")}</th>
+                  {canManage ? (
+                    <>
+                      <th className={`${th} text-right`}>{t("To'langan")}</th>
+                      <th className={`${th} text-right`} title={t("\"O'tdi\" va \"Kelmadi\" seanslar narxi")}>
+                        {t("Xizmatlar uchun")}
+                      </th>
+                      <th className={`${th} text-right`} title={t("To'langan − xizmatlar uchun")}>
+                        {t("Qoldiq")}
+                      </th>
+                    </>
+                  ) : null}
                   <th className={th}>{t("Holat")}</th>
                 </tr>
                 <ClientFilters
@@ -279,6 +323,8 @@ export default async function ClientsPage({
                   specialists={specialists.map((x) => ({ id: x.id, name: x.user.fullName }))}
                   statuses={CLIENT_STATUS_KEYS.map((k) => ({ id: k, name: t(CLIENT_STATUSES[k]) }))}
                   ages={AGE_OPTIONS}
+                  moneyCols={moneyCols}
+                  showSpecialist={showSpecialist}
                 />
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -300,6 +346,7 @@ export default async function ClientsPage({
                     </td>
                     <td className={td}>{t.age(c.birthDate)}</td>
                     {user.role === "OWNER" ? <td className={td}>{c.branch.name}</td> : null}
+                    {showSpecialist ? (
                     <td className={td}>
                       <div className="flex flex-wrap gap-1">
                         {c.specialists.length === 0 ? (
@@ -318,6 +365,7 @@ export default async function ClientsPage({
                         )}
                       </div>
                     </td>
+                    ) : null}
                     <td className={td}>
                       {c.parentName}
                       <span className="block text-xs text-slate-400">{c.parentPhone}</span>
@@ -334,6 +382,38 @@ export default async function ClientsPage({
                         </span>
                       )}
                     </td>
+                    {canManage ? (() => {
+                      const paid = paidBy.get(c.id) ?? 0;
+                      const earned = earnedBy.get(c.id) ?? 0;
+                      const balance = paid - earned;
+                      return (
+                        <>
+                          <td className={`${td} whitespace-nowrap text-right tabular-nums`} data-testid="client-paid">
+                            {t.money(paid)}
+                          </td>
+                          <td className={`${td} whitespace-nowrap text-right tabular-nums`} data-testid="client-earned">
+                            {t.money(earned)}
+                          </td>
+                          {/* Musbat — oldindan to'langan, manfiy — qarz. Rang span'da:
+                              td o'z matn rangini beradi va u ustun kelib qolardi */}
+                          <td className={`${td} whitespace-nowrap text-right tabular-nums`} data-testid="client-balance">
+                            <span
+                              className={`font-semibold ${
+                                balance < 0
+                                  ? "text-rose-600 dark:text-rose-400"
+                                  : balance > 0
+                                    ? "text-emerald-600 dark:text-emerald-400"
+                                    : "text-slate-400"
+                              }`}
+                              title={balance < 0 ? t("qarz") : balance > 0 ? t("oldindan to'langan") : undefined}
+                            >
+                              {balance > 0 ? "+" : balance < 0 ? "−" : ""}
+                              {t.money(Math.abs(balance))}
+                            </span>
+                          </td>
+                        </>
+                      );
+                    })() : null}
                     <td className={td}>
                       <Badge className={STATUS_STYLE[c.status as ClientStatus]}>
                         {t(CLIENT_STATUSES[c.status as ClientStatus])}
@@ -345,7 +425,18 @@ export default async function ClientsPage({
                   {canManage ? (
                     <tr>
                       <td colSpan={colCount} className="px-4 pb-2">
-                        <details data-autoclose>
+                        {/* Holatni almashtirish shu yerda — mijoz kartasiga kirmasdan */}
+                        <div className="flex flex-wrap items-start gap-1.5">
+                        {CLIENT_STATUS_KEYS.filter((s) => s !== c.status).map((s) => (
+                          <form key={s} action={setClientStatus}>
+                            <input type="hidden" name="clientId" value={c.id} />
+                            <input type="hidden" name="status" value={s} />
+                            <button type="submit" className={statusBtn} data-testid={`status-${s}`}>
+                              {t(STATUS_ACTION[s])}
+                            </button>
+                          </form>
+                        ))}
+                        <details data-autoclose className="basis-full sm:basis-auto">
                           <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                             ✎ {t("Tahrirlash")}
                           </summary>
@@ -359,6 +450,7 @@ export default async function ClientsPage({
                             />
                           </div>
                         </details>
+                        </div>
                       </td>
                     </tr>
                   ) : null}

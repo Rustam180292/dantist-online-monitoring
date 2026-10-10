@@ -165,7 +165,7 @@ const isDark = (page) => page.evaluate(() => document.documentElement.classList.
   check("Hafta kunlari ruscha", /Понедельник|Вторник|Среда|Четверг|Пятница|Суббота|Воскресенье/.test(text));
 
   await page.click('[data-testid="lang-uz"]');
-  await page.waitForFunction(() => document.body.innerText.includes("Jadval"), null, { timeout: 8000 }).catch(() => {});
+  await page.waitForFunction(() => document.body.innerText.includes("Seanslar jadvali"), null, { timeout: 8000 }).catch(() => {});
   check("O'zbekchaga qaytadi", (await bodyText(page)).includes("Mijozlar"));
   await ctx.close();
 }
