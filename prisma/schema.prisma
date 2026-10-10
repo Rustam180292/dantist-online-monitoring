@@ -29,6 +29,19 @@ model Branch {
   logoData      String?
   logoMime      String?
   logoUpdatedAt DateTime?
+  /// Yakka logopedning o'z ish vaqti. Bo'sh bo'lsa markaznikiga tushadi
+  /// (`getWorkHours`). Markaz filiallarida hozircha bo'sh turadi.
+  workStartHour Int?
+  workEndHour   Int?
+  slotMinutes   Int?
+  workDays      String?
+  /// Tushlik, kun boshidan daqiqada (13:00 = 780). Ikkalasi ham bo'sh — tushliksiz
+  lunchStartMin Int?
+  lunchEndMin   Int?
+  /// Google Sheets zaxirasi (yakka logopedniki — faqat o'z ma'lumoti)
+  sheetsUrl      String?
+  sheetsSyncedAt DateTime?
+  sheetsError    String?
   createdAt DateTime @default(now())
 
   users       User[]
@@ -232,6 +245,16 @@ model Settings {
   logoMime            String?
   /// Rasm almashganda brauzer keshini yangilash uchun manzilga qo'shiladi
   logoUpdatedAt       DateTime?
+  /// Tushlik, kun boshidan daqiqada (13:00 = 780). Bo'sh — tushliksiz.
+  /// Bo'sh vaqtlar shu oraliqni chetlab o'tadi.
+  lunchStartMin       Int?
+  lunchEndMin         Int?
+  /// Google Sheets zaxirasi: jadvalga qo'yilgan Apps Script'ning manzili.
+  /// Markaz ma'lumoti (yakka logopedlarsiz) har kuni shu jadvalga yoziladi.
+  sheetsUrl           String?
+  sheetsSyncedAt      DateTime?
+  /// Oxirgi urinish xato bo'lsa — sababi (Sozlamalarda ko'rinadi)
+  sheetsError         String?
   /// `npm run db:timezone` bir marta ishlaganini belgilaydi. Skript vaqtlarni
   /// siljitadi, ikki marta ishlasa jadval ikki barobar siljib ketardi.
   timezoneShiftedAt   DateTime?

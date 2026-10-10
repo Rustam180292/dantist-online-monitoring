@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { hashPassword, isSolo, requireUser, verifyPassword } from "@/lib/auth";
 import { sendBackupToOwners } from "@/lib/backup-send";
 import { LOGO_MAX_BYTES } from "@/lib/settings";
+import { SHEETS_URL_RE, syncSheets } from "@/lib/sheets";
 
 /** Markaz sozlamalarini faqat egasi o'zgartiradi */
 async function requireOwner() {
@@ -54,8 +55,23 @@ async function updateCenterImpl(formData: FormData) {
  * mantiqan to'g'ri bo'lishi tekshiriladi: tugash boshlanishdan keyin,
  * oraliq esa ish kuniga sig'adigan bo'lsin.
  */
+/** "13:30" -> 810; bo'sh yoki noto'g'ri bo'lsa null */
+function timeToMinutes(raw: FormDataEntryValue | null): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(raw ?? "").trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+
 async function updateWorkHoursImpl(formData: FormData) {
-  await requireOwner();
+  // Ega — markaz ish vaqtini, yakka logoped — o'zinikini (filialida)
+  const user = await requireUser();
+  const solo = isSolo(user) && user.branchId ? user.branchId : null;
+  if (user.role !== "OWNER" && !solo) {
+    throw new Error("Bu amalni faqat markaz egasi bajara oladi.");
+  }
 
   const workStartHour = num(formData, "workStartHour");
   const workEndHour = num(formData, "workEndHour");
@@ -79,17 +95,42 @@ async function updateWorkHoursImpl(formData: FormData) {
   }
   if (workDays.length === 0) throw new Error("Kamida bitta ish kuni belgilang.");
 
-  await prisma.settings.upsert({
-    where: { id: "main" },
-    create: {
-      id: "main",
-      workStartHour,
-      workEndHour,
-      slotMinutes,
-      workDays: workDays.join(","),
-    },
-    update: { workStartHour, workEndHour, slotMinutes, workDays: workDays.join(",") },
-  });
+  // Tushlik ixtiyoriy, lekin yozilsa — ikkala chegarasi ham, ish vaqti ichida
+  const lunchStartRaw = String(formData.get("lunchStart") ?? "").trim();
+  const lunchEndRaw = String(formData.get("lunchEnd") ?? "").trim();
+  let lunchStartMin: number | null = null;
+  let lunchEndMin: number | null = null;
+  if (lunchStartRaw || lunchEndRaw) {
+    lunchStartMin = timeToMinutes(lunchStartRaw);
+    lunchEndMin = timeToMinutes(lunchEndRaw);
+    if (lunchStartMin == null || lunchEndMin == null) {
+      throw new Error("Tushlikning boshlanishi va tugashini to'liq kiriting.");
+    }
+    if (lunchEndMin <= lunchStartMin) {
+      throw new Error("Tushlik tugashi boshlanishidan keyin bo'lishi kerak.");
+    }
+    if (lunchStartMin < workStartHour * 60 || lunchEndMin > workEndHour * 60) {
+      throw new Error("Tushlik ish vaqti ichida bo'lishi kerak.");
+    }
+  }
+
+  const data = {
+    workStartHour,
+    workEndHour,
+    slotMinutes,
+    workDays: workDays.join(","),
+    lunchStartMin,
+    lunchEndMin,
+  };
+  if (solo) {
+    await prisma.branch.update({ where: { id: solo }, data });
+  } else {
+    await prisma.settings.upsert({
+      where: { id: "main" },
+      create: { id: "main", ...data },
+      update: data,
+    });
+  }
 
   refresh();
   await setFlash("Ish vaqti saqlandi.", "ok");
@@ -294,6 +335,53 @@ async function updateProfileImpl(formData: FormData) {
   revalidatePath("/", "layout");
   await setFlash("Ma'lumotlaringiz saqlandi.", "ok");
 }
+
+/* ---------------- Google Sheets zaxirasi ---------------- */
+
+/** Ega — markaz jadvalini, yakka logoped — o'zinikini boshqaradi */
+async function requireSheetsOwner() {
+  const user = await requireUser();
+  if (user.role === "OWNER") return null;
+  if (isSolo(user) && user.branchId) return user.branchId;
+  throw new Error("Bu amalni faqat markaz egasi bajara oladi.");
+}
+
+/**
+ * Jadval manzilini saqlaydi va darhol birinchi marta yozib ko'radi —
+ * skript noto'g'ri joylangan bo'lsa, odam buni ertaga emas, hozir bilsin.
+ */
+async function saveSheetsImpl(formData: FormData) {
+  const soloBranchId = await requireSheetsOwner();
+  const raw = String(formData.get("sheetsUrl") ?? "").trim();
+  if (raw && !SHEETS_URL_RE.test(raw)) {
+    throw new Error("Manzil https://script.google.com/macros/s/.../exec ko'rinishida bo'lishi kerak.");
+  }
+  const data = { sheetsUrl: raw || null, sheetsError: null, sheetsSyncedAt: null };
+  if (soloBranchId) {
+    await prisma.branch.update({ where: { id: soloBranchId }, data });
+  } else {
+    await prisma.settings.upsert({ where: { id: "main" }, create: { id: "main", ...data }, update: data });
+  }
+  revalidatePath("/settings");
+  if (!raw) {
+    await setFlash("Google jadval uzildi.", "ok");
+    return;
+  }
+  const result = await syncSheets(soloBranchId);
+  if (!result.ok) throw new Error(result.error ?? "Google jadvalga yozib bo'lmadi.");
+  await setFlash("Google jadval ulandi va ma'lumot yozildi.", "ok");
+}
+
+async function syncSheetsNowImpl() {
+  const soloBranchId = await requireSheetsOwner();
+  const result = await syncSheets(soloBranchId);
+  revalidatePath("/settings");
+  if (!result.ok) throw new Error(result.error ?? "Google jadvalga yozib bo'lmadi.");
+  await setFlash("Ma'lumot Google jadvalga yozildi.", "ok");
+}
+
+export const saveSheets = withFlash(saveSheetsImpl);
+export const syncSheetsNow = withFlash(syncSheetsNowImpl);
 
 export const updateBrand = withFlash(updateBrandImpl);
 export const updateProfile = withFlash(updateProfileImpl);

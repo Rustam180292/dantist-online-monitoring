@@ -2,12 +2,14 @@ import { PasswordInput } from "@/components/password-input";
 import { isSolo, requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { appUrl } from "@/lib/telegram";
-import { getSettings, WEEKDAYS } from "@/lib/settings";
+import { getSettings, getWorkHours } from "@/lib/settings";
 import { getT } from "@/lib/i18n/server";
 import { Card, PageHeader, btn, btnDanger, btnPrimary, input, label } from "@/components/ui";
 import { BrandMark } from "@/components/brand";
 import { LogoInput } from "@/components/logo-upload";
 import { SessionTypesCard } from "./session-types-card";
+import { WorkHoursCard } from "./work-hours-card";
+import { SheetsCard } from "./sheets-card";
 import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
 import {
   backupNow,
@@ -17,22 +19,32 @@ import {
   updateBrand,
   updateCenter,
   updateProfile,
-  updateWorkHours,
   uploadLogo,
 } from "./actions";
 
 export default async function SettingsPage() {
   const user = await requireUser();
-  const s = await getSettings();
-  const t = await getT();
   const isOwner = user.role === "OWNER";
-
-  // Zaxira Telegram orqali ketadi — ega botga ulanmagan bo'lsa ogohlantiramiz
-  const me = isOwner
-    ? await prisma.user.findUnique({ where: { id: user.id }, select: { telegramId: true } })
-    : null;
-  const telegramLinked = Boolean(me?.telegramId);
   const solo = isSolo(user);
+  // Hammasi bitta to'lqinda — baza uzoqda, ketma-ket so'rov sahifani sekinlashtiradi
+  const [s, t, hours, me, soloSheets] = await Promise.all([
+    getSettings(),
+    getT(),
+    // Yakka logopedga o'z ish vaqti, egaga markazniki; boshqalarga kerak emas
+    isOwner || solo ? getWorkHours(solo ? user.branchId : null) : Promise.resolve(null),
+    // Zaxira Telegram orqali ketadi — ega botga ulanmagan bo'lsa ogohlantiramiz
+    isOwner
+      ? prisma.user.findUnique({ where: { id: user.id }, select: { telegramId: true } })
+      : Promise.resolve(null),
+    // Yakka logopedning o'z Google jadvali (markaznikidan alohida)
+    solo && user.branchId
+      ? prisma.branch.findUnique({
+          where: { id: user.branchId },
+          select: { sheetsUrl: true, sheetsSyncedAt: true, sheetsError: true },
+        })
+      : Promise.resolve(null),
+  ]);
+  const telegramLinked = Boolean(me?.telegramId);
   const backupUrl = `${appUrl()}/api/backup?secret=<CRON_SECRET>`;
   // Yakka logopedning o'z logotipi; qo'yilmagan bo'lsa markaznikini ko'radi
   const soloLogoUrl =
@@ -170,6 +182,18 @@ export default async function SettingsPage() {
           </Card>
 
           <SessionTypesCard user={user} className="mb-5" />
+
+          {hours ? <WorkHoursCard hours={hours} className="mb-5" /> : null}
+
+          {soloSheets ? (
+            <SheetsCard
+              sheetsUrl={soloSheets.sheetsUrl}
+              syncedAt={soloSheets.sheetsSyncedAt}
+              error={soloSheets.sheetsError}
+              solo
+              className="mb-5"
+            />
+          ) : null}
         </>
       ) : null}
 
@@ -236,83 +260,15 @@ export default async function SettingsPage() {
 
           <SessionTypesCard user={user} className="mt-5" />
 
-          <Card
-            title={t("Ish vaqti")}
-            subtitle={t("bo'sh vaqtlar shu jadval bo'yicha hisoblanadi")}
+          {hours ? <WorkHoursCard hours={hours} className="mt-5" /> : null}
+
+          <SheetsCard
+            sheetsUrl={s.sheetsUrl}
+            syncedAt={s.sheetsSyncedAt}
+            error={s.sheetsError}
+            solo={false}
             className="mt-5"
-          >
-            <form action={updateWorkHours} className="grid gap-3 p-4 sm:grid-cols-3">
-              <div>
-                <label className={label} htmlFor="workStartHour">
-                  {t("Ish boshlanishi (soat)")}
-                </label>
-                <input
-                  id="workStartHour"
-                  name="workStartHour"
-                  type="number"
-                  min={0}
-                  max={23}
-                  defaultValue={s.workStartHour}
-                  className={input}
-                />
-              </div>
-              <div>
-                <label className={label} htmlFor="workEndHour">
-                  {t("Ish tugashi (soat)")}
-                </label>
-                <input
-                  id="workEndHour"
-                  name="workEndHour"
-                  type="number"
-                  min={1}
-                  max={24}
-                  defaultValue={s.workEndHour}
-                  className={input}
-                />
-              </div>
-              <div>
-                <label className={label} htmlFor="slotMinutes">
-                  {t("Vaqt oralig'i (daqiqa)")}
-                </label>
-                <input
-                  id="slotMinutes"
-                  name="slotMinutes"
-                  type="number"
-                  min={15}
-                  max={240}
-                  step={5}
-                  defaultValue={s.slotMinutes}
-                  className={input}
-                />
-              </div>
-
-              <div className="sm:col-span-3">
-                <p className={label}>{t("Ish kunlari")}</p>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {WEEKDAYS.map((d) => (
-                    <label
-                      key={d.value}
-                      className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm dark:border-slate-700"
-                    >
-                      <input
-                        type="checkbox"
-                        name="workDays"
-                        value={d.value}
-                        defaultChecked={s.workDays.includes(d.value)}
-                      />
-                      {t.isoWeekday(d.value)}
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="sm:col-span-3">
-                <button type="submit" className={btnPrimary}>
-                  {t("Saqlash")}
-                </button>
-              </div>
-            </form>
-          </Card>
+          />
 
           <Card
             title={t("Zaxira nusxa")}

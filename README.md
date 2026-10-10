@@ -262,7 +262,7 @@ src/
 public/                ikonkalar, xizmat ishchisi (sw.js), offline sahifa
 tests/
   db.mjs               testlar uchun bazaga kichik ulanish
-  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi (213 ta)
+  smoke.mjs            CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi, ish vaqti va tushlik, Google Sheets zaxira (227 ta)
   telegram.mjs         bog'lanish, imzo, mutaxassis Mini App'i (19 ta)
   parent.mjs           ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30 ta)
 ```
@@ -293,13 +293,13 @@ npx tsc --noEmit
 npm run build
 ```
 
-Brauzerdagi uchidan-uchiga tekshiruvlar — jami 303 ta:
+Brauzerdagi uchidan-uchiga tekshiruvlar — jami 317 ta:
 
 ```bash
 npm i -D playwright && npx playwright install chromium   # bir martalik
 npm run db:reset
 npm run build && npm start -- -p 3100                    # boshqa terminalda
-node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi (213)
+node tests/smoke.mjs      # CRM: kirish, davomat, to'lov, ish haqi, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi, ish vaqti va tushlik, Google Sheets zaxira (227)
 node tests/telegram.mjs   # Telegram: bog'lanish, imzo, Mini App (19)
 node tests/parent.mjs     # Ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # Tun/kun rejimi, til (uz/en/ru), tarjima to'liqligi, logotip, tepa panel (41)
@@ -345,6 +345,17 @@ belgilash kerak bo'ladi; to'liq nusxa uchun `npm run db:backup` ishlating.
 
 Zaxira fayllarida bolalar va ota-onalarning shaxsiy ma'lumoti bor — `zaxira/`
 papkasi git'ga tushmaydi, uni git'ga qo'shmang.
+
+### Google Sheets zaxira
+
+**Sozlamalar → Google Sheets zaxira**: markaz egasi (yoki yakka logoped o'zi
+uchun) bo'sh Google jadvalga tayyor Apps Script qo'yadi, uni "Web app"
+(Execute as: Me, Who has access: Anyone) qilib joylaydi va chiqqan `…/exec`
+manzilni shu yerga yozadi. Shundan keyin har kuni eslatmalar (yoki zaxira)
+cron'i bilan jadvalga hamma ma'lumot yoziladi: Mijozlar, Seanslar, To'lovlar,
+Qabullar, Xizmatlar, (markazda) Xodimlar va Ish haqi. Har safar varaqlar
+tozalanib, eng so'nggi holat yoziladi. "Hozir yozish" tugmasi ham bor.
+Google Cloud kaliti va Vercel sozlamasi kerak emas.
 
 ## Keyingi bosqichlar uchun g'oyalar
 

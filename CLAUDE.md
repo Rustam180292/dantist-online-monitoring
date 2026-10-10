@@ -121,12 +121,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 303 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 317 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi (213)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi, ish vaqti va tushlik, Google Sheets zaxira (227)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (19)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
@@ -165,7 +165,10 @@ login, shuning uchun joriy parol bilan), menyu tepasidagi **ilova nomi**
 (`Branch.brandName`, bo'sh bo'lsa "Logoped CRM") va **logotipini**
 (`Branch.logoData`, `/api/logo?b=<filial>`) o'zgartiradi. Bular uning o'z
 filialida turadi — markazning nomi va logotipi (`Settings`) unga tegishli
-emas, uni o'zgartira olmaydi.
+emas, uni o'zgartira olmaydi. **Ish kunlari, ish vaqti va tushligi** ham
+o'ziniki (`Branch.workStartHour` va h.k., `getWorkHours()`): hali kiritmagan
+bo'lsa markaz ish vaqtiga tushadi. Bo'sh vaqtlar tushlikka to'g'ri keladigan
+vaqtni taklif qilmaydi (`daySlots`).
 
 Taklif kodi markaz panelida **ko'rinmaydi** — yakka mutaxassis markazga
 tegishli emas, uni markaz rahbari emas, ilovani sotayotgan odam qabul qiladi.
@@ -305,6 +308,17 @@ Jadval, Davomat, To'lovlar, Mutaxassislar.
   va bo'limlar brauzerning o'zida almashadi (`src/app/m/parent-tabs.tsx`).
 - **Telegram imzosi** `src/lib/telegram.ts` da tekshiriladi. `initData` ni tekshirmasdan
   ishonmang.
+- **Google Sheets zaxirasi** (`src/lib/sheets.ts`). Foydalanuvchi o'z
+  jadvaliga tayyor Apps Script qo'yib, "Web app" manzilini Sozlamalarga
+  yozadi (`Settings.sheetsUrl`, yakka logopedda `Branch.sheetsUrl`) — Google
+  Cloud kaliti kerak emas. Har kuni eslatmalar yoki zaxira cron'i bilan
+  (`runDailySheets`, 20 soatda bir martadan ko'p emas) har bir varaq
+  tozalanib qaytadan yoziladi. Markaz jadvaliga yakka logopedlarning
+  ma'lumoti tushmaydi, yakkaga — faqat o'ziniki. Parol va Telegram id
+  yuborilmaydi; "=", "+" bilan boshlangan matn oldiga "'" qo'yiladi (formula
+  bo'lib qolmasin). Manzil faqat `script.google.com/macros/.../exec`
+  bo'lishi mumkin. Yangi jadval yoki ustun qo'shsangiz, `buildSheets` ga ham
+  qo'shishni o'ylang.
 - **Markaz sozlamalari** `src/lib/settings.ts` dagi `getSettings()` orqali olinadi.
   Bazada bitta qator (`id = "main"`); hali yozilmagan bo'lsa standart qiymatlar
   qaytadi — sahifa sozlama yo'qligi sababli ishlamay qolmasin. Ish vaqti

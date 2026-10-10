@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { runDailySheets } from "@/lib/sheets";
 import { prisma } from "@/lib/prisma";
 import { runNotifications } from "@/lib/notify";
 
@@ -31,6 +32,9 @@ async function handle(request: Request) {
   }
 
   const result = await runNotifications();
+  // Google Sheets zaxirasi ham shu kunlik cron'da — alohida cron sozlash
+  // shart emas. Javobdan keyin bajariladi: eslatmalar kutib turmasin.
+  after(() => runDailySheets().catch(() => 0));
   const pending = await prisma.notification.count({ where: { sentAt: null } });
 
   return NextResponse.json({ ok: true, ...result, pending });
