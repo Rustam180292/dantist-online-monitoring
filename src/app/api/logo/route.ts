@@ -1,17 +1,19 @@
-import { getLogo } from "@/lib/settings";
+import { getBranchLogo, getLogo } from "@/lib/settings";
 
 /**
- * Markaz logotipi.
+ * Logotip: markazniki yoki (`?b=<filial>`) yakka logopedniki.
  *
  * Kirishsiz ochiladi: logotip kirish sahifasida ham ko'rinadi, unda maxfiy
  * narsa yo'q. Manzilga `?v=<vaqt>` qo'shib beriladi, shuning uchun brauzer
  * uni uzoq keshlashi mumkin — rasm almashsa manzil ham o'zgaradi.
  */
 export async function GET(request: Request) {
-  const logo = await getLogo();
+  const params = new URL(request.url).searchParams;
+  const branchId = params.get("b");
+  const logo = branchId ? await getBranchLogo(branchId) : await getLogo();
   if (!logo) return new Response(null, { status: 404 });
 
-  const versioned = new URL(request.url).searchParams.has("v");
+  const versioned = params.has("v");
   return new Response(new Uint8Array(logo.data), {
     headers: {
       "Content-Type": logo.mime,

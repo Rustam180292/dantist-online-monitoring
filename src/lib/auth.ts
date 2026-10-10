@@ -95,6 +95,10 @@ export type CurrentUser = {
   specialization: string | null;
   /** Yakka ishlaydigan mutaxassis: markazga tegishli emas, o'ziga xo'jayin */
   isSolo: boolean;
+  /** Yakka logopedning o'z ilova nomi (bo'lmasa — standart) */
+  brandName: string | null;
+  /** Yakka logopedning o'z logotipi qachon yuklangani (bo'lmasa — markaz logotipi) */
+  brandLogoAt: Date | null;
 };
 
 type UserRow = {
@@ -107,6 +111,8 @@ type UserRow = {
   specialistId: string | null;
   specialization: string | null;
   isSolo: boolean;
+  brandName: string | null;
+  brandLogoAt: Date | null;
 };
 
 /**
@@ -129,6 +135,8 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Cur
   const rows = await prisma.$queryRaw<UserRow[]>`
     SELECT u."id", u."fullName", u."phone", u."role", u."branchId",
            b."name" AS "branchName", COALESCE(b."isSolo", false) AS "isSolo",
+           b."brandName",
+           CASE WHEN b."logoMime" IS NOT NULL THEN b."logoUpdatedAt" END AS "brandLogoAt",
            s."id" AS "specialistId", s."specialization"
       FROM "User" u
       LEFT JOIN "Branch" b ON b."id" = u."branchId"

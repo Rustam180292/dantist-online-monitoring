@@ -53,7 +53,7 @@ export default async function BranchesPage() {
         subtitle={t("{n} ta filial", { n: branches.length })}
       />
 
-      <details className={`${card} mb-5 p-4`} open={branches.length === 0}>
+      <details data-autoclose className={`${card} mb-5 p-4`} open={branches.length === 0}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
           + {t("Yangi filial qo'shish")}
         </summary>

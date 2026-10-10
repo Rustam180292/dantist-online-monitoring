@@ -203,7 +203,7 @@ export default async function SchedulePage({
       ) : null}
 
       {canEdit && clients.length > 0 ? (
-        <details id="yangi" open={Boolean(sp.yangi)} className={`${card} mb-5 p-4`}>
+        <details id="yangi" data-autoclose open={Boolean(sp.yangi)} className={`${card} mb-5 p-4`}>
           <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
             + {t("Yangi seans qo'shish")}
           </summary>

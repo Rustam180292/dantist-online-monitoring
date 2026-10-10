@@ -149,7 +149,7 @@ export default async function IntakesPage({
         />
       </div>
 
-      <details className={`${card} mt-5 p-4`}>
+      <details data-autoclose className={`${card} mt-5 p-4`}>
         <summary className="cursor-pointer text-sm font-semibold text-slate-800 dark:text-slate-200">
           + {t("Yangi qabul yozish")}
         </summary>

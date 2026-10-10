@@ -19,7 +19,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // sozlamalari va paroli unga kerak emas — u faqat Telegram orqali kiradi.
   if (user.role === "PARENT") redirect("/m");
   const t = await getT();
-  const { logoUrl } = await getSettings();
+  const { logoUrl: centerLogo } = await getSettings();
+  // Yakka logoped menyu tepasiga o'z nomi va logotipini qo'yadi (Sozlamalar);
+  // qo'ymagan bo'lsa — standart nom va markaz logotipi
+  const solo = isSolo(user);
+  const brandTitle = (solo && user.brandName) || "Logoped CRM";
+  const logoUrl =
+    solo && user.brandLogoAt && user.branchId
+      ? `/api/logo?b=${user.branchId}&v=${new Date(user.brandLogoAt).getTime()}`
+      : centerLogo;
 
   const items: NavItem[] = [];
   if (isSolo(user)) {
@@ -80,7 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="flex items-center gap-2.5 px-5 py-5">
           <BrandMark logoUrl={logoUrl} />
           <div className="leading-tight">
-            <p className="text-sm font-bold text-slate-900 dark:text-white">Logoped CRM</p>
+            <p className="text-sm font-bold text-slate-900 dark:text-white" data-testid="brand-title">{brandTitle}</p>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {isSolo(user) ? t("Yakka ishlayman") : (user.branchName ?? t("Barcha filiallar"))}
             </p>
@@ -107,7 +115,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="flex min-w-0 items-center gap-2">
             <BrandMark logoUrl={logoUrl} size="sm" />
             <div className="hidden min-w-0 leading-tight min-[400px]:block">
-              <p className="truncate text-sm font-bold text-slate-900 dark:text-white">Logoped CRM</p>
+              <p className="truncate text-sm font-bold text-slate-900 dark:text-white">{brandTitle}</p>
               <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
                 {isSolo(user) ? t("Yakka ishlayman") : (user.branchName ?? t("Barcha filiallar"))}
               </p>

@@ -121,12 +121,12 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 295 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 303 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi (205)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar, abonementsiz hisob, egani tahrirlash, mijoz formasi, yakka sozlamalari, qo'shish oynasi yopilishi (213)
 node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (19)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
@@ -159,6 +159,13 @@ filial admini yoki yakka). Panel va hisobotda "mutaxassis haqi / markaz
 ulushi" ko'rinmaydi — pulning hammasi o'ziniki. Qabulda "kim ko'radi" so'ralmaydi,
 server uni o'ziga yozadi. Seans narxini Sozlamalardan o'zi o'zgartiradi
 (`Specialist.defaultPrice`).
+
+Sozlamalarda yakka logoped o'z **ism-familiyasi va telefonini** (telefon —
+login, shuning uchun joriy parol bilan), menyu tepasidagi **ilova nomi**
+(`Branch.brandName`, bo'sh bo'lsa "Logoped CRM") va **logotipini**
+(`Branch.logoData`, `/api/logo?b=<filial>`) o'zgartiradi. Bular uning o'z
+filialida turadi — markazning nomi va logotipi (`Settings`) unga tegishli
+emas, uni o'zgartira olmaydi.
 
 Taklif kodi markaz panelida **ko'rinmaydi** — yakka mutaxassis markazga
 tegishli emas, uni markaz rahbari emas, ilovani sotayotgan odam qabul qiladi.
@@ -279,7 +286,7 @@ Jadval, Davomat, To'lovlar, Mutaxassislar.
 - **Amal xatolari.** Server action'lar `withFlash` bilan o'raladi (`src/lib/action.ts`).
   Usiz Next.js production'da xato matnini yashiradi va foydalanuvchi sababni
   bilmaydi. Yangi action yozsangiz, uni ham o'rang.
-- **Tahrirlash bo'limlari** `<details data-autoclose>` bo'lsin: ichidagi forma
+- **Tahrirlash va qo'shish bo'limlari** `<details data-autoclose>` bo'lsin: ichidagi forma
   saqlangach (yashil xabar kelsa) bo'lim o'zi yopiladi, xatoda ochiq qoladi
   (`src/components/auto-close.tsx`, `Flash` ning `app:flash` hodisasi).
 - **Bajarilgani ham ko'rinsin.** Natijasi ekranda darhol bilinmaydigan amal

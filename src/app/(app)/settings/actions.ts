@@ -162,9 +162,20 @@ function sniffImage(b: Buffer): "image/png" | "image/jpeg" | "image/webp" | null
   return null;
 }
 
-/** Markaz logotipini yuklash (menyuda va kirish sahifasida ko'rinadi) */
+/**
+ * Logotipni kim o'zgartiradi: ega — markaznikini, yakka logoped — o'zinikini
+ * (uning filialida turadi). Yakka logoped markaz logotipiga tega olmaydi.
+ */
+async function requireLogoOwner() {
+  const user = await requireUser();
+  if (user.role === "OWNER") return { soloBranchId: null as string | null };
+  if (isSolo(user) && user.branchId) return { soloBranchId: user.branchId };
+  throw new Error("Bu amalni faqat markaz egasi bajara oladi.");
+}
+
+/** Logotipni yuklash (menyuda va markazniki kirish sahifasida ham ko'rinadi) */
 async function uploadLogoImpl(formData: FormData) {
-  await requireOwner();
+  const { soloBranchId } = await requireLogoOwner();
 
   const file = formData.get("logo");
   if (!(file instanceof File) || file.size === 0) throw new Error("Rasm faylini tanlang.");
@@ -175,11 +186,15 @@ async function uploadLogoImpl(formData: FormData) {
   if (!mime) throw new Error("Faqat PNG, JPG yoki WEBP rasm yuklash mumkin.");
 
   const data = { logoData: bytes.toString("base64"), logoMime: mime, logoUpdatedAt: new Date() };
-  await prisma.settings.upsert({
-    where: { id: "main" },
-    create: { id: "main", ...data },
-    update: data,
-  });
+  if (soloBranchId) {
+    await prisma.branch.update({ where: { id: soloBranchId }, data });
+  } else {
+    await prisma.settings.upsert({
+      where: { id: "main" },
+      create: { id: "main", ...data },
+      update: data,
+    });
+  }
 
   // Logotip menyuda turadi — hamma sahifa yangilanishi kerak
   revalidatePath("/", "layout");
@@ -187,15 +202,101 @@ async function uploadLogoImpl(formData: FormData) {
 }
 
 async function removeLogoImpl() {
-  await requireOwner();
-  await prisma.settings.updateMany({
-    where: { id: "main" },
-    data: { logoData: null, logoMime: null, logoUpdatedAt: null },
-  });
+  const { soloBranchId } = await requireLogoOwner();
+  const empty = { logoData: null, logoMime: null, logoUpdatedAt: null };
+  if (soloBranchId) {
+    await prisma.branch.update({ where: { id: soloBranchId }, data: empty });
+  } else {
+    await prisma.settings.updateMany({ where: { id: "main" }, data: empty });
+  }
   revalidatePath("/", "layout");
   await setFlash("Logotip olib tashlandi.", "ok");
 }
 
+
+/* ---------------- Yakka logoped: o'z nomi va ma'lumoti ---------------- */
+
+async function requireSolo() {
+  const user = await requireUser();
+  if (!isSolo(user) || !user.branchId) throw new Error("Sizda bu amal uchun ruxsat yo'q.");
+  return { ...user, branchId: user.branchId };
+}
+
+/** Menyu tepasidagi ilova nomi ("Logoped CRM" o'rniga) */
+async function updateBrandImpl(formData: FormData) {
+  const user = await requireSolo();
+  // Bo'sh qoldirilsa standart nom qaytadi
+  const brandName = String(formData.get("brandName") ?? "").trim().slice(0, 40) || null;
+  await prisma.branch.update({ where: { id: user.branchId }, data: { brandName } });
+  revalidatePath("/", "layout");
+  await setFlash("Ilova nomi saqlandi.", "ok");
+}
+
+/**
+ * Yakka logopedning ism-familiyasi va telefoni.
+ *
+ * Telefon — kirish logini, shuning uchun uni almashtirishda joriy parol
+ * so'raladi (ochiq qolgan telefonda boshqa odam akkauntni o'ziga olib
+ * qo'ymasin). Ismni almashtirish uchun parol kerak emas.
+ */
+async function updateProfileImpl(formData: FormData) {
+  const user = await requireSolo();
+
+  const fullName = String(formData.get("fullName") ?? "").trim().slice(0, 80);
+  const phone = String(formData.get("phone") ?? "").trim();
+  if (!fullName || !phone) throw new Error("Ism va telefon majburiy.");
+
+  const phoneChanged = phone !== user.phone;
+  if (phoneChanged) {
+    const row = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: { passwordHash: true },
+    });
+    const current = String(formData.get("currentPassword") ?? "");
+    if (!row || !verifyPassword(current, row.passwordHash)) {
+      throw new Error("Telefonni o'zgartirish uchun joriy parolni to'g'ri kiriting.");
+    }
+    const taken = await prisma.user.findUnique({ where: { phone }, select: { id: true } });
+    if (taken) throw new Error("Bu telefon raqam allaqachon ro'yxatda.");
+  }
+
+  const branch = await prisma.branch.findUnique({
+    where: { id: user.branchId },
+    select: { phone: true, name: true },
+  });
+
+  const branchData: { phone?: string; name?: string } = {};
+  // Filial telefoni ro'yxatdan o'tishda logopedning raqami bo'lgan —
+  // ota-onalar shu raqamga qo'ng'iroq qiladi, eskisida qolib ketmasin
+  if (phoneChanged && branch?.phone === user.phone) branchData.phone = phone;
+  // Filial nomi ro'yxatdan o'tishda ismdan yasalgan ("Ism (yakka)") —
+  // ota-ona kabinetida ko'rinadi, eski ism qolib ketmasin. Nom yagona
+  // bo'lishi shart, shuning uchun band bo'lsa raqam qo'shiladi.
+  if (fullName !== user.fullName && branch?.name.startsWith(`${user.fullName} (yakka)`)) {
+    const base = `${fullName} (yakka)`;
+    let name = base;
+    for (let i = 2; ; i++) {
+      const other = await prisma.branch.findUnique({ where: { name }, select: { id: true } });
+      if (!other || other.id === user.branchId) break;
+      name = `${base} ${i}`;
+    }
+    branchData.name = name;
+  }
+
+  await prisma.$transaction([
+    prisma.user.update({ where: { id: user.id }, data: { fullName, phone } }),
+    ...(Object.keys(branchData).length > 0
+      ? [prisma.branch.update({ where: { id: user.branchId }, data: branchData })]
+      : []),
+  ]);
+
+  // Ism menyuda va hamma ro'yxatlarda turadi
+  revalidatePath("/", "layout");
+  await setFlash("Ma'lumotlaringiz saqlandi.", "ok");
+}
+
+export const updateBrand = withFlash(updateBrandImpl);
+export const updateProfile = withFlash(updateProfileImpl);
 
 /* ---------------- Seans turlari va narxlari ---------------- */
 

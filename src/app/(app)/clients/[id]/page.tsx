@@ -261,6 +261,7 @@ export default async function ClientPage({
 
               {canManage ? (
                 <details
+                  data-autoclose
                   id="tolov"
                   open={ochiq === "tolov"}
                   className="border-t border-slate-200 p-4 dark:border-slate-800"

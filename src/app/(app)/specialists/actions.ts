@@ -53,6 +53,7 @@ async function createSpecialistImpl(formData: FormData) {
 
   revalidatePath("/specialists");
   revalidatePath("/");
+  await setFlash("{name} qo'shildi.", "ok", { name: fullName });
 }
 
 /**
@@ -287,6 +288,7 @@ async function createOwnerImpl(formData: FormData) {
   });
 
   revalidatePath("/specialists");
+  await setFlash("{name} qo'shildi.", "ok", { name: fullName });
 }
 
 /** Egalik akkauntini o'chirish / qaytarish */
@@ -366,6 +368,7 @@ async function createReceptionImpl(formData: FormData) {
   });
 
   revalidatePath("/specialists");
+  await setFlash("{name} qo'shildi.", "ok", { name: fullName });
 }
 
 /** Qabulxona xodimini o'chirish / qaytarish */
