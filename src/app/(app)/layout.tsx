@@ -3,6 +3,7 @@ import { requireUser, isSolo } from "@/lib/auth";
 import { ROLES, SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { MobileNav, SideNav, type NavItem } from "@/components/nav";
 import { Flash } from "@/components/flash";
+import { AutoCloseEdits } from "@/components/auto-close";
 import { Install } from "@/components/install";
 import { logout } from "@/app/login/actions";
 import { BrandMark } from "@/components/brand";
@@ -125,6 +126,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
 
       <Flash />
+      <AutoCloseEdits />
     </div>
     </I18nProvider>
   );

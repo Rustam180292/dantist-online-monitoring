@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 const COOKIE = "logoped_flash";
+export const FLASH_EVENT = "app:flash";
 
 function readFlash(): string | null {
   const match = document.cookie.match(new RegExp(`(?:^|; )${COOKIE}=([^;]*)`));
@@ -36,6 +37,9 @@ export function Flash() {
         clearFlash();
         const good = found.startsWith("ok:");
         setOk(good);
+        // Amal natijasini kutib turgan boshqa qismlar uchun (masalan, saqlangach
+        // tahrirlash formasini yopish) — cookie'ni faqat shu yer o'qiydi
+        window.dispatchEvent(new CustomEvent(FLASH_EVENT, { detail: { ok: good } }));
         setMessage(found.replace(/^(ok|err):/, ""));
       }
     };

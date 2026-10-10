@@ -453,7 +453,7 @@ export default async function ClientsPage({
                   {canManage ? (
                     <tr>
                       <td colSpan={colCount} className="px-4 pb-2">
-                        <details>
+                        <details data-autoclose>
                           <summary className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 px-2 py-0.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
                             ✎ {t("Tahrirlash")}
                           </summary>
