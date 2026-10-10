@@ -36,7 +36,7 @@ const IDENTIFIERS = [
   "defaultSalaryPercent", "workStartHour", "workEndHour", "slotMinutes",
   "defaultPrice", "workDays", "centerName", "timezoneShiftedAt", "soloInviteCode", "isSolo", "logoMime", "logoData", "logoUpdatedAt",
   "userId", "paidAt", "sentAt", "durationMin", "sessionTypeId", "brandName",
-  "lunchStartMin", "lunchEndMin", "sheetsUrl", "sheetsSyncedAt", "sheetsError",
+  "lunchStartMin", "lunchEndMin", "sheetsUrl", "sheetsSyncedAt", "sheetsError", "sheetsDirtyAt", "sheetsLockAt",
 ].sort((a, b) => b.length - a.length);
 
 const IDENT_RE = new RegExp(`\\b(${IDENTIFIERS.join("|")})\\b`, "g");

@@ -42,6 +42,10 @@ model Branch {
   sheetsUrl      String?
   sheetsSyncedAt DateTime?
   sheetsError    String?
+  /// O'zgarish bo'lgani va yozish band ekani (`sheetsChanged`) — jadval har
+  /// o'zgarishdan keyin yangilanadi, bir vaqtda ikki yozuv to'qnashmasin
+  sheetsDirtyAt  DateTime?
+  sheetsLockAt   DateTime?
   createdAt DateTime @default(now())
 
   users       User[]
@@ -255,6 +259,9 @@ model Settings {
   sheetsSyncedAt      DateTime?
   /// Oxirgi urinish xato bo'lsa — sababi (Sozlamalarda ko'rinadi)
   sheetsError         String?
+  /// O'zgarish bo'lgani va yozish band ekani (`sheetsChanged`)
+  sheetsDirtyAt       DateTime?
+  sheetsLockAt        DateTime?
   /// `npm run db:timezone` bir marta ishlaganini belgilaydi. Skript vaqtlarni
   /// siljitadi, ikki marta ishlasa jadval ikki barobar siljib ketardi.
   timezoneShiftedAt   DateTime?
