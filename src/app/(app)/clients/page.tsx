@@ -2,7 +2,7 @@ import { getSessionTypes } from "@/lib/session-types";
 import { Fragment } from "react";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { clientScope, requireUser, NOT_SOLO, isFrontDesk, isSolo } from "@/lib/auth";
+import { branchWhere, clientScope, requireUser, NOT_SOLO, isFrontDesk, isSolo } from "@/lib/auth";
 import {
   BILLABLE_STATUSES,
   CLIENT_STATUSES,
@@ -150,10 +150,11 @@ export default async function ClientsPage({
     prisma.specialist.findMany({
       where: {
         isActive: true,
-        ...(user.role === "SPECIALIST" ? { id: user.specialistId ?? "" } : {}),
-        ...(user.role === "BRANCH_ADMIN" || user.role === "RECEPTION"
-          ? { branchId: user.branchId ?? "" }
-          : {}),
+        // Mutaxassis — faqat o'zi; qolganlari o'z doirasida. Egada branchId
+        // bo'sh, bo'sh obyekt esa begona yakka logopedni ham qamrab olardi
+        ...(user.role === "SPECIALIST"
+          ? { id: user.specialistId ?? "" }
+          : branchWhere(user.branchId)),
       },
       select: { id: true, user: { select: { fullName: true } } },
       orderBy: { user: { fullName: "asc" } },

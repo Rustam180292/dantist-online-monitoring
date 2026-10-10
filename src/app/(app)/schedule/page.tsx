@@ -1,7 +1,7 @@
 import { getSessionTypes } from "@/lib/session-types";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireUser, sessionScope, clientScope, NOT_SOLO } from "@/lib/auth";
+import { requireUser, sessionScope, clientScope, branchWhere, NOT_SOLO } from "@/lib/auth";
 import {
   SESSION_STATUSES,
   SESSION_STATUS_STYLE,
@@ -69,7 +69,9 @@ export default async function SchedulePage({
     user.role === "PARENT" || user.role === "SPECIALIST"
       ? Promise.resolve([])
       : prisma.specialist.findMany({
-          where: { isActive: true, ...(user.branchId ? { branchId: user.branchId } : {}) },
+          // Egada branchId bo'sh — bo'sh obyekt begona yakka logopedni ham
+          // qamrab olardi, shuning uchun doim branchWhere()
+          where: { isActive: true, ...branchWhere(user.branchId) },
           include: { user: { select: { fullName: true } }, branch: { select: { name: true } } },
           orderBy: { specialization: "asc" },
         }),

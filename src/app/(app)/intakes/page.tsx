@@ -89,7 +89,9 @@ export default async function IntakesPage({
       ? prisma.branch.findMany({ where: NOT_SOLO, orderBy: { name: "asc" } })
       : Promise.resolve([]),
     prisma.specialist.findMany({
-      where: { isActive: true, ...(user.role === "OWNER" ? {} : { branchId: user.branchId ?? "" }) },
+      // Egada branchId bo'sh — bo'sh obyekt begona yakka logopedni ham
+      // qamrab olardi, shuning uchun doim branchWhere()
+      where: { isActive: true, ...branchWhere(user.branchId) },
       include: { user: { select: { fullName: true } }, branch: { select: { name: true } } },
       orderBy: [{ branch: { name: "asc" } }, { user: { fullName: "asc" } }],
     }),

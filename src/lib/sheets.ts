@@ -397,23 +397,27 @@ export async function sheetsChanged(solo: string | null): Promise<void> {
   for (let round = 0; round < 5; round++) {
     if (!(await tryLock(t))) return;
     let again = false;
+    // Oxirgi marta qaysi lahzadan keyingi o'zgarishni qidirganimiz. Qulf
+    // bo'shagandan keyingi tekshiruv ham shunga qaraydi: "oxirgi bir soniya"
+    // deb qaralsa, yozuv tez tugaganda o'zimiz qo'ygan belgini ko'rib,
+    // o'zgarish bo'lmasa ham qaytadan yozib yurardi.
+    let since = new Date();
     try {
       // Belgi shu lahzadan keyin qo'yilsa — yana bir marta yozamiz
-      const startedAt = new Date();
       await syncSheets(solo);
-      again = await dirtySince(t, startedAt);
+      again = await dirtySince(t, since);
       while (again && round < 4) {
         round++;
-        const next = new Date();
+        since = new Date();
         await syncSheets(solo);
-        again = await dirtySince(t, next);
+        again = await dirtySince(t, since);
       }
     } finally {
       await setFields(t, { sheetsLockAt: null });
     }
     // Qulf bo'shagandan keyin yana tekshiramiz: o'sha orada kelgan va qulfni
     // ololmagan o'zgarish yo'qolib qolmasin
-    if (!again && !(await dirtySince(t, new Date(Date.now() - 1000)))) return;
+    if (!again && !(await dirtySince(t, since))) return;
   }
 }
 

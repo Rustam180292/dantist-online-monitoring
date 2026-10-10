@@ -1585,6 +1585,19 @@ if (await payRow.count()) {
     !(await page.locator("main").innerText()).includes("(yakka)"),
   );
 
+  // Eng nozik joyi: tanlov ro'yxatlari. Ega yakka mutaxassisni shu yerdan
+  // tanlab, unga markaz mijozini yoki seansini biriktirib yuborardi — o'shanda
+  // begona odam markazning bolasini o'z kabinetida ko'rib qolardi.
+  for (const path of ["/clients", "/schedule", "/intakes"]) {
+    await page.goto(`${BASE}${path}`);
+    await page.waitForLoadState("networkidle");
+    const options = await page.locator("option").allInnerTexts();
+    check(
+      `Ega yakka mutaxassisni tanlay olmaydi (${path})`,
+      !options.some((o) => o.includes(soloName)),
+    );
+  }
+
   // Tozalab qo'yamiz: keyingi tekshiruvlarga xalaqit bermasin
   await all("DELETE FROM Intake WHERE branchId = ?", solo.branchId);
   await all("DELETE FROM Client WHERE id = ?", kid.id);
