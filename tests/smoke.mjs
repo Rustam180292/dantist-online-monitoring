@@ -2010,17 +2010,29 @@ check(
     await page.fill("#startsAt", `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${hour}:10`);
     await page.selectOption("#sessionTypeId", serviceId);
     await page.locator('form:has(#sessionTypeId) button[type="submit"]').click();
-    return waitUntil(async () => (await one(
-      "SELECT packageId FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, serviceId,
-    )) !== null);
   };
+  // Mijozning avvalgi testlardan qolgan seanslari ham bo'lishi mumkin —
+  // aynan shu yerda yozilganini olamiz
+  const fresh = async (serviceId) => {
+    let row = null;
+    await waitUntil(async () => {
+      row = await one(
+        "SELECT packageId FROM Session WHERE clientId = ? AND sessionTypeId = ? AND createdAt > ? ORDER BY createdAt DESC LIMIT 1",
+        pair.clientId, serviceId, startedAt,
+      );
+      return row !== null;
+    });
+    return row;
+  };
+  // createdAt bazada zonasiz UTC — solishtirish uchun ham UTC qatori beriladi
+  const startedAt = new Date(Date.now() - 1000).toISOString().replace("Z", "");
   await book(svcA.id, "06");
+  const a = await fresh(svcA.id);
   await book(svcB.id, "05");
-  const a = await one("SELECT packageId FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, svcA.id);
-  const b = await one("SELECT packageId FROM Session WHERE clientId = ? AND sessionTypeId = ?", pair.clientId, svcB.id);
+  const b = await fresh(svcB.id);
   check("Seans shu xizmat abonementidan yechiladi", a?.packageId === typedId, JSON.stringify(a));
   check("Xizmat abonementi bo'lmasa eski abonementdan yechiladi", b?.packageId === legacyId, JSON.stringify(b));
-  await all("DELETE FROM Session WHERE clientId = ? AND packageId IN (?, ?)", pair.clientId, legacyId, typedId);
+  await all("DELETE FROM Session WHERE clientId = ? AND createdAt > ?", pair.clientId, startedAt);
   await all("DELETE FROM Package WHERE id IN (?, ?)", legacyId, typedId);
 }
 

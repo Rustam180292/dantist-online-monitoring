@@ -2,13 +2,12 @@ import { redirect } from "next/navigation";
 import { requireUser, isSolo } from "@/lib/auth";
 import { ROLES, SPECIALIZATIONS, type Specialization } from "@/lib/constants";
 import { MobileNav, SideNav, type NavItem } from "@/components/nav";
-import { Icon } from "@/components/icons";
 import { Flash } from "@/components/flash";
 import { Install } from "@/components/install";
 import { logout } from "@/app/login/actions";
 import { BrandMark } from "@/components/brand";
 import { I18nProvider } from "@/components/i18n";
-import { LanguageSwitcher, ThemeToggle } from "@/components/prefs";
+import { TopControls } from "@/components/topbar";
 import { getSettings } from "@/lib/settings";
 import { dictFor } from "@/lib/i18n/dicts";
 import { getT } from "@/lib/i18n/server";
@@ -72,13 +71,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       ? t(SPECIALIZATIONS[user.specialization as Specialization])
       : t(ROLES[user.role]);
 
-  const prefBtn =
-    "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800";
-
   return (
     <I18nProvider locale={t.locale} dict={dictFor(t.locale)}>
     <div className="min-h-screen lg:flex">
-      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:flex lg:flex-col dark:border-slate-800 dark:bg-slate-900">
+      {/* Yon menyu joyida qotadi — uzun sahifani pastga aylantirganda ham ko'rinib tursin */}
+      <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center gap-2.5 px-5 py-5">
           <BrandMark logoUrl={logoUrl} />
           <div className="leading-tight">
@@ -89,53 +86,33 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </div>
         </div>
 
-        <div className="flex-1 px-3">
+        <div className="flex-1 overflow-y-auto px-3 pb-4">
           <SideNav items={items} />
         </div>
 
-        <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-          <p className="px-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-            {user.fullName}
-          </p>
-          <p className="mb-2 px-2 text-xs text-slate-500 dark:text-slate-400">{roleLine}</p>
-          <LanguageSwitcher className="mb-1 px-2" />
-          <ThemeToggle className={prefBtn} />
-          <Install className={`mb-1 ${prefBtn}`} />
-          <form action={logout}>
-            <button
-              type="submit"
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              <Icon name="logout" className="h-4 w-4" />
-              {t("Chiqish")}
-            </button>
-          </form>
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 lg:hidden dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center gap-2">
+        {/* Til, rejim va foydalanuvchi menyusi — tepa o'ng burchakda: sahifaga
+            kirgan odam ularni birinchi qidiradi */}
+        <header
+          data-testid="topbar"
+          className="sticky top-0 z-30 hidden h-16 items-center justify-end border-b border-slate-200/80 bg-white/80 px-8 backdrop-blur lg:flex dark:border-slate-800 dark:bg-slate-900/80"
+        >
+          <TopControls fullName={user.fullName} roleLine={roleLine} logout={logout} />
+        </header>
+
+        <header className="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 py-2.5 lg:hidden dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex min-w-0 items-center gap-2">
             <BrandMark logoUrl={logoUrl} size="sm" />
-            <div className="leading-tight">
-              <p className="text-sm font-bold text-slate-900 dark:text-white">Logoped CRM</p>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                {user.fullName} · {roleLine}
+            <div className="hidden min-w-0 leading-tight min-[400px]:block">
+              <p className="truncate text-sm font-bold text-slate-900 dark:text-white">Logoped CRM</p>
+              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                {isSolo(user) ? t("Yakka ishlayman") : (user.branchName ?? t("Barcha filiallar"))}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-          <ThemeToggle className="rounded-lg border border-slate-200 p-2 text-slate-600 dark:border-slate-700 dark:text-slate-400 [&>span]:hidden" />
-          <form action={logout}>
-            <button
-              type="submit"
-              aria-label={t("Chiqish")}
-              className="rounded-lg border border-slate-200 p-2 text-slate-600 dark:border-slate-700 dark:text-slate-400"
-            >
-              <Icon name="logout" className="h-4 w-4" />
-            </button>
-          </form>
-          </div>
+          <TopControls fullName={user.fullName} roleLine={roleLine} logout={logout} compact />
         </header>
 
         <MobileNav items={items} />
