@@ -5,13 +5,11 @@ import { withFlash } from "@/lib/action";
 import { setFlash } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { hashPassword, requireUser, type CurrentUser, isFrontDesk, isSolo } from "@/lib/auth";
+import { requireUser, type CurrentUser, isFrontDesk, isSolo } from "@/lib/auth";
 import {
-  BILLING_TYPE_KEYS,
   CLIENT_STATUS_KEYS,
   PAYMENT_METHOD_KEYS,
   SPECIALIZATION_KEYS,
-  type BillingType,
   type ClientStatus,
   type PaymentMethod,
   type Specialization,
@@ -71,12 +69,6 @@ function parseAmount(raw: FormDataEntryValue | null, message: string): number {
 }
 
 /** Yangi mijoz (bola) qo'shish */
-/** Formadan to'lov turi: noma'lum qiymat kelsa kunlikka tushadi */
-function readBillingType(formData: FormData): BillingType {
-  const raw = String(formData.get("billingType") ?? "");
-  return BILLING_TYPE_KEYS.includes(raw as BillingType) ? (raw as BillingType) : "DAILY";
-}
-
 async function createClientImpl(formData: FormData) {
   const user = await requireFrontDesk();
 
@@ -86,7 +78,6 @@ async function createClientImpl(formData: FormData) {
   const parentPhone = String(formData.get("parentPhone") ?? "").trim();
   const branchId =
     user.role === "OWNER" ? String(formData.get("branchId") ?? "") : (user.branchId ?? "");
-  const parentPassword = String(formData.get("parentPassword") ?? "");
 
   if (!fullName || !birthDateRaw || !parentName || !parentPhone || !branchId) {
     throw new Error("Majburiy maydonlarni to'liq to'ldiring.");
@@ -95,18 +86,22 @@ async function createClientImpl(formData: FormData) {
   const birthDate = new Date(birthDateRaw);
   if (Number.isNaN(birthDate.getTime())) throw new Error("Tug'ilgan sana noto'g'ri.");
 
-  // Ota-onaga kabinet ochish (parol kiritilgan bo'lsa)
-  let parentUserId: string | null = null;
+  // Ota-ona akkaunti doim ochiladi: u kabinetga faqat Telegram orqali,
+  // raqamini ulashib kiradi, bot esa raqamni foydalanuvchilar orasidan
+  // qidiradi. Parol yo'q — ota-onaga parol bilan kirish yopiq.
+  let parentUserId: string;
   const existingParent = await prisma.user.findUnique({ where: { phone: parentPhone } });
   if (existingParent) {
+    if (existingParent.role !== "PARENT") {
+      throw new Error("Bu telefon raqam markaz xodimiga tegishli.");
+    }
     parentUserId = existingParent.id;
-  } else if (parentPassword) {
-    if (parentPassword.length < 5) throw new Error("Ota-ona uchun parol kamida 5 belgidan bo'lsin.");
+  } else {
     const created = await prisma.user.create({
       data: {
         phone: parentPhone,
         fullName: parentName,
-        passwordHash: hashPassword(parentPassword),
+        passwordHash: "",
         role: "PARENT",
         branchId,
       },
@@ -126,7 +121,8 @@ async function createClientImpl(formData: FormData) {
       diagnosis: String(formData.get("diagnosis") ?? "").trim() || null,
       note: String(formData.get("note") ?? "").trim() || null,
       status: "ACTIVE",
-      billingType: readBillingType(formData),
+      // Markazda abonement yo'q — har bir seans alohida hisoblanadi
+      billingType: "DAILY",
     },
   });
 
@@ -215,7 +211,6 @@ async function updateClientImpl(formData: FormData) {
       parentPhone,
       diagnosis: String(formData.get("diagnosis") ?? "").trim() || null,
       note: String(formData.get("note") ?? "").trim() || null,
-      billingType: readBillingType(formData),
     },
   });
 

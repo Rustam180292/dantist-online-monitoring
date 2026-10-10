@@ -151,6 +151,43 @@ const STRANGER_TG_ID = 900300300;
   check("Ota-ona akkaunti bog'landi", row.telegramId === String(PARENT_TG_ID));
 }
 
+/* 6b. Ota-ona akkaunti yo'q, lekin raqami mijoz kartasida — bog'lanadi.
+   Ilgari akkaunt faqat "kabinet paroli" yozilganda ochilardi; parolsiz
+   qo'shilgan mijozning ota-onasi ham Telegram orqali kira olishi kerak. */
+{
+  const tag = Date.now().toString().slice(-6);
+  const phone = `+99890444${tag.slice(-4)}`;
+  const tgId = 900400000 + Number(tag.slice(-4));
+  const branch = await one("SELECT id FROM Branch WHERE isSolo = false LIMIT 1");
+  const ids = [`tgold1${tag}`, `tgold2${tag}`];
+  for (const [i, id] of ids.entries()) {
+    await all(
+      `INSERT INTO Client (id, fullName, birthDate, branchId, parentName, parentPhone, status, billingType)
+       VALUES (?, ?, '2019-01-01', ?, 'Eski Ota', ?, 'ACTIVE', 'DAILY')`,
+      id, `Eski Bola ${i} ${tag}`, branch.id, phone,
+    );
+  }
+  await webhook({
+    message: {
+      chat: { id: tgId },
+      from: { id: tgId },
+      // Telegram raqamni "+" siz yuboradi
+      contact: { phone_number: phone.slice(1), user_id: tgId },
+    },
+  });
+  const u = await one("SELECT id, role, telegramId FROM User WHERE phone = ?", phone);
+  const linkedKids = u
+    ? await count("SELECT COUNT(*) AS n FROM Client WHERE parentUserId = ?", u.id)
+    : 0;
+  check(
+    "Parolsiz qo'shilgan mijozning ota-onasi ham Telegram orqali bog'lanadi",
+    u?.role === "PARENT" && u?.telegramId === String(tgId) && linkedKids === 2,
+    JSON.stringify({ u, linkedKids }),
+  );
+  await all(`DELETE FROM Client WHERE id IN (?, ?)`, ...ids);
+  if (u) await all("DELETE FROM User WHERE id = ?", u.id);
+}
+
 /* 7. Buzilgan initData rad etiladi */
 {
   const bad = makeInitData({ id: SPEC_TG_ID, first_name: "Test" }).replace(/hash=[a-f0-9]+/, "hash=" + "0".repeat(64));

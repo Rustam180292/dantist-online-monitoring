@@ -765,19 +765,46 @@ if (await payRow.count()) {
   await page.goto(`${BASE}/clients`);
   await page.waitForSelector("tbody tr", { timeout: 15000 });
   await page.click('summary:has-text("Yangi mijoz")');
+  // Markazda abonement yo'q, ota-ona esa faqat Telegram orqali kiradi —
+  // formada "To'lov turi" ham, kabinet paroli ham so'ralmaydi
+  const newForm = await page.locator('form:has(#fullName)').innerText();
+  check(
+    "Yangi mijoz formasida 'To'lov turi' va kabinet paroli yo'q",
+    (await page.locator("#billingType, #parentPassword").count()) === 0 &&
+      !newForm.includes("To'lov turi") &&
+      !newForm.includes("parol"),
+  );
+  // Tugma ustiga kelganda qo'l chiqadi (Tailwind v4 odatda strelka qoldiradi)
+  const saveBtn = page.locator('form:has(#fullName) button:has-text("Saqlash")');
+  check(
+    "Saqlash tugmasida kursor qo'l shaklida",
+    (await saveBtn.evaluate((el) => getComputedStyle(el).cursor)) === "pointer",
+  );
   const uniq = Date.now().toString().slice(-6);
   await page.fill("#fullName", `Kunlik Bola ${uniq}`);
   await page.fill("#birthDate", "2020-05-05");
   await page.fill("#parentName", "Kunlik Ota");
   await page.fill("#parentPhone", `+99890777${uniq.slice(-4)}`);
-  await page.selectOption("#billingType", "DAILY");
-  await page.click('form button:has-text("Saqlash")');
+  await saveBtn.click();
   const made = await waitUntil(
     async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE fullName = ?", `Kunlik Bola ${uniq}`)) === 1,
   );
   check("Abonementsiz mijoz qo'shiladi", made);
 
-  const kid = await one("SELECT id, branchId FROM Client WHERE fullName = ?", `Kunlik Bola ${uniq}`);
+  const kid = await one(
+    "SELECT id, branchId, billingType, parentUserId FROM Client WHERE fullName = ?",
+    `Kunlik Bola ${uniq}`,
+  );
+  check("Yangi mijoz kunlik hisobda", kid?.billingType === "DAILY", kid?.billingType);
+  // Parolsiz ham ota-ona akkaunti ochiladi — aks holda bot raqamni topa olmaydi
+  const kidParent = kid?.parentUserId
+    ? await one("SELECT role, phone FROM User WHERE id = ?", kid.parentUserId)
+    : null;
+  check(
+    "Parolsiz ham ota-ona akkaunti ochiladi (Telegram uchun)",
+    kidParent?.role === "PARENT" && kidParent?.phone === `+99890777${uniq.slice(-4)}`,
+    JSON.stringify(kidParent),
+  );
 
   await page.goto(`${BASE}/clients?n=${encodeURIComponent("Kunlik Bola " + uniq)}`);
   await page.waitForSelector("tbody tr", { timeout: 15000 });
@@ -794,14 +821,10 @@ if (await payRow.count()) {
     !(await page.locator("main").innerText()).includes(`Kunlik Bola ${uniq}`),
   );
 
-  // To'lov turi bo'yicha filtr
-  await page.goto(`${BASE}/clients?bt=PACKAGE`);
-  await page.waitForLoadState("networkidle");
+  // Abonement yo'q — "To'lov turi" filtri ham kerak emas
   check(
-    "To'lov turi bo'yicha filtr ishlaydi",
-    !(await page.locator("main").innerText()).includes(`Kunlik Bola ${uniq}`) &&
-      (await page.locator("tbody tr").count()) > 0,
-    page.url(),
+    "Mijozlar ro'yxatida 'To'lov turi' filtri yo'q",
+    (await page.locator('[aria-label="To\'lov turi bo\'yicha filtr"]').count()) === 0,
   );
 
   // Mijoz kartasida kunlikka abonement sotish formasi ko'rinmasligi kerak
@@ -810,22 +833,28 @@ if (await payRow.count()) {
   const cardText = await page.locator("main").innerText();
   check(
     "Kunlik mijoz kartasida abonement sotish taklif qilinmaydi",
-    cardText.includes("har kelganida to'laydi") && !cardText.includes("+ Abonement sotish"),
+    cardText.includes("har bir seans alohida hisoblanadi") &&
+      !cardText.includes("+ Abonement sotish") &&
+      !cardText.includes("To'lov turi"),
+  );
+  check(
+    "Mijozni tahrirlash formasida 'To'lov turi' yo'q",
+    (await page.locator('select[name="billingType"]').count()) === 0,
   );
 
-  // Turini "Abonement" ga o'zgartirsak, forma qaytib keladi
-  await page.selectOption('select[name="billingType"]', "PACKAGE");
-  await page.click('form button:has-text("Saqlash")');
-  const switched = await waitUntil(async () => {
-    const r = await one("SELECT billingType FROM Client WHERE id = ?", kid.id);
-    return r?.billingType === "PACKAGE";
-  });
+  // Ilgari abonement olgan mijoz kartasi tahrirlanganda abonementchiligicha
+  // qoladi — maydon formadan olib tashlangani uni kunlikka aylantirmasin
+  await all("UPDATE Client SET billingType = 'PACKAGE' WHERE id = ?", kid.id);
   await page.goto(`${BASE}/clients/${kid.id}`);
   await page.waitForLoadState("networkidle");
-  check(
-    "Abonementga o'tkazilsa abonement bo'limi ochiladi",
-    switched && (await page.locator("main").innerText()).includes("Abonement sotish"),
-  );
+  const editForm = page.locator('[data-testid="client-edit-form"]');
+  await editForm.locator('input[name="note"]').fill(`izoh ${uniq}`);
+  await editForm.locator('button[type="submit"]').click();
+  const kept = await waitUntil(async () => {
+    const r = await one("SELECT billingType, note FROM Client WHERE id = ?", kid.id);
+    return r?.note === `izoh ${uniq}` && r?.billingType === "PACKAGE";
+  });
+  check("Tahrirlash eski abonementchi mijozni kunlikka aylantirmaydi", kept);
   // Qolgan tekshiruvlar uchun kunlikka qaytaramiz
   await all("UPDATE Client SET billingType = 'DAILY' WHERE id = ?", kid.id);
 
@@ -950,7 +979,6 @@ if (await payRow.count()) {
     await page.fill("#birthDate", "2019-03-03");
     await page.fill("#parentName", "Test Ota");
     await page.fill("#parentPhone", phone);
-    await page.fill("#parentPassword", PASSWORD);
     await page.click('form button:has-text("Saqlash")');
     await waitUntil(
       async () => (await count("SELECT COUNT(*) AS n FROM Client WHERE fullName = ?", name)) === 1,
@@ -1333,6 +1361,8 @@ if (await payRow.count()) {
   // Tozalab qo'yamiz: keyingi tekshiruvlarga xalaqit bermasin
   await all("DELETE FROM Intake WHERE branchId = ?", solo.branchId);
   await all("DELETE FROM Client WHERE id = ?", kid.id);
+  // Mijoz bilan birga uning ota-onasi akkaunti ham ochilgan (yakka filialda)
+  await all("DELETE FROM User WHERE branchId = ? AND role = 'PARENT'", solo.branchId);
   await all("DELETE FROM User WHERE id = ?", solo.userId);
   await all("DELETE FROM Branch WHERE id = ?", solo.branchId);
   await all("UPDATE Settings SET soloInviteCode = NULL WHERE id = 'main'");
@@ -2161,9 +2191,12 @@ if (!reception) {
 
   // Mijoz kartasida to'lovni o'chirish tugmasi ko'rinmasligi kerak.
   // Abonement bo'limi faqat abonementchi mijozda bo'ladi — o'shani ochamiz.
-  await page.goto(`${BASE}/clients?bt=PACKAGE`);
-  await page.waitForSelector("tbody tr", { timeout: 15000 });
-  await page.locator("tbody tr a").first().click();
+  const recPkg = await one(
+    `SELECT c.id FROM Client c JOIN User u ON u.branchId = c.branchId
+      WHERE u.phone = ? AND c.billingType = 'PACKAGE' LIMIT 1`,
+    reception.phone,
+  );
+  await page.goto(`${BASE}/clients/${recPkg.id}`);
   await page.waitForLoadState("networkidle");
   const cardHtml = await page.content();
   check(

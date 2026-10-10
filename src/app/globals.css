@@ -16,6 +16,28 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * Tailwind v4 tugmalarga brauzerning odatiy kursorini (strelka) qaytaradi —
+ * "Saqlash" ustiga kelganda qo'l chiqmay, bosiladimi-yo'qmi bilinmay qolardi.
+ * `@layer base` da: biror joyda `cursor-*` klassi yozilsa, o'shanisi ustun.
+ */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  input[type="submit"]:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
+  }
+}
+
 body {
   @apply bg-slate-50 text-slate-900 antialiased;
 }

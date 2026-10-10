@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { clientScope, requireUser, NOT_SOLO, isFrontDesk, isSolo } from "@/lib/auth";
 import { branchTypeScope } from "@/lib/session-types";
 import {
-  BILLING_TYPES,
   CLIENT_STATUSES,
   CLIENT_STATUS_KEYS,
   PAYMENT_METHODS,
@@ -14,7 +13,6 @@ import {
   SESSION_STATUS_STYLE,
   SPECIALIZATIONS,
   SPECIALIZATION_KEYS,
-  type BillingType,
   type ClientStatus,
   type PaymentMethod,
   type SessionStatus,
@@ -164,7 +162,7 @@ export default async function ClientPage({
         title={client.fullName}
         subtitle={`${t.age(client.birthDate)} · ${client.branch.name} · ${
           t(CLIENT_STATUSES[client.status as ClientStatus])
-        } · ${t(BILLING_TYPES[(client.billingType as BillingType) ?? "DAILY"])}`}
+        }${daily ? "" : ` · ${t("Abonement")}`}`}
         action={
           <Link href="/clients" className={btn}>
             ← {t("Mijozlar")}
@@ -175,25 +173,20 @@ export default async function ClientPage({
       <div className="grid gap-5 xl:grid-cols-3">
         <div className="space-y-5 xl:col-span-2">
           <Card
-            title={daily ? t("To'lov turi") : t("Abonementlar")}
+            title={daily ? t("Hisob-kitob") : t("Abonementlar")}
             subtitle={
               daily
-                ? t("bu mijoz har kelganida to'laydi")
+                ? t("har bir seans alohida hisoblanadi")
                 : t("qolgan seanslar va to'lov holati")
             }
           >
-            {/* Kunlik to'laydigan mijozga abonement ro'yxatini ko'rsatishning
-                ma'nosi yo'q — ekranni bekorga to'ldiradi. Lekin baribir
-                abonementga o'tkazish mumkin: turi mijoz kartasidan almashtiriladi. */}
+            {/* Markazda abonement yo'q — har seans alohida hisoblanadi.
+                Abonement ro'yxati faqat ilgari abonement olgan mijozlarda
+                qoladi, ulardagi qolgan seanslar yo'qolmasin. */}
             {daily ? (
-              <div className="space-y-2 p-4 text-sm text-slate-600 dark:text-slate-400">
+              <div className="p-4 text-sm text-slate-600 dark:text-slate-400">
                 <p>
                   {t("Seans narxi mijozga biriktirilgan xizmatdan olinadi. Qolgan seans va qarzdorlik hisoblanmaydi.")}
-                </p>
-                <p>
-                  {t("Abonementga o'tkazmoqchi bo'lsangiz, pastdagi")}
-                  <b> {t("Mijoz ma'lumoti")}</b>{" "}
-                  {t("bo'limida to'lov turini «Abonement» qilib saqlang.")}
                 </p>
               </div>
             ) : packages.length === 0 ? (
@@ -515,10 +508,6 @@ export default async function ClientPage({
               <Row k={t("Qolgan seans")} v={String(remaining)} />
               <Row k={t("Qarzdorlik")} v={totalDebt > 0 ? t.money(totalDebt) : t("yo'q")} />
               <Row k={t("O'tgan seans (oxirgi 30)")} v={String(doneCount)} />
-              <Row
-                k={t("Ota-ona kabineti")}
-                v={client.parent ? `${t("ochilgan")} (${client.parent.phone})` : t("ochilmagan")}
-              />
               <Row
                 k="Telegram"
                 v={client.parent?.telegramId ? t("ulangan") : t("ulanmagan")}

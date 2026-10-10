@@ -121,13 +121,13 @@ Shuning uchun:
 
 ## Testlar
 
-Brauzerdagi uchidan-uchiga tekshiruvlar, jami 290 ta. Haqiqiy `next build` ustida
+Brauzerdagi uchidan-uchiga tekshiruvlar, jami 296 ta. Haqiqiy `next build` ustida
 ishlaydi va natijani to'g'ridan-to'g'ri bazadan tekshiradi.
 
 ```bash
 npm run build && npm start -- -p 3100    # boshqa terminalda
-node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement, egani tahrirlash (201)
-node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (18)
+node tests/smoke.mjs      # CRM, rollar, qabullar, filiallar, bo'sh vaqtlar, sozlamalar, zaxira, Telegram holati, kunlik to'lov, mijozni o'chirish, to'lovni tuzatish, panel jadvallari, vaqt zonasi, yakka mutaxassis, PWA, kanalga e'lon, Telegram'da login yopiq, xizmatlar va abonement, egani tahrirlash, mijoz formasi (206)
+node tests/telegram.mjs   # bog'lanish, imzo, mutaxassis Mini App (19)
 node tests/parent.mjs     # ota-ona kabineti, eslatmalar, to'lovlar, mutaxassislar, bekor qilish, Farzandim, tun/kun, Telegram'dan tashqari kirish yo'q (30)
 node tests/prefs.mjs      # tun/kun rejimi, til, tarjima to'liqligi, logotip, tepa panel (41)
 ```
@@ -187,7 +187,9 @@ Buni o'zgartirishdan oldin tushunib oling:
 - **Mijozning to'lov turi** `Client.billingType`: `DAILY` (standart — har kelganida
   to'laydi) yoki `PACKAGE` (abonement oladi). Kunlik mijozda abonement, qolgan seans
   va qarzdorlik tushunchasi yo'q — interfeys ham, eslatmalar ham unga bu narsalarni
-  ko'rsatmaydi.
+  ko'rsatmaydi. Markazda abonement ishlatilmaydi: yangi mijoz doim `DAILY`,
+  formalarda "To'lov turi" yo'q. `PACKAGE` faqat ilgari abonement olganlarda
+  qoladi (qolgan seanslari yo'qolmasin), tahrirlash uni o'zgartirmaydi.
 - **Seans narxi** abonementdan, abonement bo'lmasa xizmatdan olinadi. Narx ham
   seans bilan birga saqlanadi.
 - **Xizmatlar** (`SessionType`, Sozlamalar → "Xizmatlar, narx va ulush"):
@@ -239,6 +241,10 @@ Ota-ona botga `/start` yuborib raqamini ulashadi, "Kabinetni ochish" tugmasi
 `/tg` orqali `/m` ga olib boradi (`src/app/m/parent.tsx`). Bo'limlar: Farzandim,
 Jadval, Davomat, To'lovlar, Abonement, Mutaxassislar.
 
+- **Ota-ona akkaunti mijoz qo'shilganda doim ochiladi** (parolsiz,
+  `passwordHash: ""`) — bot raqamni foydalanuvchilar orasidan qidiradi.
+  Ilgari parolsiz qo'shilgan mijozlar uchun webhook raqamni mijoz kartasidan
+  topib, akkauntni o'zi ochadi (`parentFromClients`).
 - **Ota-ona faqat Telegram orqali kiradi.** `/login` uni parol bilan
   kiritmaydi (`error=telegram`), katta panel (`(app)` layout) uni `/m` ga
   qaytaradi. Kabinetda "To'liq ko'rinish", "Parol" va "Chiqish" yo'q.

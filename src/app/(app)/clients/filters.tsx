@@ -58,7 +58,7 @@ export function ClientFilters({
 
   const active =
     name || phone || params.get("age") || params.get("sp") || params.get("rem") ||
-    params.get("b") || params.get("st") || params.get("tg") || params.get("bt");
+    params.get("b") || params.get("st") || params.get("tg");
 
   return (
     <tr className="border-b border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/40">
@@ -156,18 +156,6 @@ export function ClientFilters({
           <option value="0">{t("Tugagan (0)")}</option>
           <option value="low">{t("Kam (1-2)")}</option>
           <option value="ok">{t("Yetarli (3+)")}</option>
-        </select>
-        {/* Kunlik to'laydigan mijozda "qolgan seans" yo'q — ularni shu yerdan
-            ajratib olish eng tabiiy joy */}
-        <select
-          value={params.get("bt") ?? ""}
-          onChange={(e) => apply({ bt: e.target.value })}
-          aria-label={t("To'lov turi bo'yicha filtr")}
-          className={`${cell} mt-1`}
-        >
-          <option value="">{t("Turi: hammasi")}</option>
-          <option value="DAILY">{t("Kunlik")}</option>
-          <option value="PACKAGE">{t("Abonement")}</option>
         </select>
       </td>
       <td className="px-4 py-2" />
