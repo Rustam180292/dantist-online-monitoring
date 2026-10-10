@@ -31,6 +31,7 @@ async function cancelByParentImpl(formData: FormData) {
       startsAt: true,
       note: true,
       client: { select: { parentUserId: true } },
+      branch: { select: { isSolo: true } },
     },
   });
   // Begona bolaning seansi "topilmadi" deb javob oladi — borligini ham bilmasin
@@ -42,8 +43,11 @@ async function cancelByParentImpl(formData: FormData) {
   }
   const hoursLeft = (session.startsAt.getTime() - Date.now()) / 3_600_000;
   if (hoursLeft < PARENT_CANCEL_MIN_HOURS) {
+    // Yakka logopedning mijozi markazga emas, logopedning o'ziga qo'ng'iroq qiladi
     throw new ActionError(
-      "Mashg'ulotga {n} soatdan kam qoldi — bekor qilish uchun markazga qo'ng'iroq qiling.",
+      session.branch.isSolo
+        ? "Mashg'ulotga {n} soatdan kam qoldi — bekor qilish uchun logopedga qo'ng'iroq qiling."
+        : "Mashg'ulotga {n} soatdan kam qoldi — bekor qilish uchun markazga qo'ng'iroq qiling.",
       { n: PARENT_CANCEL_MIN_HOURS },
     );
   }
@@ -69,7 +73,12 @@ async function cancelByParentImpl(formData: FormData) {
     }
   });
 
-  await setFlash("Mashg'ulot bekor qilindi, markazga xabar berildi.", "ok");
+  await setFlash(
+    session.branch.isSolo
+      ? "Mashg'ulot bekor qilindi, logopedga xabar berildi."
+      : "Mashg'ulot bekor qilindi, markazga xabar berildi.",
+    "ok",
+  );
   revalidatePath("/m");
   revalidatePath("/schedule");
 }
