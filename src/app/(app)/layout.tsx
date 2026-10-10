@@ -35,9 +35,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // va Filiallarsiz (unda boshqa xodim ham, boshqa filial ham yo'q).
     // "Pulim" ham kerak emas: pulning hammasi o'ziniki, Hisobotlarda turadi.
     items.push({ href: "/", label: t("Panel"), icon: "home" });
-    items.push({ href: "/schedule", label: t("Jadval"), icon: "calendar" });
+    items.push({ href: "/schedule", label: t("Seanslar jadvali"), icon: "calendar" });
     items.push({ href: "/slots", label: t("Bo'sh vaqtlar"), icon: "clock" });
-    items.push({ href: "/intakes", label: t("Qabullar"), icon: "door" });
+    items.push({ href: "/intakes", label: t("Konsultatsiya uchun qabullar"), icon: "door" });
     items.push({ href: "/clients", label: t("Mijozlar"), icon: "users" });
     items.push({ href: "/payments", label: t("To'lovlar"), icon: "wallet" });
     items.push({ href: "/reports", label: t("Hisobotlar"), icon: "chart" });
@@ -48,14 +48,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     } else if (user.role !== "RECEPTION") {
       items.push({ href: "/", label: t("Panel"), icon: "home" });
     }
-    items.push({ href: "/schedule", label: t("Jadval"), icon: "calendar" });
+    items.push({ href: "/schedule", label: t("Seanslar jadvali"), icon: "calendar" });
     // Bo'sh vaqtlar: qabulxona xodimi telefonda turib vaqt tanlashi uchun
     if (user.role !== "SPECIALIST") {
       items.push({ href: "/slots", label: t("Bo'sh vaqtlar"), icon: "clock" });
     }
     // Qabul — markazga birinchi marta kelgan odam; mutaxassisga u ko'rinmaydi
     if (user.role !== "SPECIALIST") {
-      items.push({ href: "/intakes", label: t("Qabullar"), icon: "door" });
+      items.push({ href: "/intakes", label: t("Konsultatsiya uchun qabullar"), icon: "door" });
     }
     items.push({ href: "/clients", label: t("Mijozlar"), icon: "users" });
     if (user.role === "SPECIALIST") {

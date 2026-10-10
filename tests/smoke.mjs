@@ -1249,8 +1249,9 @@ if (await payRow.count()) {
   await page.waitForLoadState("networkidle");
   const soloNav = await page.locator("aside").innerText();
   check(
-    "Yakka menyusida Panel, Qabullar, Hisobotlar bor",
-    ["Panel", "Qabullar", "To'lovlar", "Hisobotlar", "Sozlamalar"].every((x) => soloNav.includes(x)),
+    "Yakka menyusida Panel, Seanslar jadvali, Konsultatsiya uchun qabullar, Hisobotlar bor",
+    ["Panel", "Seanslar jadvali", "Konsultatsiya uchun qabullar", "To'lovlar", "Hisobotlar", "Sozlamalar"]
+      .every((x) => soloNav.includes(x)),
     soloNav.replace(/\n/g, " | "),
   );
   check(
@@ -1509,6 +1510,50 @@ if (await payRow.count()) {
     `${await clientLinks()} ta mijoz`,
   );
 
+  /* --- Mijozlar jadvalida pul: to'langan, xizmatlar uchun, qoldiq --- */
+  {
+    const t0 = Date.now();
+    await all(
+      `INSERT INTO Payment (id, clientId, branchId, amount, method, paidAt) VALUES (?, ?, ?, 300000, 'CASH', now())`,
+      `pay${t0}`, kid.id, solo.branchId,
+    );
+    await all(
+      `INSERT INTO Session (id, clientId, specialistId, branchId, startsAt, durationMin, status, price)
+       VALUES (?, ?, ?, ?, now() - interval '1 day', 45, 'DONE', 200000),
+              (?, ?, ?, ?, now() + interval '1 day', 45, 'PLANNED', 999000)`,
+      `ses${t0}`, kid.id, solo.specialistId, solo.branchId,
+      `sep${t0}`, kid.id, solo.specialistId, solo.branchId,
+    );
+    await page.goto(`${BASE}/clients`);
+    await page.waitForSelector("tbody tr", { timeout: 15000 });
+    const head = await page.locator("thead tr").first().innerText();
+    const row = page.locator(`tbody tr:has(a:text-is("${soloClient}"))`);
+    const paid = (await row.locator('[data-testid="client-paid"]').innerText()).replace(/\s/g, " ");
+    const earned = (await row.locator('[data-testid="client-earned"]').innerText()).replace(/\s/g, " ");
+    const balance = (await row.locator('[data-testid="client-balance"]').innerText()).replace(/\s/g, " ");
+    check(
+      "Mijozlar jadvalida to'langan, xizmatlar uchun va qoldiq ko'rinadi (rejadagi seans hisoblanmaydi)",
+      /TO'LANGAN/i.test(head) && /XIZMATLAR UCHUN/i.test(head) && /QOLDIQ/i.test(head) &&
+        paid === "300 000 so'm" && earned === "200 000 so'm" && balance === "+100 000 so'm",
+      `${paid} | ${earned} | ${balance}`,
+    );
+
+    // Holatni ro'yxatning o'zidan o'zgartiradi: to'xtatish, arxiv, qaytarish
+    const statusOf = async () => (await one("SELECT status FROM Client WHERE id = ?", kid.id))?.status;
+    const editRow = page.locator(`tbody tr:has(a:text-is("${soloClient}")) + tr`);
+    await editRow.locator('[data-testid="status-PAUSED"]').click();
+    const paused = await waitUntil(async () => (await statusOf()) === "PAUSED");
+    await page.waitForLoadState("networkidle");
+    await page.locator(`tbody tr:has(a:text-is("${soloClient}")) + tr [data-testid="status-ARCHIVED"]`).click();
+    const archived = await waitUntil(async () => (await statusOf()) === "ARCHIVED");
+    check("Yakka mijozni ro'yxatdan to'xtatadi va arxivga o'tkazadi", paused && archived);
+    await page.waitForLoadState("networkidle");
+    await page.locator(`tbody tr:has(a:text-is("${soloClient}")) + tr [data-testid="status-ACTIVE"]`).click();
+    check("Arxivdan qaytadan faollashtiradi", await waitUntil(async () => (await statusOf()) === "ACTIVE"));
+    await all("DELETE FROM Session WHERE id IN (?, ?)", `ses${t0}`, `sep${t0}`);
+    await all("DELETE FROM Payment WHERE id = ?", `pay${t0}`);
+  }
+
   // To'lov yoza oladi
   await page.goto(`${BASE}/payments`);
   await page.waitForLoadState("networkidle");
@@ -1569,7 +1614,11 @@ if (await payRow.count()) {
   await page.goto(`${BASE}/intakes`);
   await page.waitForLoadState("networkidle");
   const seeded = await count("SELECT COUNT(*) AS n FROM Intake");
-  check("Qabullar sahifasi ochiladi", (await page.content()).includes("Qabullar"), page.url());
+  check(
+    "Qabullar sahifasi \"Konsultatsiya uchun qabullar\" nomi bilan ochiladi",
+    (await page.locator("h1").first().innerText()) === "Konsultatsiya uchun qabullar",
+    page.url(),
+  );
   check("Seed'da qabullar bor", seeded > 0, `${seeded} ta`);
 
   // Yangi qabul
@@ -2434,8 +2483,8 @@ if (!reception) {
   const recNav = await page.locator("aside").innerText();
   check(
     "Qabulxonaga faqat o'z ishi ko'rinadi",
-    recNav.includes("Jadval") &&
-      recNav.includes("Qabullar") &&
+    recNav.includes("Seanslar jadvali") &&
+      recNav.includes("Konsultatsiya uchun qabullar") &&
       recNav.includes("Mijozlar") &&
       recNav.includes("To'lovlar") &&
       !recNav.includes("Hisobotlar") &&
